@@ -122,41 +122,68 @@ export function calculateOB(
   const boundaries = workplaceType === 'butik' ? butikBoundaries : lagerBoundaries;
   const year = parseInt(date.split('-')[0]);
   const holidays = getHolidays(year);
+  const getPercent = workplaceType === 'butik' ? getButikOBPercent : getLagerOBPercent;
 
-  const timeSegments = splitTimeRange(startTime, endTime, breakMinutes, boundaries);
+  // Split on full clock range (no break subtraction yet)
+  const timeSegments = splitTimeRange(startTime, endTime, 0, boundaries);
 
+  // Determine OB percent for each segment
+  const segmentsWithOB = timeSegments.map((seg) => {
+    let segDate = date;
+    if (seg.startMinutes >= 1440) {
+      const d = new Date(date + 'T12:00:00');
+      d.setDate(d.getDate() + 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      segDate = `${y}-${m}-${day}`;
+    }
+    return {
+      ...seg,
+      obPercent: getPercent(seg.startMinutes, segDate, holidays),
+      spanMinutes: seg.endMinutes - seg.startMinutes,
+    };
+  });
+
+  // Distribute break to the longest segment first, then overflow to next
+  let remainingBreak = breakMinutes;
+  // Sort by duration descending to allocate break to longest first
+  const sortedBySize = [...segmentsWithOB].sort((a, b) => b.spanMinutes - a.spanMinutes);
+  const breakAllocation = new Map<number, number>(); // index → break minutes
+
+  for (const seg of sortedBySize) {
+    if (remainingBreak <= 0) break;
+    const idx = segmentsWithOB.indexOf(seg);
+    const allocated = Math.min(remainingBreak, seg.spanMinutes);
+    breakAllocation.set(idx, allocated);
+    remainingBreak -= allocated;
+  }
+
+  // Build OB segments with break-adjusted hours
   const obSegments: OBSegment[] = [];
   let totalOBAmount = 0;
   let obHours = 0;
   let regularHours = 0;
 
-  for (const seg of timeSegments) {
-    const getPercent = workplaceType === 'butik' ? getButikOBPercent : getLagerOBPercent;
-
-    // For overnight shifts, determine which date the segment falls on
-    let segDate = date;
-    if (seg.startMinutes >= 1440) {
-      const d = new Date(date + 'T12:00:00');
-      d.setDate(d.getDate() + 1);
-      segDate = d.toISOString().split('T')[0];
-    }
-
-    const obPercent = getPercent(seg.startMinutes, segDate, holidays);
-    const obAmount = hourlyRate * (obPercent / 100) * seg.hours;
+  for (let i = 0; i < segmentsWithOB.length; i++) {
+    const seg = segmentsWithOB[i];
+    const segBreak = breakAllocation.get(i) || 0;
+    const effectiveHours = Math.max(0, (seg.spanMinutes - segBreak) / 60);
+    const obAmount = hourlyRate * (seg.obPercent / 100) * effectiveHours;
 
     obSegments.push({
       startMinutes: seg.startMinutes,
       endMinutes: seg.endMinutes,
-      hours: seg.hours,
-      obPercent,
+      hours: effectiveHours,
+      obPercent: seg.obPercent,
       obAmount,
     });
 
-    if (obPercent > 0) {
-      obHours += seg.hours;
+    if (seg.obPercent > 0) {
+      obHours += effectiveHours;
       totalOBAmount += obAmount;
     } else {
-      regularHours += seg.hours;
+      regularHours += effectiveHours;
     }
   }
 
