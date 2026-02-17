@@ -217,7 +217,9 @@ export function calculateMonthlyPay(
     ? grossBeforeVacation * (settings.vacationPayRate / 100)
     : 0; // included means it's already part of the hourly rate
 
-  const grossPay = grossBeforeVacation + vacationPay;
+  // When vacation pay is separate, it goes to the pot untaxed.
+  // Tax is only on grossBeforeVacation (vacation pay taxed at withdrawal).
+  const grossPay = grossBeforeVacation; // vacation pay excluded from monthly salary
   const tax = settings.taxMode === 'table' && settings.taxTable
     ? lookupMonthlyTax(grossPay, settings.taxTable, settings.taxYear)
     : grossPay * (settings.taxRate / 100);

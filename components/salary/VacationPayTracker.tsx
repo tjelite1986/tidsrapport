@@ -18,6 +18,8 @@ interface YearlyBreakdown {
 interface Withdrawal {
   id: number;
   amount: number;
+  tax: number;
+  netAmount: number;
   note: string | null;
   withdrawnAt: string;
 }
@@ -25,8 +27,12 @@ interface Withdrawal {
 interface VacationPayData {
   totalAccumulated: number;
   totalWithdrawn: number;
+  totalTax: number;
   balance: number;
   vacationPayRate: number;
+  taxMode: string;
+  taxRate: number;
+  taxTable: number | null;
   monthlyBreakdown: MonthlyBreakdown[];
   yearlyBreakdown: YearlyBreakdown[];
   withdrawals: Withdrawal[];
@@ -76,7 +82,21 @@ export default function VacationPayTracker() {
     setSaving(false);
   }
 
+  // Estimate tax on a given amount for preview
+  function estimateTax(amount: number): number {
+    if (!data || !amount || amount <= 0) return 0;
+    if (data.taxMode === 'table' && data.taxTable) {
+      // Approximate: use tax rate as fallback since we can't call server-side lookup
+      return amount * (data.taxRate / 100);
+    }
+    return amount * (data.taxRate / 100);
+  }
+
   if (!data) return null;
+
+  const previewAmount = parseFloat(withdrawAmount) || 0;
+  const previewTax = estimateTax(previewAmount);
+  const previewNet = previewAmount - previewTax;
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -88,14 +108,18 @@ export default function VacationPayTracker() {
 
       {/* Balance overview */}
       <div className="p-6 border-b">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-xs text-gray-500 uppercase font-medium">Ackumulerat totalt</div>
+            <div className="text-xs text-gray-500 uppercase font-medium">Ackumulerat</div>
             <div className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(data.totalAccumulated)}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500 uppercase font-medium">Uttaget</div>
+            <div className="text-xs text-gray-500 uppercase font-medium">Uttaget (brutto)</div>
             <div className="text-lg font-bold text-red-600 mt-1">{formatCurrency(data.totalWithdrawn)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 uppercase font-medium">Skatt på uttag</div>
+            <div className="text-lg font-bold text-red-400 mt-1">{formatCurrency(data.totalTax)}</div>
           </div>
           <div>
             <div className="text-xs text-gray-500 uppercase font-medium">Saldo</div>
@@ -160,16 +184,22 @@ export default function VacationPayTracker() {
       {data.withdrawals.length > 0 && (
         <div className="p-6 border-b">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Uttag</h3>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {data.withdrawals.map((w) => (
-              <div key={w.id} className="flex items-center justify-between text-sm">
-                <div>
-                  <span className="text-gray-600">
-                    {new Date(w.withdrawnAt).toLocaleDateString('sv-SE')}
-                  </span>
-                  {w.note && <span className="text-gray-400 ml-2">— {w.note}</span>}
+              <div key={w.id} className="border border-gray-100 rounded-lg p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <div>
+                    <span className="text-gray-600">
+                      {new Date(w.withdrawnAt).toLocaleDateString('sv-SE')}
+                    </span>
+                    {w.note && <span className="text-gray-400 ml-2">— {w.note}</span>}
+                  </div>
+                  <span className="font-medium text-red-600">-{formatCurrency(w.amount)}</span>
                 </div>
-                <span className="font-medium text-red-600">-{formatCurrency(w.amount)}</span>
+                <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
+                  <span>Skatt: {formatCurrency(w.tax ?? 0)}</span>
+                  <span>Utbetalt: <span className="text-gray-600 font-medium">{formatCurrency(w.netAmount ?? (w.amount - (w.tax ?? 0)))}</span></span>
+                </div>
               </div>
             ))}
           </div>
@@ -188,7 +218,7 @@ export default function VacationPayTracker() {
         ) : (
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Belopp (SEK)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Belopp brutto (SEK)</label>
               <input
                 type="number"
                 value={withdrawAmount}
@@ -199,6 +229,22 @@ export default function VacationPayTracker() {
                 step="0.01"
               />
             </div>
+            {previewAmount > 0 && (
+              <div className="bg-gray-50 rounded-md p-3 text-sm space-y-1">
+                <div className="flex justify-between text-gray-600">
+                  <span>Brutto</span>
+                  <span>{formatCurrency(previewAmount)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Skatt ({data.taxMode === 'table' ? `tabell ${data.taxTable}` : `${data.taxRate}%`})</span>
+                  <span className="text-red-500">-{formatCurrency(previewTax)}</span>
+                </div>
+                <div className="flex justify-between font-medium text-gray-800 border-t border-gray-200 pt-1">
+                  <span>Utbetalas</span>
+                  <span>{formatCurrency(previewNet)}</span>
+                </div>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Anteckning (valfritt)</label>
               <input

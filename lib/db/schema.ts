@@ -85,6 +85,8 @@ export const vacationPayWithdrawals = sqliteTable('vacation_pay_withdrawals', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: integer('user_id').notNull().references(() => users.id),
   amount: real('amount').notNull(),
+  tax: real('tax').notNull().default(0),
+  netAmount: real('net_amount').notNull().default(0),
   note: text('note'),
   withdrawnAt: text('withdrawn_at').notNull().$defaultFn(() => new Date().toISOString()),
 });

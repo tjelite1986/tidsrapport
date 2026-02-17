@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { timeEntries, users, userSettings, vacationPayWithdrawals } from '@/lib/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay } from '@/lib/calculations';
+import { lookupMonthlyTax } from '@/lib/tax-tables/tax-lookup';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -99,13 +100,18 @@ export async function GET(req: NextRequest) {
     .all();
 
   const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+  const totalTax = withdrawals.reduce((sum, w) => sum + (w.tax ?? 0), 0);
   const balance = totalAccumulated - totalWithdrawn;
 
   return NextResponse.json({
     totalAccumulated,
     totalWithdrawn,
+    totalTax,
     balance,
     vacationPayRate: paySettings.vacationPayRate,
+    taxMode: paySettings.taxMode,
+    taxRate: paySettings.taxRate,
+    taxTable: paySettings.taxTable,
     monthlyBreakdown: monthlyBreakdown.reverse(),
     yearlyBreakdown,
     withdrawals,
@@ -124,11 +130,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ogiltigt belopp' }, { status: 400 });
   }
 
+  // Calculate tax on the withdrawal using user's tax settings
+  const user = db.select().from(users).where(eq(users.id, userId)).get();
+  const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
+
+  const taxMode = settings?.taxMode ?? 'percentage';
+  const taxRate = settings?.taxRate ?? 30;
+  const taxTable = settings?.taxTable ?? null;
+  const currentYear = new Date().getFullYear();
+
+  let tax: number;
+  if (taxMode === 'table' && taxTable) {
+    // Use tax table — approximate by looking up the withdrawal amount
+    tax = lookupMonthlyTax(amount, taxTable, currentYear);
+  } else {
+    tax = amount * (taxRate / 100);
+  }
+
+  const netAmount = amount - tax;
+
   const result = db
     .insert(vacationPayWithdrawals)
     .values({
       userId,
       amount,
+      tax,
+      netAmount,
       note: body.note || null,
     })
     .returning()
