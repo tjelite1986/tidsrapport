@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { timeEntries, projects, users, userSettings } from '@/lib/db/schema';
+import { timeEntries, projects, users, userSettings, vacationPayInclusions } from '@/lib/db/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import { calculateMonthlyPay, type TimeEntryForPay, type PaySettings } from '@/lib/calculations';
 import { getHourlyRate } from '@/lib/calculations/contracts';
@@ -103,14 +103,24 @@ export async function GET(req: NextRequest) {
   const user = db.select().from(users).where(eq(users.id, userId)).get();
   const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
 
-  const paySettings: PaySettings = {
+  const basePaySettings: PaySettings = {
     workplaceType: (settings?.workplaceType as WorkplaceType) ?? 'none',
     contractLevel: settings?.contractLevel ?? '3plus',
     taxRate: settings?.taxRate ?? 30,
     vacationPayRate: settings?.vacationPayRate ?? 12,
     vacationPayMode: (settings?.vacationPayMode as 'included' | 'separate') ?? 'included',
     hourlyRate: user?.hourlyRate ?? undefined,
+    taxMode: (settings?.taxMode as any) ?? 'percentage',
+    taxTable: settings?.taxTable ?? null,
   };
+
+  // Hämta inkluderingsinställningar för hela året
+  const allInclusions = db
+    .select()
+    .from(vacationPayInclusions)
+    .where(eq(vacationPayInclusions.userId, userId))
+    .all();
+  const inclusionsByMonth = new Map(allInclusions.map((i) => [i.month, i.includeInSalary]));
 
   // Group entries by month and calculate pay
   const entriesByMonth = new Map<string, typeof allEntries>();
@@ -134,6 +144,12 @@ export async function GET(req: NextRequest) {
       overtimeType: e.overtimeType,
     }));
 
+    const taxYear = parseInt(month.split('-')[0]);
+    const paySettings: PaySettings = {
+      ...basePaySettings,
+      taxYear,
+      includeVacationInSalary: inclusionsByMonth.get(month) ?? false,
+    };
     const result = calculateMonthlyPay(payEntries, paySettings);
     monthlyIncome.push({
       month,
