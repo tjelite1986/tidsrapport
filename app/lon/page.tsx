@@ -70,6 +70,7 @@ export default function LonPage() {
   const [users, setUsers] = useState<UserOption[]>([]);
   const [selectedUser, setSelectedUser] = useState('');
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [includeVacation, setIncludeVacation] = useState(false);
 
   const isAdmin = session?.user?.role === 'admin';
 
@@ -81,6 +82,7 @@ export default function LonPage() {
 
   useEffect(() => {
     fetchSalary();
+    fetchInclusion();
   }, [month, selectedUser]);
 
   function getWorkMonth(paymentMonth: string): string {
@@ -89,12 +91,34 @@ export default function LonPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
+  async function fetchInclusion() {
+    const workMonth = getWorkMonth(month);
+    const res = await fetch(`/api/vacation-pay-inclusion?month=${workMonth}`);
+    if (res.ok) {
+      const data = await res.json();
+      setIncludeVacation(data.includeInSalary ?? false);
+    }
+  }
+
   async function fetchSalary() {
     const workMonth = getWorkMonth(month);
     const params = new URLSearchParams({ month: workMonth });
     if (selectedUser) params.set('userId', selectedUser);
     const res = await fetch(`/api/salary?${params}`);
     if (res.ok) setSalary(await res.json());
+  }
+
+  async function handleToggleVacation() {
+    const workMonth = getWorkMonth(month);
+    const newValue = !includeVacation;
+    setIncludeVacation(newValue);
+    await fetch('/api/vacation-pay-inclusion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ month: workMonth, includeInSalary: newValue }),
+    });
+    // Hämta om lönedata med ny inställning
+    fetchSalary();
   }
 
   function formatCurrency(amount: number) {
@@ -188,6 +212,8 @@ export default function LonPage() {
             salary={salary}
             month={getWorkMonth(month)}
             userName={salary.user.name}
+            includeVacation={includeVacation}
+            onToggleVacation={handleToggleVacation}
           />
 
           {/* Vacation Pay Tracker */}

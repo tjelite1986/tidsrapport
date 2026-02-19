@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { timeEntries, users, userSettings, vacationPayWithdrawals } from '@/lib/db/schema';
+import { timeEntries, users, userSettings, vacationPayWithdrawals, vacationPayInclusions } from '@/lib/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay } from '@/lib/calculations';
 import { lookupMonthlyTax } from '@/lib/tax-tables/tax-lookup';
@@ -27,6 +27,16 @@ export async function GET(req: NextRequest) {
     taxMode: (settings?.taxMode as any) ?? 'percentage',
     taxTable: settings?.taxTable ?? null,
   };
+
+  // Hämta alla inkluderingsinställningar för användaren
+  const allInclusions = db
+    .select()
+    .from(vacationPayInclusions)
+    .where(eq(vacationPayInclusions.userId, userId))
+    .all();
+  const inclusionsByMonth = new Set(
+    allInclusions.filter((i) => i.includeInSalary).map((i) => i.month)
+  );
 
   // Get all time entries grouped by month
   const allEntries = db
@@ -65,19 +75,24 @@ export async function GET(req: NextRequest) {
     const settingsWithYear = { ...paySettings, taxYear: year };
     const result = calculateMonthlyPay(payEntries, settingsWithYear);
 
+    // Om semesterersättningen inkluderades i lönen denna månad läggs den INTE till potten
+    const isIncludedInSalary = inclusionsByMonth.has(month);
+    const vacationPayForPot = isIncludedInSalary ? 0 : result.vacationPay;
+
     const entry = {
       month,
-      vacationPay: result.vacationPay,
+      vacationPay: vacationPayForPot,
       grossBeforeVacation: result.grossBeforeVacation,
+      includedInSalary: isIncludedInSalary,
     };
 
     monthlyBreakdown.push(entry);
-    totalAccumulated += result.vacationPay;
+    totalAccumulated += vacationPayForPot;
 
     if (!yearlyTotals[year]) {
       yearlyTotals[year] = { earned: 0, months: [] };
     }
-    yearlyTotals[year].earned += result.vacationPay;
+    yearlyTotals[year].earned += vacationPayForPot;
     yearlyTotals[year].months.push(entry);
   }
 

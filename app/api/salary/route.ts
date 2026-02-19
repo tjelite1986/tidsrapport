@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { timeEntries, users, userSettings } from '@/lib/db/schema';
+import { timeEntries, users, userSettings, vacationPayInclusions } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay } from '@/lib/calculations';
 
@@ -46,6 +46,13 @@ export async function GET(req: NextRequest) {
     overtimeType: e.overtimeType,
   }));
 
+  // Kolla om semesterersättning ska inkluderas i lönen denna månad
+  const inclusion = month
+    ? db.select().from(vacationPayInclusions)
+        .where(and(eq(vacationPayInclusions.userId, userId), eq(vacationPayInclusions.month, month)))
+        .get()
+    : null;
+
   const paySettings: PaySettings = {
     workplaceType: (settings?.workplaceType as any) ?? 'none',
     contractLevel: settings?.contractLevel ?? '3plus',
@@ -56,6 +63,7 @@ export async function GET(req: NextRequest) {
     taxMode: (settings?.taxMode as any) ?? 'percentage',
     taxTable: settings?.taxTable ?? null,
     taxYear: month ? parseInt(month.split('-')[0]) : new Date().getFullYear(),
+    includeVacationInSalary: inclusion?.includeInSalary ?? false,
   };
 
   const result = calculateMonthlyPay(payEntries, paySettings);

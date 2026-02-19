@@ -37,13 +37,15 @@ interface Props {
   salary: SalaryData;
   month: string;
   userName: string;
+  includeVacation: boolean;
+  onToggleVacation: () => void;
 }
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(amount);
 }
 
-export default function TotalSummaryCard({ salary, month, userName }: Props) {
+export default function TotalSummaryCard({ salary, month, userName, includeVacation, onToggleVacation }: Props) {
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       {/* Header */}
@@ -112,24 +114,42 @@ export default function TotalSummaryCard({ salary, month, userName }: Props) {
         {/* Gross */}
         <Row label="Bruttolön" value={formatCurrency(salary.grossBeforeVacation)} bold />
 
-        {/* Vacation pay */}
-        <div className="flex justify-between items-center">
-          <div>
+        {/* Vacation pay med toggle */}
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-gray-600">Semesterersättning ({salary.settings.vacationPayRate}%)</span>
-            <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
-              salary.settings.vacationPayMode === 'separate'
-                ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-600'
-            }`}>
-              {salary.settings.vacationPayMode === 'separate' ? 'Separat' : 'Inkluderad'}
-            </span>
+            {salary.settings.vacationPayMode === 'separate' && (
+              <button
+                onClick={onToggleVacation}
+                className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                  includeVacation
+                    ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200'
+                    : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                {includeVacation ? 'Inkluderad i lön' : 'Inkludera i lön'}
+              </button>
+            )}
+            {salary.settings.vacationPayMode !== 'separate' && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                Inkluderad i timlön
+              </span>
+            )}
           </div>
-          <span className="font-medium">
-            {salary.settings.vacationPayMode === 'separate' ? formatCurrency(salary.vacationPay) : '-'}
+          <span className="font-medium whitespace-nowrap">
+            {(salary.settings.vacationPayMode === 'separate' || includeVacation)
+              ? formatCurrency(salary.vacationPay)
+              : '-'}
           </span>
         </div>
 
-        {salary.vacationPay > 0 && (
+        {includeVacation && (
+          <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-700">
+            Semesterersättning inkluderas i bruttolönen och skattas denna månad — läggs ej till semesterpotten.
+          </div>
+        )}
+
+        {salary.vacationPay > 0 && includeVacation && (
           <Row label="Total före skatt" value={formatCurrency(salary.grossPay)} bold />
         )}
 

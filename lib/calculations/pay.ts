@@ -23,6 +23,7 @@ export interface PaySettings {
   taxMode?: 'percentage' | 'table';
   taxTable?: number | null;
   taxYear?: number;
+  includeVacationInSalary?: boolean; // Per-månad: semesterersättning inkluderas i bruttolön
 }
 
 export interface DayPayDetail {
@@ -213,13 +214,17 @@ export function calculateMonthlyPay(
   const grossBeforeVacation = basePay + totalOB + totalOvertimePay + sickPay;
 
   // Vacation pay
-  const vacationPay = settings.vacationPayMode === 'separate'
+  // If includeVacationInSalary is true this month: semesterersättning betalas ut med lönen,
+  // läggs till bruttolönen och skattas ihop (läggs INTE till semesterpotten).
+  const vacationPay = (settings.vacationPayMode === 'separate' || settings.includeVacationInSalary)
     ? grossBeforeVacation * (settings.vacationPayRate / 100)
-    : 0; // included means it's already part of the hourly rate
+    : 0;
 
-  // When vacation pay is separate, it goes to the pot untaxed.
-  // Tax is only on grossBeforeVacation (vacation pay taxed at withdrawal).
-  const grossPay = grossBeforeVacation; // vacation pay excluded from monthly salary
+  // When includeVacationInSalary: grossPay includes vacation pay (taxed together).
+  // When separate (normal): vacation pay goes to pot, taxed at withdrawal. grossPay = grossBeforeVacation.
+  const grossPay = settings.includeVacationInSalary
+    ? grossBeforeVacation + vacationPay
+    : grossBeforeVacation;
   const tax = settings.taxMode === 'table' && settings.taxTable
     ? lookupMonthlyTax(grossPay, settings.taxTable, settings.taxYear)
     : grossPay * (settings.taxRate / 100);

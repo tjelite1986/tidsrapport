@@ -91,6 +91,13 @@ export const vacationPayWithdrawals = sqliteTable('vacation_pay_withdrawals', {
   withdrawnAt: text('withdrawn_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+export const vacationPayInclusions = sqliteTable('vacation_pay_inclusions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id),
+  month: text('month').notNull(), // YYYY-MM (arbetsperiod)
+  includeInSalary: integer('include_in_salary', { mode: 'boolean' }).notNull().default(false),
+});
+
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type TimeEntry = typeof timeEntries.$inferSelect;
@@ -99,3 +106,4 @@ export type UserSetting = typeof userSettings.$inferSelect;
 export type WorkTemplate = typeof workTemplates.$inferSelect;
 export type WeeklyScheduleEntry = typeof weeklySchedule.$inferSelect;
 export type VacationPayWithdrawal = typeof vacationPayWithdrawals.$inferSelect;
+export type VacationPayInclusion = typeof vacationPayInclusions.$inferSelect;
