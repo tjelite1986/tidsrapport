@@ -94,7 +94,10 @@ export default function TidPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [scheduleA, setScheduleA] = useState<ScheduleEntry[]>([]);
   const [scheduleB, setScheduleB] = useState<ScheduleEntry[]>([]);
+  const [scheduleC, setScheduleC] = useState<ScheduleEntry[]>([]);
+  const [scheduleD, setScheduleD] = useState<ScheduleEntry[]>([]);
   const [referenceDate, setReferenceDate] = useState<string | null>(null);
+  const [weekCount, setWeekCount] = useState<2 | 4>(2);
   const [weekOffset, setWeekOffset] = useState(0);
   const [projectId, setProjectId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -124,7 +127,10 @@ export default function TidPage() {
     fetch('/api/schedule').then((r) => r.json()).then((data) => {
       setScheduleA(data.scheduleA || []);
       setScheduleB(data.scheduleB || []);
+      setScheduleC(data.scheduleC || []);
+      setScheduleD(data.scheduleD || []);
       setReferenceDate(data.referenceDate || null);
+      setWeekCount(data.weekCount === 4 ? 4 : 2);
     });
     fetch('/api/settings').then((r) => r.json()).then((s: any) => {
       if (s.autoBreakCalc !== undefined) setAutoBreakEnabled(s.autoBreakCalc);
@@ -155,13 +161,13 @@ export default function TidPage() {
 
   // Auto-fill from schedule when date changes
   useEffect(() => {
-    if (!date || (scheduleA.length === 0 && scheduleB.length === 0)) return;
+    if (!date || scheduleA.length === 0) return;
     const d = new Date(date + 'T12:00:00');
     const jsDay = d.getDay();
     const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
-    const activeSchedule = referenceDate
-      ? (getWeekType(date, referenceDate) === 'A' ? scheduleA : scheduleB)
-      : scheduleA;
+    const allSchedules = { A: scheduleA, B: scheduleB, C: scheduleC, D: scheduleD };
+    const wt = referenceDate ? getWeekType(date, referenceDate, weekCount) : 'A';
+    const activeSchedule = allSchedules[wt];
     const schedEntry = activeSchedule.find((s) => s.dayOfWeek === dayOfWeek);
     if (schedEntry && schedEntry.startTime && !startTime && !endTime) {
       setStartTime(schedEntry.startTime);
@@ -172,7 +178,7 @@ export default function TidPage() {
         setBreakMinutes(String(schedEntry.breakMinutes));
       }
     }
-  }, [date, scheduleA, scheduleB, referenceDate]);
+  }, [date, scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount]);
 
   // Auto-calculate break when times change
   useEffect(() => {

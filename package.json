@@ -16,6 +16,7 @@
     "db:migrate-v5": "npx tsx scripts/migrate-v5.ts",
     "db:migrate-v6": "npx tsx scripts/migrate-v6.ts",
     "db:migrate-v7": "npx tsx scripts/migrate-v7.ts",
+    "db:migrate-v8": "npx tsx scripts/migrate-v8.ts",
     "parse-tax-tables": "npx tsx scripts/parse-tax-tables.ts"
   },
   "keywords": [],

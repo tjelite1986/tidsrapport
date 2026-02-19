@@ -1,9 +1,8 @@
-// Returnerar 'A' eller 'B' beroende på vilken vecka date befinner sig i
-// relativt referenceDate. referenceDate är den vecka som klassas som Vecka A.
-export function getWeekType(date: string, referenceDate: string): 'A' | 'B' {
-  // Normalisera båda till veckans måndag (ISO: måndag = dag 1)
+// Returnerar 'A'|'B'|'C'|'D' beroende på vilken vecka date befinner sig i
+// relativt referenceDate. weekCount=2 ger A/B-rotation, weekCount=4 ger A/B/C/D.
+export function getWeekType(date: string, referenceDate: string, weekCount: 2 | 4 = 2): 'A' | 'B' | 'C' | 'D' {
   function toMonday(d: Date): Date {
-    const day = d.getDay(); // 0=sön, 1=mån
+    const day = d.getDay();
     const diff = day === 0 ? -6 : 1 - day;
     const m = new Date(d);
     m.setDate(m.getDate() + diff);
@@ -14,8 +13,8 @@ export function getWeekType(date: string, referenceDate: string): 'A' | 'B' {
   const refMonday = toMonday(new Date(referenceDate + 'T12:00:00'));
   const diffMs = dateMonday.getTime() - refMonday.getTime();
   const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
-  // ((diffWeeks % 2) + 2) % 2 hanterar negativa tal korrekt
-  return ((diffWeeks % 2) + 2) % 2 === 0 ? 'A' : 'B';
+  const idx = ((diffWeeks % weekCount) + weekCount) % weekCount;
+  return (['A', 'B', 'C', 'D'] as const)[idx];
 }
 
 export function getWeekNumber(date: Date): number {

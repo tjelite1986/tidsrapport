@@ -38,14 +38,27 @@ function emptyWeek(): ScheduleEntry[] {
 
 const monthNames = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
 
+const WEEK_COLORS: Record<'A' | 'B' | 'C' | 'D', { bg: string; border: string; text: string; badge: string }> = {
+  A: { bg: 'bg-blue-100',   border: 'border-blue-300',   text: 'text-blue-700',   badge: 'bg-blue-300 border-blue-400' },
+  B: { bg: 'bg-purple-100', border: 'border-purple-300', text: 'text-purple-700', badge: 'bg-purple-300 border-purple-400' },
+  C: { bg: 'bg-teal-100',   border: 'border-teal-300',   text: 'text-teal-700',   badge: 'bg-teal-300 border-teal-400' },
+  D: { bg: 'bg-amber-100',  border: 'border-amber-300',  text: 'text-amber-700',  badge: 'bg-amber-300 border-amber-400' },
+};
+
 function ScheduleMonthPreview({
   referenceDate,
   scheduleA,
   scheduleB,
+  scheduleC,
+  scheduleD,
+  weekCount,
 }: {
   referenceDate: string;
   scheduleA: ScheduleEntry[];
   scheduleB: ScheduleEntry[];
+  scheduleC: ScheduleEntry[];
+  scheduleD: ScheduleEntry[];
+  weekCount: 2 | 4;
 }) {
   const [previewDate, setPreviewDate] = useState(() => {
     const d = new Date();
@@ -55,20 +68,21 @@ function ScheduleMonthPreview({
   const { year, month } = previewDate;
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-
-  // Veckans startdag (måndag=0)
   const firstWeekday = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
 
-  const days: { date: string; weekType: 'A' | 'B'; entry: ScheduleEntry | null }[] = [];
+  const schedules = { A: scheduleA, B: scheduleB, C: scheduleC, D: scheduleD };
+
+  const days: { date: string; weekType: 'A' | 'B' | 'C' | 'D'; entry: ScheduleEntry | null }[] = [];
   for (let d = 1; d <= lastDay.getDate(); d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const wt = getWeekType(dateStr, referenceDate);
+    const wt = getWeekType(dateStr, referenceDate, weekCount);
     const jsDay = new Date(dateStr + 'T12:00:00').getDay();
     const dow = jsDay === 0 ? 6 : jsDay - 1;
-    const schedule = wt === 'A' ? scheduleA : scheduleB;
-    const entry = schedule.find((s) => s.dayOfWeek === dow) || null;
+    const entry = schedules[wt].find((s) => s.dayOfWeek === dow) || null;
     days.push({ date: dateStr, weekType: wt, entry: entry && entry.startTime ? entry : null });
   }
+
+  const visibleWeeks = weekCount === 4 ? (['A', 'B', 'C', 'D'] as const) : (['A', 'B'] as const);
 
   return (
     <div className="mt-6 border border-blue-200 rounded-lg p-4 bg-blue-50">
@@ -93,32 +107,25 @@ function ScheduleMonthPreview({
         </div>
       </div>
 
-      {/* Veckodagsrubriker */}
       <div className="grid grid-cols-7 gap-1 mb-1">
         {['Mån','Tis','Ons','Tor','Fre','Lör','Sön'].map((d) => (
           <div key={d} className="text-center text-xs font-medium text-gray-500 py-1">{d}</div>
         ))}
       </div>
 
-      {/* Dagar */}
       <div className="grid grid-cols-7 gap-1">
-        {/* Tomma celler för att justera första veckodagen */}
-        {Array.from({ length: firstWeekday }, (_, i) => (
-          <div key={`empty-${i}`} />
-        ))}
+        {Array.from({ length: firstWeekday }, (_, i) => <div key={`empty-${i}`} />)}
         {days.map(({ date, weekType, entry }) => {
           const dayNum = parseInt(date.split('-')[2]);
-          const isA = weekType === 'A';
+          const c = WEEK_COLORS[weekType];
           return (
             <div
               key={date}
-              className={`rounded p-1 text-center min-h-[52px] flex flex-col items-center justify-start border ${
-                isA ? 'bg-blue-100 border-blue-300' : 'bg-purple-100 border-purple-300'
-              }`}
+              className={`rounded p-1 text-center min-h-[52px] flex flex-col items-center justify-start border ${c.bg} ${c.border}`}
             >
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <span className="text-xs font-medium text-gray-700">{dayNum}</span>
-                <span className={`text-xs font-bold ${isA ? 'text-blue-700' : 'text-purple-700'}`}>{weekType}</span>
+                <span className={`text-xs font-bold ${c.text}`}>{weekType}</span>
               </div>
               {entry ? (
                 <span className="text-xs text-gray-600 leading-tight mt-0.5">{entry.startTime}–{entry.endTime}</span>
@@ -130,16 +137,13 @@ function ScheduleMonthPreview({
         })}
       </div>
 
-      {/* Teckenförklaring */}
-      <div className="flex gap-4 mt-3">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-blue-300 border border-blue-400" />
-          <span className="text-xs text-gray-600">Vecka A</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-purple-300 border border-purple-400" />
-          <span className="text-xs text-gray-600">Vecka B</span>
-        </div>
+      <div className="flex flex-wrap gap-3 mt-3">
+        {visibleWeeks.map((w) => (
+          <div key={w} className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded border ${WEEK_COLORS[w].badge}`} />
+            <span className="text-xs text-gray-600">Vecka {w}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -170,8 +174,11 @@ export default function InstallningarPage() {
   const [newTemplate, setNewTemplate] = useState({ name: '', startTime: '08:00', endTime: '17:00', breakMinutes: 60 });
   const [scheduleA, setScheduleA] = useState<ScheduleEntry[]>(emptyWeek());
   const [scheduleB, setScheduleB] = useState<ScheduleEntry[]>(emptyWeek());
+  const [scheduleC, setScheduleC] = useState<ScheduleEntry[]>(emptyWeek());
+  const [scheduleD, setScheduleD] = useState<ScheduleEntry[]>(emptyWeek());
   const [referenceDate, setReferenceDate] = useState<string>('');
-  const [activeScheduleTab, setActiveScheduleTab] = useState<'A' | 'B'>('A');
+  const [weekCount, setWeekCount] = useState<2 | 4>(2);
+  const [activeScheduleTab, setActiveScheduleTab] = useState<'A' | 'B' | 'C' | 'D'>('A');
 
   useEffect(() => {
     fetch('/api/settings').then((r) => r.json()).then((data) => {
@@ -199,7 +206,10 @@ export default function InstallningarPage() {
     fetch('/api/schedule').then((r) => r.json()).then((data) => {
       setScheduleA(data.scheduleA || emptyWeek());
       setScheduleB(data.scheduleB || emptyWeek());
+      setScheduleC(data.scheduleC || emptyWeek());
+      setScheduleD(data.scheduleD || emptyWeek());
       setReferenceDate(data.referenceDate || '');
+      setWeekCount(data.weekCount === 4 ? 4 : 2);
     });
   }, []);
 
@@ -236,22 +246,18 @@ export default function InstallningarPage() {
     await fetch('/api/schedule', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scheduleA, scheduleB, referenceDate: referenceDate || null }),
+      body: JSON.stringify({ scheduleA, scheduleB, scheduleC, scheduleD, referenceDate: referenceDate || null, weekCount }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
 
-  function updateScheduleDay(weekType: 'A' | 'B', index: number, field: string, value: string | number) {
-    if (weekType === 'A') {
-      const updated = [...scheduleA];
-      updated[index] = { ...updated[index], [field]: value };
-      setScheduleA(updated);
-    } else {
-      const updated = [...scheduleB];
-      updated[index] = { ...updated[index], [field]: value };
-      setScheduleB(updated);
-    }
+  function updateScheduleDay(weekType: 'A' | 'B' | 'C' | 'D', index: number, field: string, value: string | number) {
+    const setters = { A: setScheduleA, B: setScheduleB, C: setScheduleC, D: setScheduleD };
+    const current = { A: scheduleA, B: scheduleB, C: scheduleC, D: scheduleD }[weekType];
+    const updated = [...current];
+    updated[index] = { ...updated[index], [field]: value };
+    setters[weekType](updated);
   }
 
   return (
@@ -555,9 +561,9 @@ export default function InstallningarPage() {
         <h2 className="text-lg font-semibold mb-2">Veckoschema</h2>
         <p className="text-sm text-gray-500 mb-4">Ställ in standardtider per veckodag. Stöd för roterande A/B-schema.</p>
 
-        {/* Referensvecka */}
+        {/* Referensvecka + rotationslängd */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <div>
               <label className="block text-sm font-medium text-blue-800 mb-1">Referensdatum (Vecka A börjar)</label>
               <DatePicker
@@ -566,59 +572,84 @@ export default function InstallningarPage() {
                 className="px-2 py-1.5 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-blue-800 mb-1">Rotationslängd</label>
+              <div className="flex rounded overflow-hidden border border-blue-300">
+                <button
+                  type="button"
+                  onClick={() => { setWeekCount(2); if (['C','D'].includes(activeScheduleTab)) setActiveScheduleTab('A'); }}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${weekCount === 2 ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-100'}`}
+                >
+                  2 veckor (A/B)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWeekCount(4)}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${weekCount === 4 ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-100'}`}
+                >
+                  4 veckor (A/B/C/D)
+                </button>
+              </div>
+            </div>
             {referenceDate && (
-              <>
-                <div className="flex items-center gap-2 mt-4">
-                  <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-medium">A/B-rotation aktiverad</span>
-                  <button
-                    type="button"
-                    onClick={() => { setReferenceDate(''); setActiveScheduleTab('A'); }}
-                    className="text-xs text-red-600 hover:underline"
-                  >
-                    Rensa
-                  </button>
-                </div>
-              </>
+              <div className="flex items-center gap-2 mt-3 self-end">
+                <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-medium">Rotation aktiverad</span>
+                <button
+                  type="button"
+                  onClick={() => { setReferenceDate(''); setActiveScheduleTab('A'); }}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Rensa
+                </button>
+              </div>
             )}
           </div>
           {!referenceDate && (
-            <p className="text-xs text-blue-600 mt-2">Ange ett referensdatum för att aktivera A/B-rotation. Utan referensdatum används alltid Vecka A.</p>
+            <p className="text-xs text-blue-600 mt-2">Ange ett referensdatum för att aktivera roterande schema. Utan referensdatum används alltid Vecka A.</p>
           )}
         </div>
 
-        {/* A/B-flikar */}
-        <div className="flex gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setActiveScheduleTab('A')}
-            className={`px-4 py-2 rounded-t-md text-sm font-medium border-b-2 transition-colors ${
-              activeScheduleTab === 'A'
-                ? 'border-blue-600 text-blue-700 bg-blue-50'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Vecka A
-          </button>
-          <button
-            type="button"
-            onClick={() => referenceDate && setActiveScheduleTab('B')}
-            disabled={!referenceDate}
-            title={!referenceDate ? 'Ange referensdatum för att aktivera Vecka B' : ''}
-            className={`px-4 py-2 rounded-t-md text-sm font-medium border-b-2 transition-colors ${
-              activeScheduleTab === 'B'
-                ? 'border-purple-600 text-purple-700 bg-purple-50'
-                : referenceDate
-                  ? 'border-transparent text-gray-500 hover:text-gray-700'
-                  : 'border-transparent text-gray-300 cursor-not-allowed'
-            }`}
-          >
-            Vecka B{!referenceDate && <span className="ml-1 text-xs">(ange referensdatum)</span>}
-          </button>
-        </div>
+        {/* Veckoflikar */}
+        {(() => {
+          const tabs: { key: 'A' | 'B' | 'C' | 'D'; activeBorder: string; activeBg: string; activeText: string }[] = [
+            { key: 'A', activeBorder: 'border-blue-600',   activeBg: 'bg-blue-50',   activeText: 'text-blue-700' },
+            { key: 'B', activeBorder: 'border-purple-600', activeBg: 'bg-purple-50', activeText: 'text-purple-700' },
+            { key: 'C', activeBorder: 'border-teal-600',   activeBg: 'bg-teal-50',   activeText: 'text-teal-700' },
+            { key: 'D', activeBorder: 'border-amber-600',  activeBg: 'bg-amber-50',  activeText: 'text-amber-700' },
+          ];
+          const visibleTabs = weekCount === 4 ? tabs : tabs.slice(0, 2);
+          return (
+            <div className="flex gap-2 mb-4">
+              {visibleTabs.map(({ key, activeBorder, activeBg, activeText }) => {
+                const isActive = activeScheduleTab === key;
+                const isDisabled = !referenceDate && key !== 'A';
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => !isDisabled && setActiveScheduleTab(key)}
+                    disabled={isDisabled}
+                    title={isDisabled ? 'Ange referensdatum för att aktivera' : ''}
+                    className={`px-4 py-2 rounded-t-md text-sm font-medium border-b-2 transition-colors ${
+                      isActive
+                        ? `${activeBorder} ${activeText} ${activeBg}`
+                        : isDisabled
+                        ? 'border-transparent text-gray-300 cursor-not-allowed'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Vecka {key}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Schema-grid */}
         {(() => {
-          const currentSchedule = activeScheduleTab === 'A' ? scheduleA : scheduleB;
+          const schedules = { A: scheduleA, B: scheduleB, C: scheduleC, D: scheduleD };
+          const currentSchedule = schedules[activeScheduleTab];
           return (
             <div className="space-y-2">
               {currentSchedule.map((day, i) => (
@@ -653,12 +684,14 @@ export default function InstallningarPage() {
           Spara veckoschema
         </button>
 
-        {/* Månadspreview — visas bara om referenceDate är satt */}
         {referenceDate && (
           <ScheduleMonthPreview
             referenceDate={referenceDate}
             scheduleA={scheduleA}
             scheduleB={scheduleB}
+            scheduleC={scheduleC}
+            scheduleD={scheduleD}
+            weekCount={weekCount}
           />
         )}
       </div>
