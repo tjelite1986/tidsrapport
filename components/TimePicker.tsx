@@ -1,9 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-
-const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+import { useState } from 'react';
 
 interface Props {
   value: string; // HH:MM
@@ -13,127 +10,290 @@ interface Props {
   placeholder?: string;
 }
 
+function pad(n: number) {
+  return String(n).padStart(2, '0');
+}
+
+// Yttre ring: 12, 1, 2, ... 11
+const OUTER_HOURS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+// Inre ring: 00, 13, 14, ... 23
+const INNER_HOURS = [0, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+// Minuter på yttre ring
+const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+
+const SIZE = 280;
+const CX = SIZE / 2;
+const CY = SIZE / 2;
+const R_OUTER = 112;
+const R_INNER = 72;
+const HAND_OUTER = 108;
+const HAND_INNER = 68;
+
+function polarToXY(index: number, radius: number) {
+  const angle = (index * 30 - 90) * (Math.PI / 180);
+  return { x: CX + radius * Math.cos(angle), y: CY + radius * Math.sin(angle) };
+}
+
+function hourToPos(h: number): { x: number; y: number; handR: number } {
+  if (h === 0)  return { ...polarToXY(0, R_INNER),  handR: HAND_INNER };
+  if (h === 12) return { ...polarToXY(0, R_OUTER),  handR: HAND_OUTER };
+  if (h <= 11)  return { ...polarToXY(h, R_OUTER),  handR: HAND_OUTER };
+  return          { ...polarToXY(h - 12, R_INNER), handR: HAND_INNER };
+}
+
+function minuteToPos(m: number) {
+  return { ...polarToXY(m / 5, R_OUTER), handR: HAND_OUTER };
+}
+
 export default function TimePicker({ value, onChange, required, className, placeholder }: Props) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<'hour' | 'minute' | 'text'>('hour');
+  const [pendingHour, setPendingHour] = useState<number | null>(null);
+  const [pendingMinute, setPendingMinute] = useState<number | null>(null);
+  const [textInput, setTextInput] = useState('');
 
-  const hour = value ? value.slice(0, 2) : null;
-  const minute = value ? value.slice(3, 5) : null;
-
-  // Stäng vid klick utanför
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
-
-  // Stäng vid Escape
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    if (open) document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open]);
-
-  function selectHour(h: string) {
-    const m = minute ?? '00';
-    onChange(`${h}:${m}`);
-    // Håll picker öppen så användaren kan välja minut
+  function handleOpen() {
+    const h = value ? parseInt(value.slice(0, 2)) : null;
+    const m = value ? parseInt(value.slice(3, 5)) : null;
+    setPendingHour(h);
+    setPendingMinute(m);
+    setTextInput(value || '');
+    setMode('hour');
+    setOpen(true);
   }
 
-  function selectMinute(m: string) {
-    const h = hour ?? '00';
-    onChange(`${h}:${m}`);
+  function selectHour(h: number) {
+    setPendingHour(h);
+    setMode('minute');
+  }
+
+  function selectMinute(m: number) {
+    setPendingMinute(m);
+  }
+
+  function handleSet() {
+    if (mode === 'text') {
+      const match = textInput.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+      if (match) {
+        onChange(`${pad(parseInt(match[1]))}:${match[2]}`);
+        setOpen(false);
+      }
+      return;
+    }
+    const h = pendingHour ?? 0;
+    const m = pendingMinute ?? 0;
+    onChange(`${pad(h)}:${pad(m)}`);
     setOpen(false);
   }
 
-  function handleClear(e: React.MouseEvent) {
-    e.stopPropagation();
+  function handleClear() {
     onChange('');
     setOpen(false);
   }
 
+  function handleCancel() {
+    setOpen(false);
+  }
+
+  // Beräkna klockvisarens slutpunkt
+  let handEnd = { x: CX, y: CY };
+  if (mode === 'hour' && pendingHour !== null) {
+    const pos = hourToPos(pendingHour);
+    handEnd = polarToXY(
+      pendingHour === 0 || pendingHour === 12 ? 0 :
+      pendingHour <= 11 ? pendingHour : pendingHour - 12,
+      pos.handR
+    );
+  } else if (mode === 'minute' && pendingMinute !== null) {
+    handEnd = polarToXY(pendingMinute / 5, HAND_OUTER);
+  }
+
+  const showHand = (mode === 'hour' && pendingHour !== null) ||
+                   (mode === 'minute' && pendingMinute !== null);
+
+  const displayHour   = pendingHour !== null ? pad(pendingHour) : '--';
+  const displayMinute = pendingMinute !== null ? pad(pendingMinute) : '--';
+
   return (
-    <div ref={ref} className="relative">
-      {/* Hidden input för native form-validering */}
+    <div className="relative">
       <input type="hidden" value={value} required={required} />
 
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={handleOpen}
         className={`text-left ${className || ''}`}
       >
         {value || <span className="text-gray-400">{placeholder || '--:--'}</span>}
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl p-3 w-64">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Välj tid (24h)</span>
-            {value && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[#1c1b1f] rounded-3xl overflow-hidden w-full max-w-[320px] shadow-2xl">
+
+            {/* Tidsdisplay */}
+            <div className="bg-[#2c2b2f] px-8 pt-6 pb-4">
+              <div className="text-xs text-gray-400 mb-2 uppercase tracking-widest">Välj tid</div>
+              <div className="flex items-center justify-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMode('hour')}
+                  className={`text-6xl font-light tabular-nums rounded-lg px-2 py-1 transition-colors ${
+                    mode === 'hour' ? 'text-white bg-blue-800/40' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {displayHour}
+                </button>
+                <span className="text-6xl font-light text-gray-300 select-none">:</span>
+                <button
+                  type="button"
+                  onClick={() => setMode('minute')}
+                  className={`text-6xl font-light tabular-nums rounded-lg px-2 py-1 transition-colors ${
+                    mode === 'minute' ? 'text-white bg-blue-800/40' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {displayMinute}
+                </button>
+              </div>
+            </div>
+
+            {/* Urtavla eller textinmatning */}
+            {mode === 'text' ? (
+              <div className="flex justify-center items-center bg-[#111014] py-10 px-6">
+                <input
+                  type="text"
+                  autoFocus
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="HH:MM"
+                  className="bg-[#2c2b2f] text-white text-3xl text-center rounded-xl px-4 py-3 w-36 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  maxLength={5}
+                />
+              </div>
+            ) : (
+              <div className="flex justify-center bg-[#111014] py-5">
+                <svg width={SIZE} height={SIZE} style={{ touchAction: 'none' }}>
+                  {/* Urtavlans bakgrund */}
+                  <circle cx={CX} cy={CY} r={SIZE / 2 - 2} fill="#2c2b2f" />
+
+                  {/* Klockvist */}
+                  {showHand && (
+                    <>
+                      <line
+                        x1={CX} y1={CY}
+                        x2={handEnd.x} y2={handEnd.y}
+                        stroke="#aac8ff"
+                        strokeWidth="2"
+                      />
+                      <circle cx={CX} cy={CY} r="4" fill="#aac8ff" />
+                    </>
+                  )}
+
+                  {/* Timmars yttre ring (12, 1–11) */}
+                  {mode === 'hour' && OUTER_HOURS.map((h, i) => {
+                    const { x, y } = polarToXY(i, R_OUTER);
+                    const isSel = pendingHour === h;
+                    return (
+                      <g key={h} onClick={() => selectHour(h)} style={{ cursor: 'pointer' }}>
+                        {isSel && <circle cx={x} cy={y} r="20" fill="#aac8ff" />}
+                        <text
+                          x={x} y={y}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={isSel ? '#1c1b1f' : '#e5e7eb'}
+                          fontSize="16"
+                          fontWeight={isSel ? '700' : '400'}
+                        >
+                          {h}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Timmars inre ring (00, 13–23) */}
+                  {mode === 'hour' && INNER_HOURS.map((h, i) => {
+                    const { x, y } = polarToXY(i, R_INNER);
+                    const isSel = pendingHour === h;
+                    return (
+                      <g key={`i${h}`} onClick={() => selectHour(h)} style={{ cursor: 'pointer' }}>
+                        {isSel && <circle cx={x} cy={y} r="17" fill="#aac8ff" />}
+                        <text
+                          x={x} y={y}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={isSel ? '#1c1b1f' : '#9ca3af'}
+                          fontSize="13"
+                          fontWeight={isSel ? '700' : '400'}
+                        >
+                          {pad(h)}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Minutring */}
+                  {mode === 'minute' && MINUTES.map((m, i) => {
+                    const { x, y } = polarToXY(i, R_OUTER);
+                    const isSel = pendingMinute === m;
+                    return (
+                      <g key={m} onClick={() => selectMinute(m)} style={{ cursor: 'pointer' }}>
+                        {isSel && <circle cx={x} cy={y} r="20" fill="#aac8ff" />}
+                        <text
+                          x={x} y={y}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={isSel ? '#1c1b1f' : '#e5e7eb'}
+                          fontSize="15"
+                          fontWeight={isSel ? '700' : '400'}
+                        >
+                          {pad(m)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            )}
+
+            {/* Knappar */}
+            <div className="flex items-center justify-between px-4 py-3 bg-[#1c1b1f]">
+              {/* Tangentbordsknapp */}
               <button
                 type="button"
-                onClick={handleClear}
-                className="text-xs text-red-500 hover:underline"
+                onClick={() => setMode(mode === 'text' ? 'hour' : 'text')}
+                className="p-2 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Textinmatning"
               >
-                Rensa
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <rect x="2" y="6" width="20" height="12" rx="2" strokeWidth="2" />
+                  <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8" strokeWidth="2" strokeLinecap="round" />
+                </svg>
               </button>
-            )}
-          </div>
 
-          {/* Timmar — 6 kolumner x 4 rader */}
-          <div className="mb-2">
-            <div className="text-xs text-gray-400 mb-1">Timme</div>
-            <div className="grid grid-cols-6 gap-0.5">
-              {HOURS.map((h) => (
+              <div className="flex gap-2">
                 <button
-                  key={h}
                   type="button"
-                  onClick={() => selectHour(h)}
-                  className={`text-sm py-1 rounded text-center transition-colors ${
-                    h === hour
-                      ? 'bg-blue-600 text-white font-semibold'
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
+                  onClick={handleClear}
+                  className="text-blue-400 hover:text-blue-200 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-blue-900/30 transition-colors"
                 >
-                  {h}
+                  Rensa
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Minuter — 6 kolumner x 2 rader */}
-          <div>
-            <div className="text-xs text-gray-400 mb-1">Minut</div>
-            <div className="grid grid-cols-6 gap-0.5">
-              {MINUTES.map((m) => (
                 <button
-                  key={m}
                   type="button"
-                  onClick={() => selectMinute(m)}
-                  className={`text-sm py-1 rounded text-center transition-colors ${
-                    m === minute
-                      ? 'bg-blue-600 text-white font-semibold'
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
+                  onClick={handleCancel}
+                  className="text-blue-400 hover:text-blue-200 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-blue-900/30 transition-colors"
                 >
-                  {m}
+                  Avbryt
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={handleSet}
+                  className="text-blue-400 hover:text-blue-200 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-blue-900/30 transition-colors"
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Vald tid */}
-          {value && (
-            <div className="mt-2 pt-2 border-t border-gray-100 text-center">
-              <span className="text-sm font-semibold text-blue-700">{value}</span>
-            </div>
-          )}
         </div>
       )}
     </div>
