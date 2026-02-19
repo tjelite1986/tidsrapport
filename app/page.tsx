@@ -16,6 +16,10 @@ interface TimeEntry {
   description: string | null;
 }
 
+function toLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function getWeekDates(): { start: string; end: string } {
   const now = new Date();
   const day = now.getDay();
@@ -23,14 +27,14 @@ function getWeekDates(): { start: string; end: string } {
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return { start: monday.toISOString().split('T')[0], end: sunday.toISOString().split('T')[0] };
+  return { start: toLocalDate(monday), end: toLocalDate(sunday) };
 }
 
 function getMonthRange(): { start: string; end: string } {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
+  return { start: toLocalDate(start), end: toLocalDate(end) };
 }
 
 const dayNames = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
@@ -74,8 +78,14 @@ export default function DashboardPage() {
   useEffect(() => {
     const week = getWeekDates();
     const month = getMonthRange();
-    fetch(`/api/time-entries?startDate=${week.start}&endDate=${week.end}`).then((r) => r.json()).then(setWeekEntries);
-    fetch(`/api/time-entries?startDate=${month.start}&endDate=${month.end}`).then((r) => r.json()).then(setMonthEntries);
+    fetch(`/api/time-entries?startDate=${week.start}&endDate=${week.end}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setWeekEntries)
+      .catch(() => setWeekEntries([]));
+    fetch(`/api/time-entries?startDate=${month.start}&endDate=${month.end}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setMonthEntries)
+      .catch(() => setMonthEntries([]));
   }, []);
 
   const weekTotal = weekEntries.reduce((sum, e) => sum + e.hours, 0);
