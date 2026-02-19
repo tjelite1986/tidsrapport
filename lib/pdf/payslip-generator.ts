@@ -19,6 +19,7 @@ interface PayslipData {
   grossBeforeVacation: number;
   vacationPay: number;
   vacationPayRate: number;
+  includeVacationInSalary?: boolean;
   grossPay: number;
   tax: number;
   taxRate: number;
@@ -127,7 +128,10 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
 
   // Vacation pay
   if (data.vacationPay > 0) {
-    addRow(`Semesterersättning (${data.vacationPayRate}%)`, '', '', '', formatCurrency(data.vacationPay));
+    const vacLabel = data.includeVacationInSalary
+      ? `Semesterersättning (${data.vacationPayRate}%, inkl. i lön)`
+      : `Semesterersättning (${data.vacationPayRate}%, till semesterpott)`;
+    addRow(vacLabel, '', '', '', formatCurrency(data.vacationPay));
   }
 
   y += 3;
@@ -148,7 +152,8 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
 
-  doc.text('Bruttolön:', margin + 4, y);
+  const grossLabel = data.includeVacationInSalary ? 'Bruttolön (inkl. semesterersättning):' : 'Bruttolön:';
+  doc.text(grossLabel, margin + 4, y);
   doc.text(formatCurrency(data.grossPay) + ' kr', margin + contentWidth - 4, y, { align: 'right' });
   y += 5;
 

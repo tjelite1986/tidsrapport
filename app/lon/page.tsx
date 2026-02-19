@@ -148,6 +148,7 @@ export default function LonPage() {
       grossBeforeVacation: salary.grossBeforeVacation,
       vacationPay: salary.vacationPay,
       vacationPayRate: salary.settings.vacationPayRate,
+      includeVacationInSalary: includeVacation,
       grossPay: salary.grossPay,
       tax: salary.tax,
       taxRate: salary.settings.taxRate,
