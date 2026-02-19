@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getWeekType } from '@/lib/calculations/time-utils';
 
 const contractOptions = [
   { value: '16ar', label: '16 år (101,48 kr/h)' },
@@ -29,6 +30,119 @@ interface ScheduleEntry {
   breakMinutes: number;
 }
 
+function emptyWeek(): ScheduleEntry[] {
+  return Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, startTime: '', endTime: '', breakMinutes: 0 }));
+}
+
+const monthNames = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
+
+function ScheduleMonthPreview({
+  referenceDate,
+  scheduleA,
+  scheduleB,
+}: {
+  referenceDate: string;
+  scheduleA: ScheduleEntry[];
+  scheduleB: ScheduleEntry[];
+}) {
+  const [previewDate, setPreviewDate] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+
+  const { year, month } = previewDate;
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  // Veckans startdag (måndag=0)
+  const firstWeekday = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+
+  const days: { date: string; weekType: 'A' | 'B'; entry: ScheduleEntry | null }[] = [];
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const wt = getWeekType(dateStr, referenceDate);
+    const jsDay = new Date(dateStr + 'T12:00:00').getDay();
+    const dow = jsDay === 0 ? 6 : jsDay - 1;
+    const schedule = wt === 'A' ? scheduleA : scheduleB;
+    const entry = schedule.find((s) => s.dayOfWeek === dow) || null;
+    days.push({ date: dateStr, weekType: wt, entry: entry && entry.startTime ? entry : null });
+  }
+
+  return (
+    <div className="mt-6 border border-blue-200 rounded-lg p-4 bg-blue-50">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-blue-800">Månadspreview</h3>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPreviewDate(({ year, month }) => month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 })}
+            className="px-2 py-0.5 rounded text-blue-700 hover:bg-blue-100 text-lg font-bold"
+          >
+            ‹
+          </button>
+          <span className="text-sm font-medium text-blue-800 w-36 text-center">{monthNames[month]} {year}</span>
+          <button
+            type="button"
+            onClick={() => setPreviewDate(({ year, month }) => month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 })}
+            className="px-2 py-0.5 rounded text-blue-700 hover:bg-blue-100 text-lg font-bold"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      {/* Veckodagsrubriker */}
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {['Mån','Tis','Ons','Tor','Fre','Lör','Sön'].map((d) => (
+          <div key={d} className="text-center text-xs font-medium text-gray-500 py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Dagar */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* Tomma celler för att justera första veckodagen */}
+        {Array.from({ length: firstWeekday }, (_, i) => (
+          <div key={`empty-${i}`} />
+        ))}
+        {days.map(({ date, weekType, entry }) => {
+          const dayNum = parseInt(date.split('-')[2]);
+          const isA = weekType === 'A';
+          return (
+            <div
+              key={date}
+              className={`rounded p-1 text-center min-h-[52px] flex flex-col items-center justify-start border ${
+                isA ? 'bg-blue-100 border-blue-300' : 'bg-purple-100 border-purple-300'
+              }`}
+            >
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-medium text-gray-700">{dayNum}</span>
+                <span className={`text-xs font-bold ${isA ? 'text-blue-700' : 'text-purple-700'}`}>{weekType}</span>
+              </div>
+              {entry ? (
+                <span className="text-xs text-gray-600 leading-tight mt-0.5">{entry.startTime}–{entry.endTime}</span>
+              ) : (
+                <span className="text-xs text-gray-400 mt-0.5">Ledigt</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Teckenförklaring */}
+      <div className="flex gap-4 mt-3">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-blue-300 border border-blue-400" />
+          <span className="text-xs text-gray-600">Vecka A</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-purple-300 border border-purple-400" />
+          <span className="text-xs text-gray-600">Vecka B</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InstallningarPage() {
   const [settings, setSettings] = useState({
     workplaceType: 'none',
@@ -52,9 +166,10 @@ export default function InstallningarPage() {
   const [saved, setSaved] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [newTemplate, setNewTemplate] = useState({ name: '', startTime: '08:00', endTime: '17:00', breakMinutes: 60 });
-  const [schedule, setSchedule] = useState<ScheduleEntry[]>(
-    Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, startTime: '', endTime: '', breakMinutes: 0 }))
-  );
+  const [scheduleA, setScheduleA] = useState<ScheduleEntry[]>(emptyWeek());
+  const [scheduleB, setScheduleB] = useState<ScheduleEntry[]>(emptyWeek());
+  const [referenceDate, setReferenceDate] = useState<string>('');
+  const [activeScheduleTab, setActiveScheduleTab] = useState<'A' | 'B'>('A');
 
   useEffect(() => {
     fetch('/api/settings').then((r) => r.json()).then((data) => {
@@ -79,12 +194,10 @@ export default function InstallningarPage() {
     });
     fetch('/api/municipalities').then((r) => r.json()).then(setMunicipalities);
     fetch('/api/templates').then((r) => r.json()).then(setTemplates);
-    fetch('/api/schedule').then((r) => r.json()).then((data: ScheduleEntry[]) => {
-      const merged = Array.from({ length: 7 }, (_, i) => {
-        const existing = data.find((s) => s.dayOfWeek === i);
-        return existing || { dayOfWeek: i, startTime: '', endTime: '', breakMinutes: 0 };
-      });
-      setSchedule(merged);
+    fetch('/api/schedule').then((r) => r.json()).then((data) => {
+      setScheduleA(data.scheduleA || emptyWeek());
+      setScheduleB(data.scheduleB || emptyWeek());
+      setReferenceDate(data.referenceDate || '');
     });
   }, []);
 
@@ -121,16 +234,22 @@ export default function InstallningarPage() {
     await fetch('/api/schedule', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ schedule }),
+      body: JSON.stringify({ scheduleA, scheduleB, referenceDate: referenceDate || null }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
 
-  function updateScheduleDay(index: number, field: string, value: string | number) {
-    const updated = [...schedule];
-    updated[index] = { ...updated[index], [field]: value };
-    setSchedule(updated);
+  function updateScheduleDay(weekType: 'A' | 'B', index: number, field: string, value: string | number) {
+    if (weekType === 'A') {
+      const updated = [...scheduleA];
+      updated[index] = { ...updated[index], [field]: value };
+      setScheduleA(updated);
+    } else {
+      const updated = [...scheduleB];
+      updated[index] = { ...updated[index], [field]: value };
+      setScheduleB(updated);
+    }
   }
 
   return (
@@ -435,39 +554,118 @@ export default function InstallningarPage() {
 
       {/* Weekly schedule */}
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Veckoschema</h2>
-        <p className="text-sm text-gray-500 mb-4">Ställ in standardtider per veckodag. Dessa fylls i automatiskt vid tidsregistrering.</p>
-        <div className="space-y-2">
-          {schedule.map((day, i) => (
-            <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
-              <span className="text-sm font-medium">{dayNames[i]}</span>
+        <h2 className="text-lg font-semibold mb-2">Veckoschema</h2>
+        <p className="text-sm text-gray-500 mb-4">Ställ in standardtider per veckodag. Stöd för roterande A/B-schema.</p>
+
+        {/* Referensvecka */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div>
+              <label className="block text-sm font-medium text-blue-800 mb-1">Referensdatum (Vecka A börjar)</label>
               <input
-                type="time"
-                value={day.startTime}
-                onChange={(e) => updateScheduleDay(i, 'startTime', e.target.value)}
-                className="px-2 py-1.5 border border-gray-300 rounded text-sm"
-                placeholder="Start"
-              />
-              <input
-                type="time"
-                value={day.endTime}
-                onChange={(e) => updateScheduleDay(i, 'endTime', e.target.value)}
-                className="px-2 py-1.5 border border-gray-300 rounded text-sm"
-                placeholder="Slut"
-              />
-              <input
-                type="number"
-                value={day.breakMinutes || ''}
-                onChange={(e) => updateScheduleDay(i, 'breakMinutes', parseInt(e.target.value) || 0)}
-                placeholder="Rast (min)"
-                className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                type="date"
+                value={referenceDate}
+                onChange={(e) => setReferenceDate(e.target.value)}
+                className="px-2 py-1.5 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-          ))}
+            {referenceDate && (
+              <>
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-medium">A/B-rotation aktiverad</span>
+                  <button
+                    type="button"
+                    onClick={() => { setReferenceDate(''); setActiveScheduleTab('A'); }}
+                    className="text-xs text-red-600 hover:underline"
+                  >
+                    Rensa
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          {!referenceDate && (
+            <p className="text-xs text-blue-600 mt-2">Ange ett referensdatum för att aktivera A/B-rotation. Utan referensdatum används alltid Vecka A.</p>
+          )}
         </div>
+
+        {/* A/B-flikar */}
+        <div className="flex gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setActiveScheduleTab('A')}
+            className={`px-4 py-2 rounded-t-md text-sm font-medium border-b-2 transition-colors ${
+              activeScheduleTab === 'A'
+                ? 'border-blue-600 text-blue-700 bg-blue-50'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Vecka A
+          </button>
+          <button
+            type="button"
+            onClick={() => referenceDate && setActiveScheduleTab('B')}
+            disabled={!referenceDate}
+            title={!referenceDate ? 'Ange referensdatum för att aktivera Vecka B' : ''}
+            className={`px-4 py-2 rounded-t-md text-sm font-medium border-b-2 transition-colors ${
+              activeScheduleTab === 'B'
+                ? 'border-purple-600 text-purple-700 bg-purple-50'
+                : referenceDate
+                  ? 'border-transparent text-gray-500 hover:text-gray-700'
+                  : 'border-transparent text-gray-300 cursor-not-allowed'
+            }`}
+          >
+            Vecka B{!referenceDate && <span className="ml-1 text-xs">(ange referensdatum)</span>}
+          </button>
+        </div>
+
+        {/* Schema-grid */}
+        {(() => {
+          const currentSchedule = activeScheduleTab === 'A' ? scheduleA : scheduleB;
+          return (
+            <div className="space-y-2">
+              {currentSchedule.map((day, i) => (
+                <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
+                  <span className="text-sm font-medium">{dayNames[i]}</span>
+                  <input
+                    type="time"
+                    value={day.startTime}
+                    onChange={(e) => updateScheduleDay(activeScheduleTab, i, 'startTime', e.target.value)}
+                    className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    placeholder="Start"
+                  />
+                  <input
+                    type="time"
+                    value={day.endTime}
+                    onChange={(e) => updateScheduleDay(activeScheduleTab, i, 'endTime', e.target.value)}
+                    className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    placeholder="Slut"
+                  />
+                  <input
+                    type="number"
+                    value={day.breakMinutes || ''}
+                    onChange={(e) => updateScheduleDay(activeScheduleTab, i, 'breakMinutes', parseInt(e.target.value) || 0)}
+                    placeholder="Rast (min)"
+                    className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         <button onClick={saveSchedule} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
           Spara veckoschema
         </button>
+
+        {/* Månadspreview — visas bara om referenceDate är satt */}
+        {referenceDate && (
+          <ScheduleMonthPreview
+            referenceDate={referenceDate}
+            scheduleA={scheduleA}
+            scheduleB={scheduleB}
+          />
+        )}
       </div>
     </div>
   );
