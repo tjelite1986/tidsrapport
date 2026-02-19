@@ -48,7 +48,11 @@ function formatMonth(month: string) {
   return `${months[parseInt(m) - 1]} ${year}`;
 }
 
-export default function VacationPayTracker() {
+interface Props {
+  refreshKey?: number;
+}
+
+export default function VacationPayTracker({ refreshKey }: Props) {
   const [data, setData] = useState<VacationPayData | null>(null);
   const [showWithdrawForm, setShowWithdrawForm] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -58,7 +62,7 @@ export default function VacationPayTracker() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [refreshKey]);
 
   async function fetchData() {
     const res = await fetch('/api/vacation-pay');

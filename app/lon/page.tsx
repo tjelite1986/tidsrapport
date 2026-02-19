@@ -71,6 +71,7 @@ export default function LonPage() {
   const [selectedUser, setSelectedUser] = useState('');
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [includeVacation, setIncludeVacation] = useState(false);
+  const [vacationRefreshKey, setVacationRefreshKey] = useState(0);
 
   const isAdmin = session?.user?.role === 'admin';
 
@@ -117,8 +118,9 @@ export default function LonPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ month: workMonth, includeInSalary: newValue }),
     });
-    // Hämta om lönedata med ny inställning
+    // Hämta om lönedata och semesterpott med ny inställning
     fetchSalary();
+    setVacationRefreshKey((k) => k + 1);
   }
 
   function formatCurrency(amount: number) {
@@ -217,7 +219,7 @@ export default function LonPage() {
           />
 
           {/* Vacation Pay Tracker */}
-          <VacationPayTracker />
+          <VacationPayTracker refreshKey={vacationRefreshKey} />
 
           {/* Daily breakdown */}
           {salary.days.length > 0 && (
