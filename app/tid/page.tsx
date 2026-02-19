@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getWeekType } from '@/lib/calculations/time-utils';
 import DatePicker from '@/components/DatePicker';
+import TimePicker from '@/components/TimePicker';
 import TimeEntryDetailsDialog from '@/components/dialogs/TimeEntryDetailsDialog';
 import EditTimeEntryDialog from '@/components/dialogs/EditTimeEntryDialog';
 import CalendarWeekView from '@/components/calendar/CalendarWeekView';
@@ -275,20 +276,18 @@ export default function TidPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Starttid</label>
-            <input
-              type="time"
+            <TimePicker
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
+              onChange={setStartTime}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sluttid</label>
-            <input
-              type="time"
+            <TimePicker
               value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
+              onChange={setEndTime}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />

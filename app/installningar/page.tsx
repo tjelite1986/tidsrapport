@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getWeekType } from '@/lib/calculations/time-utils';
 import DatePicker from '@/components/DatePicker';
+import TimePicker from '@/components/TimePicker';
 
 const contractOptions = [
   { value: '16ar', label: '16 år (101,48 kr/h)' },
@@ -466,19 +467,17 @@ export default function InstallningarPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Standard starttid</label>
-            <input
-              type="time"
+            <TimePicker
               value={settings.defaultStartTime}
-              onChange={(e) => setSettings({ ...settings, defaultStartTime: e.target.value })}
+              onChange={(v) => setSettings({ ...settings, defaultStartTime: v })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Standard sluttid</label>
-            <input
-              type="time"
+            <TimePicker
               value={settings.defaultEndTime}
-              onChange={(e) => setSettings({ ...settings, defaultEndTime: e.target.value })}
+              onChange={(v) => setSettings({ ...settings, defaultEndTime: v })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -522,19 +521,17 @@ export default function InstallningarPage() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Start</label>
-            <input
-              type="time"
+            <TimePicker
               value={newTemplate.startTime}
-              onChange={(e) => setNewTemplate({ ...newTemplate, startTime: e.target.value })}
+              onChange={(v) => setNewTemplate({ ...newTemplate, startTime: v })}
               className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
             />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Slut</label>
-            <input
-              type="time"
+            <TimePicker
               value={newTemplate.endTime}
-              onChange={(e) => setNewTemplate({ ...newTemplate, endTime: e.target.value })}
+              onChange={(v) => setNewTemplate({ ...newTemplate, endTime: v })}
               className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
             />
           </div>
@@ -627,19 +624,17 @@ export default function InstallningarPage() {
               {currentSchedule.map((day, i) => (
                 <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
                   <span className="text-sm font-medium">{dayNames[i]}</span>
-                  <input
-                    type="time"
+                  <TimePicker
                     value={day.startTime}
-                    onChange={(e) => updateScheduleDay(activeScheduleTab, i, 'startTime', e.target.value)}
-                    className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    onChange={(v) => updateScheduleDay(activeScheduleTab, i, 'startTime', v)}
                     placeholder="Start"
-                  />
-                  <input
-                    type="time"
-                    value={day.endTime}
-                    onChange={(e) => updateScheduleDay(activeScheduleTab, i, 'endTime', e.target.value)}
                     className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                  />
+                  <TimePicker
+                    value={day.endTime}
+                    onChange={(v) => updateScheduleDay(activeScheduleTab, i, 'endTime', v)}
                     placeholder="Slut"
+                    className="px-2 py-1.5 border border-gray-300 rounded text-sm"
                   />
                   <input
                     type="number"
