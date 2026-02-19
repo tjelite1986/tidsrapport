@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import DatePicker from '@/components/DatePicker';
 
 interface TimeEntryDetail {
   id: number;
@@ -135,10 +136,9 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
-            <input
-              type="date"
+            <DatePicker
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />

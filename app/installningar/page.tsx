@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getWeekType } from '@/lib/calculations/time-utils';
+import DatePicker from '@/components/DatePicker';
 
 const contractOptions = [
   { value: '16ar', label: '16 år (101,48 kr/h)' },
@@ -562,10 +563,9 @@ export default function InstallningarPage() {
           <div className="flex flex-wrap items-center gap-3">
             <div>
               <label className="block text-sm font-medium text-blue-800 mb-1">Referensdatum (Vecka A börjar)</label>
-              <input
-                type="date"
+              <DatePicker
                 value={referenceDate}
-                onChange={(e) => setReferenceDate(e.target.value)}
+                onChange={setReferenceDate}
                 className="px-2 py-1.5 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

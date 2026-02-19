@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getWeekType } from '@/lib/calculations/time-utils';
+import DatePicker from '@/components/DatePicker';
 import TimeEntryDetailsDialog from '@/components/dialogs/TimeEntryDetailsDialog';
 import EditTimeEntryDialog from '@/components/dialogs/EditTimeEntryDialog';
 import CalendarWeekView from '@/components/calendar/CalendarWeekView';
@@ -265,10 +266,9 @@ export default function TidPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
-            <input
-              type="date"
+            <DatePicker
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={setDate}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
