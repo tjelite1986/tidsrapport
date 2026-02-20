@@ -48,6 +48,9 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [breakMinutes, setBreakMinutes] = useState('');
+  const [breakMode, setBreakMode] = useState<'minutes' | 'time'>('minutes');
+  const [breakStart, setBreakStart] = useState('');
+  const [breakEnd, setBreakEnd] = useState('');
   const [entryType, setEntryType] = useState('work');
   const [overtimeType, setOvertimeType] = useState('none');
   const [description, setDescription] = useState('');
@@ -61,10 +64,21 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
     setStartTime(entry.startTime || '');
     setEndTime(entry.endTime || '');
     setBreakMinutes(String(entry.breakMinutes ?? 0));
+    setBreakMode('minutes');
+    setBreakStart('');
+    setBreakEnd('');
     setEntryType(entry.entryType);
     setOvertimeType(entry.overtimeType);
     setDescription(entry.description || '');
   }, [entry]);
+
+  useEffect(() => {
+    if (breakMode !== 'time' || !breakStart || !breakEnd) return;
+    const [sh, sm] = breakStart.split(':').map(Number);
+    const [eh, em] = breakEnd.split(':').map(Number);
+    const mins = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+    setBreakMinutes(String(mins));
+  }, [breakStart, breakEnd, breakMode]);
 
   if (!entry) return null;
 
@@ -110,12 +124,12 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b flex justify-between items-center">
+        <div className="p-4 sm:p-6 border-b flex justify-between items-center">
           <h2 className="text-lg font-bold">Redigera tidsregistrering</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
           {error && (
             <div className="bg-red-50 text-red-700 p-3 rounded text-sm">{error}</div>
           )}
@@ -145,7 +159,7 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Starttid</label>
               <TimePicker
@@ -164,16 +178,50 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Rast (min)</label>
-              <input
-                type="number"
-                min="0"
-                value={breakMinutes}
-                onChange={(e) => setBreakMinutes(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Rast
+                <span className="ml-2 inline-flex rounded overflow-hidden border border-gray-200 text-xs align-middle">
+                  <button type="button"
+                    onClick={() => setBreakMode('minutes')}
+                    className={`px-2 py-0.5 transition-colors ${breakMode === 'minutes' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    min
+                  </button>
+                  <button type="button"
+                    onClick={() => setBreakMode('time')}
+                    className={`px-2 py-0.5 transition-colors border-l border-gray-200 ${breakMode === 'time' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    tid
+                  </button>
+                </span>
+              </label>
+              {breakMode === 'time' ? (
+                <div>
+                  <div className="grid grid-cols-2 gap-1">
+                    <TimePicker
+                      value={breakStart}
+                      onChange={setBreakStart}
+                      placeholder="Start"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                    <TimePicker
+                      value={breakEnd}
+                      onChange={setBreakEnd}
+                      placeholder="Slut"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  {breakMinutes && <p className="text-xs text-gray-500 mt-1">= {breakMinutes} min</p>}
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  min="0"
+                  value={breakMinutes}
+                  onChange={(e) => setBreakMinutes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>

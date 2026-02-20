@@ -12,11 +12,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const month = searchParams.get('month'); // YYYY-MM format
-  const targetUserId = searchParams.get('userId');
-
-  const userId = session.user.role === 'admin' && targetUserId
-    ? parseInt(targetUserId)
-    : parseInt(session.user.id);
+  const userId = parseInt(session.user.id);
 
   const user = db.select().from(users).where(eq(users.id, userId)).get();
   if (!user) return NextResponse.json({ error: 'Användare hittades inte' }, { status: 404 });

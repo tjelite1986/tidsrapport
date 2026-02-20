@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { db, sqlite } from '@/lib/db';
 import { users, salarySettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { hashSync } from 'bcryptjs';
@@ -95,4 +95,31 @@ export async function PUT(req: NextRequest) {
 
   const result = db.update(users).set(updateData).where(eq(users.id, id)).returning().get();
   return NextResponse.json(result);
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Ej behörig' }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const id = parseInt(searchParams.get('id') || '');
+  if (!id) return NextResponse.json({ error: 'ID krävs' }, { status: 400 });
+
+  if (id === parseInt(session.user.id)) {
+    return NextResponse.json({ error: 'Du kan inte ta bort ditt eget konto' }, { status: 400 });
+  }
+
+  // Kaskadradera all användardata
+  sqlite.prepare('DELETE FROM vacation_pay_inclusions WHERE user_id = ?').run(id);
+  sqlite.prepare('DELETE FROM vacation_pay_withdrawals WHERE user_id = ?').run(id);
+  sqlite.prepare('DELETE FROM weekly_schedule WHERE user_id = ?').run(id);
+  sqlite.prepare('DELETE FROM work_templates WHERE user_id = ?').run(id);
+  sqlite.prepare('DELETE FROM time_entries WHERE user_id = ?').run(id);
+  sqlite.prepare('DELETE FROM salary_settings WHERE user_id = ?').run(id);
+  sqlite.prepare('DELETE FROM user_settings WHERE user_id = ?').run(id);
+  sqlite.prepare('DELETE FROM users WHERE id = ?').run(id);
+
+  return NextResponse.json({ ok: true });
 }

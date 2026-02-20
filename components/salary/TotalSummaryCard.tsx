@@ -49,12 +49,12 @@ export default function TotalSummaryCard({ salary, month, userName, includeVacat
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 sm:p-6 text-white">
         <h2 className="text-xl font-bold">Lönesammanfattning</h2>
         <p className="text-blue-100 text-sm">{userName} - {month}</p>
       </div>
 
-      <div className="p-6 space-y-4">
+      <div className="p-4 sm:p-6 space-y-4">
         {/* Work time section */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Arbetstid</h3>
@@ -163,7 +163,7 @@ export default function TotalSummaryCard({ salary, month, userName, includeVacat
         {/* Net pay - hero */}
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 text-center">
           <div className="text-sm text-green-700 font-medium">Nettolön</div>
-          <div className="text-3xl font-bold text-green-600 mt-1">{formatCurrency(salary.netPay)}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-green-600 mt-1">{formatCurrency(salary.netPay)}</div>
         </div>
       </div>
     </div>

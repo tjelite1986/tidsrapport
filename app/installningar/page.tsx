@@ -72,14 +72,15 @@ function ScheduleMonthPreview({
 
   const schedules = { A: scheduleA, B: scheduleB, C: scheduleC, D: scheduleD };
 
-  const days: { date: string; weekType: 'A' | 'B' | 'C' | 'D'; entry: ScheduleEntry | null }[] = [];
+  const days: { date: string; weekType: 'A' | 'B' | 'C' | 'D'; entry: ScheduleEntry | null; beforeStart: boolean }[] = [];
   for (let d = 1; d <= lastDay.getDate(); d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const beforeStart = dateStr < referenceDate;
     const wt = getWeekType(dateStr, referenceDate, weekCount);
     const jsDay = new Date(dateStr + 'T12:00:00').getDay();
     const dow = jsDay === 0 ? 6 : jsDay - 1;
-    const entry = schedules[wt].find((s) => s.dayOfWeek === dow) || null;
-    days.push({ date: dateStr, weekType: wt, entry: entry && entry.startTime ? entry : null });
+    const entry = !beforeStart && schedules[wt].find((s) => s.dayOfWeek === dow) || null;
+    days.push({ date: dateStr, weekType: wt, entry: entry && entry.startTime ? entry : null, beforeStart });
   }
 
   const visibleWeeks = weekCount === 4 ? (['A', 'B', 'C', 'D'] as const) : (['A', 'B'] as const);
@@ -115,19 +116,23 @@ function ScheduleMonthPreview({
 
       <div className="grid grid-cols-7 gap-1">
         {Array.from({ length: firstWeekday }, (_, i) => <div key={`empty-${i}`} />)}
-        {days.map(({ date, weekType, entry }) => {
+        {days.map(({ date, weekType, entry, beforeStart }) => {
           const dayNum = parseInt(date.split('-')[2]);
-          const c = WEEK_COLORS[weekType];
+          const c = beforeStart
+            ? { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-400', badge: '' }
+            : WEEK_COLORS[weekType];
           return (
             <div
               key={date}
               className={`rounded p-1 text-center min-h-[52px] flex flex-col items-center justify-start border ${c.bg} ${c.border}`}
             >
               <div className="flex items-center gap-0.5">
-                <span className="text-xs font-medium text-gray-700">{dayNum}</span>
-                <span className={`text-xs font-bold ${c.text}`}>{weekType}</span>
+                <span className={`text-xs font-medium ${beforeStart ? 'text-gray-400' : 'text-gray-700'}`}>{dayNum}</span>
+                {!beforeStart && <span className={`text-xs font-bold ${c.text}`}>{weekType}</span>}
               </div>
-              {entry ? (
+              {beforeStart ? (
+                <span className="text-xs text-gray-300 mt-0.5">—</span>
+              ) : entry ? (
                 <span className="text-xs text-gray-600 leading-tight mt-0.5">{entry.startTime}–{entry.endTime}</span>
               ) : (
                 <span className="text-xs text-gray-400 mt-0.5">Ledigt</span>

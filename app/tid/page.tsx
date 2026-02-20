@@ -99,19 +99,26 @@ export default function TidPage() {
   const [referenceDate, setReferenceDate] = useState<string | null>(null);
   const [weekCount, setWeekCount] = useState<2 | 4>(2);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [refillTrigger, setRefillTrigger] = useState(0);
   const [projectId, setProjectId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [breakMinutes, setBreakMinutes] = useState('');
   const [autoBreakEnabled, setAutoBreakEnabled] = useState(true);
+  const [breakMode, setBreakMode] = useState<'minutes' | 'time'>('minutes');
+  const [breakStart, setBreakStart] = useState('');
+  const [breakEnd, setBreakEnd] = useState('');
   const [entryType, setEntryType] = useState('work');
   const [overtimeType, setOvertimeType] = useState('none');
   const [description, setDescription] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
 
   // Calendar view
-  const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
+  const [calendarView, setCalendarView] = useState<'week' | 'month'>('month');
   const [monthYear, setMonthYear] = useState(() => ({ year: new Date().getFullYear(), month: new Date().getMonth() }));
   const [calendarEntries, setCalendarEntries] = useState<any[]>([]);
 
@@ -159,9 +166,10 @@ export default function TidPage() {
     }
   }, [calendarView, monthYear]);
 
-  // Auto-fill from schedule when date changes
+  // Auto-fill from schedule when date changes or after form reset
   useEffect(() => {
     if (!date || scheduleA.length === 0) return;
+    if (referenceDate && date < referenceDate) return; // Ingen auto-fill före schemat startar
     const d = new Date(date + 'T12:00:00');
     const jsDay = d.getDay();
     const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
@@ -178,7 +186,7 @@ export default function TidPage() {
         setBreakMinutes(String(schedEntry.breakMinutes));
       }
     }
-  }, [date, scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount]);
+  }, [date, scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount, refillTrigger]);
 
   // Auto-calculate break when times change
   useEffect(() => {
@@ -186,6 +194,15 @@ export default function TidPage() {
       setBreakMinutes(String(autoBreak(startTime, endTime)));
     }
   }, [startTime, endTime, autoBreakEnabled]);
+
+  // Beräkna rastminuter från klockslag
+  useEffect(() => {
+    if (breakMode !== 'time' || !breakStart || !breakEnd) return;
+    const [sh, sm] = breakStart.split(':').map(Number);
+    const [eh, em] = breakEnd.split(':').map(Number);
+    const mins = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+    setBreakMinutes(String(mins));
+  }, [breakStart, breakEnd, breakMode]);
 
   function applyTemplate(templateId: string) {
     setSelectedTemplate(templateId);
@@ -195,6 +212,36 @@ export default function TidPage() {
       setEndTime(tmpl.endTime);
       setBreakMinutes(String(tmpl.breakMinutes));
     }
+  }
+
+  // Slå upp schema för ett givet datum (returnerar null om inget schema eller före referensdatum)
+  function getScheduleForDate(dateStr: string): { startTime: string; endTime: string; breakMinutes: number } | null {
+    if (scheduleA.length === 0 || !referenceDate || dateStr < referenceDate) return null;
+    const d = new Date(dateStr + 'T12:00:00');
+    const jsDay = d.getDay();
+    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+    const allSchedules = { A: scheduleA, B: scheduleB, C: scheduleC, D: scheduleD };
+    const wt = getWeekType(dateStr, referenceDate, weekCount);
+    const entry = allSchedules[wt].find((s) => s.dayOfWeek === dayOfWeek && s.startTime);
+    return entry ? { startTime: entry.startTime, endTime: entry.endTime, breakMinutes: entry.breakMinutes } : null;
+  }
+
+  // Förifyll formuläret med schema för ett datum (vid klick på schemalagd dag i kalender)
+  function applyScheduleForDate(dateStr: string) {
+    const sched = getScheduleForDate(dateStr);
+    setDate(dateStr);
+    if (sched) {
+      setStartTime(sched.startTime);
+      setEndTime(sched.endTime);
+      setBreakMinutes(autoBreakEnabled
+        ? String(autoBreak(sched.startTime, sched.endTime))
+        : String(sched.breakMinutes));
+    } else {
+      setStartTime('');
+      setEndTime('');
+      setBreakMinutes('');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   const previewHours = calcHoursPreview(startTime, endTime, parseInt(breakMinutes) || 0);
@@ -218,10 +265,13 @@ export default function TidPage() {
     setStartTime('');
     setEndTime('');
     setBreakMinutes('');
+    setBreakStart('');
+    setBreakEnd('');
     setDescription('');
     setSelectedTemplate('');
     setOvertimeType('none');
     setEntryType('work');
+    setRefillTrigger((t) => t + 1); // Triggar om schema-auto-fill för nästa post
     fetchEntries();
   }
 
@@ -237,7 +287,7 @@ export default function TidPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Tidsregistrering</h1>
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow mb-6">
+      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-lg shadow mb-6">
         <h2 className="text-lg font-semibold mb-4">Logga tid</h2>
 
         {templates.length > 0 && (
@@ -303,22 +353,53 @@ export default function TidPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Rast (min)
-              <button
-                type="button"
-                onClick={() => setAutoBreakEnabled(!autoBreakEnabled)}
-                className="ml-2 text-xs text-blue-600 hover:underline"
-              >
-                {autoBreakEnabled ? 'Auto' : 'Manuell'}
-              </button>
+              Rast
+              <span className="ml-2 inline-flex rounded overflow-hidden border border-gray-200 text-xs align-middle">
+                <button type="button"
+                  onClick={() => { setAutoBreakEnabled(true); setBreakMode('minutes'); }}
+                  className={`px-2 py-1 transition-colors ${autoBreakEnabled ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  Auto
+                </button>
+                <button type="button"
+                  onClick={() => { setAutoBreakEnabled(false); setBreakMode('minutes'); }}
+                  className={`px-2 py-1 transition-colors border-l border-gray-200 ${!autoBreakEnabled && breakMode === 'minutes' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  min
+                </button>
+                <button type="button"
+                  onClick={() => { setAutoBreakEnabled(false); setBreakMode('time'); }}
+                  className={`px-2 py-1 transition-colors border-l border-gray-200 ${breakMode === 'time' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  tid
+                </button>
+              </span>
             </label>
-            <input
-              type="number"
-              min="0"
-              value={breakMinutes}
-              onChange={(e) => { setAutoBreakEnabled(false); setBreakMinutes(e.target.value); }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            {breakMode === 'time' ? (
+              <div>
+                <div className="grid grid-cols-2 gap-1">
+                  <TimePicker
+                    value={breakStart}
+                    onChange={setBreakStart}
+                    placeholder="Start"
+                    className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <TimePicker
+                    value={breakEnd}
+                    onChange={setBreakEnd}
+                    placeholder="Slut"
+                    className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                {breakMinutes && <p className="text-xs text-gray-500 mt-1">= {breakMinutes} min</p>}
+              </div>
+            ) : (
+              <input
+                type="number"
+                min="0"
+                value={breakMinutes}
+                disabled={autoBreakEnabled}
+                onChange={(e) => { setAutoBreakEnabled(false); setBreakMinutes(e.target.value); }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+              />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
@@ -367,7 +448,7 @@ export default function TidPage() {
         </div>
       </form>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Kalender</h2>
           <CalendarViewToggle view={calendarView} onChange={setCalendarView} />
@@ -377,20 +458,34 @@ export default function TidPage() {
           <CalendarWeekView
             weekOffset={weekOffset}
             entries={entries}
-            onDayClick={(date, dayEntries) => {
-              if (dayEntries.length === 1) setDetailEntry(dayEntries[0] as any);
+            onDayClick={(clickedDate, dayEntries) => {
+              if (dayEntries.length === 1) {
+                setDetailEntry(dayEntries[0] as any);
+              } else if (dayEntries.length === 0) {
+                applyScheduleForDate(clickedDate);
+              }
             }}
             onEntryClick={(e) => setDetailEntry(e as any)}
             onPrev={() => setWeekOffset(weekOffset - 1)}
             onNext={() => setWeekOffset(weekOffset + 1)}
+            scheduleA={scheduleA}
+            scheduleB={scheduleB}
+            scheduleC={scheduleC}
+            scheduleD={scheduleD}
+            referenceDate={referenceDate}
+            weekCount={weekCount}
           />
         ) : (
           <CalendarMonthView
             year={monthYear.year}
             month={monthYear.month}
             entries={calendarEntries}
-            onDayClick={(date, dayEntries) => {
-              if (dayEntries.length === 1) setDetailEntry(dayEntries[0] as any);
+            onDayClick={(clickedDate, dayEntries) => {
+              if (dayEntries.length === 1) {
+                setDetailEntry(dayEntries[0] as any);
+              } else if (dayEntries.length === 0) {
+                applyScheduleForDate(clickedDate);
+              }
             }}
             onEntryClick={(e) => setDetailEntry(e as any)}
             onPrev={() => {
@@ -405,6 +500,12 @@ export default function TidPage() {
                 return m > 11 ? { year: prev.year + 1, month: 0 } : { year: prev.year, month: m };
               });
             }}
+            scheduleA={scheduleA}
+            scheduleB={scheduleB}
+            scheduleC={scheduleC}
+            scheduleD={scheduleD}
+            referenceDate={referenceDate}
+            weekCount={weekCount}
           />
         )}
 

@@ -108,7 +108,7 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Welcome */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 mb-6">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4 sm:p-6 mb-6">
         <h1 className="text-2xl font-bold">Välkommen, {session?.user?.name}!</h1>
         <p className="text-blue-100 mt-1">
           Tidsrapport hjälper dig att registrera arbetstid, beräkna lön med OB-tillägg och hålla koll på din ekonomi.
@@ -117,17 +117,17 @@ export default function DashboardPage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 uppercase">Denna vecka</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{weekTotal.toFixed(1)}h</p>
+          <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">{weekTotal.toFixed(1)}h</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 uppercase">Denna månad</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{monthTotal.toFixed(1)}h</p>
+          <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">{monthTotal.toFixed(1)}h</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 uppercase">Registreringar denna vecka</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{weekEntries.length}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">{weekEntries.length}</p>
         </div>
       </div>
 
@@ -198,23 +198,23 @@ export default function DashboardPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Projekt</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tid</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timmar</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beskrivning</th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Projekt</th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Tid</th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Timmar</th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Beskrivning</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {weekEntries.slice(0, 10).map((entry) => (
                 <tr key={entry.id}>
-                  <td className="px-6 py-3">{entry.date}</td>
-                  <td className="px-6 py-3">{entry.projectName}</td>
-                  <td className="px-6 py-3 text-sm text-gray-600">
+                  <td className="px-3 py-2 sm:px-6 sm:py-3">{entry.date}</td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3">{entry.projectName}</td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-600">
                     {entry.startTime && entry.endTime ? `${entry.startTime}-${entry.endTime}` : '-'}
                   </td>
-                  <td className="px-6 py-3">{entry.hours.toFixed(1)}</td>
-                  <td className="px-6 py-3 text-gray-600">{entry.description || '-'}</td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3">{entry.hours.toFixed(1)}</td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 text-gray-600">{entry.description || '-'}</td>
                 </tr>
               ))}
             </tbody>

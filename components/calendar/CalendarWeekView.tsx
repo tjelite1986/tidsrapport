@@ -1,6 +1,6 @@
 'use client';
 
-import { getWeekNumber } from '@/lib/calculations/time-utils';
+import { getWeekNumber, getWeekType } from '@/lib/calculations/time-utils';
 
 interface CalendarEntry {
   id: number;
@@ -13,6 +13,13 @@ interface CalendarEntry {
   pay?: { grossPay: number };
 }
 
+interface ScheduleEntry {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+}
+
 interface Props {
   weekOffset: number;
   entries: CalendarEntry[];
@@ -20,6 +27,12 @@ interface Props {
   onEntryClick: (entry: CalendarEntry) => void;
   onPrev: () => void;
   onNext: () => void;
+  scheduleA?: ScheduleEntry[];
+  scheduleB?: ScheduleEntry[];
+  scheduleC?: ScheduleEntry[];
+  scheduleD?: ScheduleEntry[];
+  referenceDate?: string | null;
+  weekCount?: 2 | 4;
 }
 
 const dayNames = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
@@ -33,7 +46,7 @@ function getWeekDates(offset: number): string[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
   return dates;
 }
@@ -42,13 +55,30 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(amount);
 }
 
-export default function CalendarWeekView({ weekOffset, entries, onDayClick, onEntryClick, onPrev, onNext }: Props) {
+export default function CalendarWeekView({
+  weekOffset, entries, onDayClick, onEntryClick, onPrev, onNext,
+  scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount,
+}: Props) {
   const dates = getWeekDates(weekOffset);
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const weekNum = getWeekNumber(new Date(dates[0] + 'T12:00:00'));
 
   const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
   const totalPay = entries.reduce((sum, e) => sum + (e.pay?.grossPay ?? 0), 0);
+
+  function getScheduledEntry(date: string, dayIndex: number): ScheduleEntry | null {
+    if (!scheduleA || !referenceDate || date < referenceDate) return null;
+    const allSchedules: Record<string, ScheduleEntry[]> = {
+      A: scheduleA,
+      B: scheduleB ?? [],
+      C: scheduleC ?? [],
+      D: scheduleD ?? [],
+    };
+    const wt = getWeekType(date, referenceDate, weekCount ?? 2);
+    const sch = allSchedules[wt] ?? [];
+    return sch.find((s) => s.dayOfWeek === dayIndex && s.startTime) ?? null;
+  }
 
   return (
     <div>
@@ -70,6 +100,7 @@ export default function CalendarWeekView({ weekOffset, entries, onDayClick, onEn
           const isSunday = i === 6;
           const isSaturday = i === 5;
           const hasSick = dayEntries.some((e) => e.entryType === 'sick');
+          const schedEntry = getScheduledEntry(d, i);
 
           return (
             <div
@@ -118,6 +149,12 @@ export default function CalendarWeekView({ weekOffset, entries, onDayClick, onEn
                   {dayEntries.length > 2 && (
                     <div className="text-[10px] text-gray-400">+{dayEntries.length - 2} till</div>
                   )}
+                </div>
+              )}
+              {dayTotal === 0 && schedEntry && (
+                <div className="mt-1 border border-dashed border-gray-300 rounded px-1.5 py-1 bg-white/50">
+                  <div className="text-[9px] text-gray-400">Schema</div>
+                  <div className="text-[11px] text-gray-600 font-medium">{schedEntry.startTime}–{schedEntry.endTime}</div>
                 </div>
               )}
             </div>

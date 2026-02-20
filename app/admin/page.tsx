@@ -37,6 +37,7 @@ export default function AdminPage() {
     workplaceType: 'none', contractLevel: '3plus', taxRate: '30',
   });
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     if (session && session.user.role !== 'admin') {
@@ -80,6 +81,18 @@ export default function AdminPage() {
       taxRate: '30',
     });
     setShowForm(true);
+  }
+
+  async function handleDelete(user: User) {
+    if (!confirm(`Ta bort ${user.name}? All data för användaren (tider, inställningar, schema) raderas permanent.`)) return;
+    setDeleteError('');
+    const res = await fetch(`/api/users?id=${user.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      setDeleteError(data.error || 'Kunde inte ta bort användaren');
+      return;
+    }
+    fetchUsers();
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -284,6 +297,10 @@ export default function AdminPage() {
         </form>
       )}
 
+      {deleteError && (
+        <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{deleteError}</div>
+      )}
+
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full">
@@ -313,10 +330,15 @@ export default function AdminPage() {
                     ? `${user.hourlyRate || 0} SEK/h`
                     : `${user.monthlySalary || 0} SEK/mån`}
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 flex gap-3">
                   <button onClick={() => startEdit(user)} className="text-blue-600 hover:underline text-sm">
                     Redigera
                   </button>
+                  {user.id !== parseInt(session?.user?.id ?? '0') && (
+                    <button onClick={() => handleDelete(user)} className="text-red-600 hover:underline text-sm">
+                      Ta bort
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

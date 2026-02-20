@@ -14,6 +14,7 @@ export default function ProjektPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     fetchProjects();
@@ -51,6 +52,18 @@ export default function ProjektPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: project.id, active: !project.active }),
     });
+    fetchProjects();
+  }
+
+  async function handleDelete(project: Project) {
+    if (!confirm(`Ta bort projektet "${project.name}"?`)) return;
+    setDeleteError('');
+    const res = await fetch(`/api/projects?id=${project.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      setDeleteError(data.error || 'Kunde inte ta bort projektet');
+      return;
+    }
     fetchProjects();
   }
 
@@ -105,6 +118,10 @@ export default function ProjektPage() {
         </div>
       </form>
 
+      {deleteError && (
+        <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{deleteError}</div>
+      )}
+
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full">
@@ -132,6 +149,9 @@ export default function ProjektPage() {
                   </button>
                   <button onClick={() => toggleActive(project)} className="text-gray-600 hover:underline text-sm">
                     {project.active ? 'Inaktivera' : 'Aktivera'}
+                  </button>
+                  <button onClick={() => handleDelete(project)} className="text-red-600 hover:underline text-sm">
+                    Ta bort
                   </button>
                 </td>
               </tr>

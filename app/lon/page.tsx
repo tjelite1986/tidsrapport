@@ -163,7 +163,7 @@ export default function LonPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Löneberäkning</h1>
 
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow mb-6">
         <div className="flex flex-wrap gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Utbetalningsmånad</label>
@@ -224,7 +224,7 @@ export default function LonPage() {
 
           {/* Daily breakdown */}
           {salary.days.length > 0 && (
-            <div className="bg-white p-6 rounded-lg shadow">
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
               <h2 className="text-lg font-semibold mb-4">Daglig uppdelning</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -233,8 +233,8 @@ export default function LonPage() {
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
                       <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Timmar</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Grundlön</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">OB</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Grundlön</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">OB</th>
                       <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Övertid</th>
                       <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Totalt</th>
                     </tr>
@@ -257,8 +257,8 @@ export default function LonPage() {
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right">{day.hours.toFixed(1)}h</td>
-                          <td className="px-3 py-2 text-right">{formatCurrency(day.basePay)}</td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-3 py-2 text-right hidden sm:table-cell">{formatCurrency(day.basePay)}</td>
+                          <td className="px-3 py-2 text-right hidden sm:table-cell">
                             {day.obResult && day.obResult.totalOBAmount > 0
                               ? formatCurrency(day.obResult.totalOBAmount)
                               : '-'}

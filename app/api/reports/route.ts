@@ -13,15 +13,8 @@ export async function GET(req: NextRequest) {
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
   const projectId = searchParams.get('projectId');
-  const userId = searchParams.get('userId');
 
-  let conditions = [];
-
-  if (session.user.role !== 'admin') {
-    conditions.push(eq(timeEntries.userId, parseInt(session.user.id)));
-  } else if (userId) {
-    conditions.push(eq(timeEntries.userId, parseInt(userId)));
-  }
+  let conditions = [eq(timeEntries.userId, parseInt(session.user.id))];
 
   if (startDate) conditions.push(gte(timeEntries.date, startDate));
   if (endDate) conditions.push(lte(timeEntries.date, endDate));
