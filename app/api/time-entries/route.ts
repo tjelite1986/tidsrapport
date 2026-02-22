@@ -126,6 +126,7 @@ export async function PUT(req: NextRequest) {
     .returning()
     .get();
 
+  if (!result) return NextResponse.json({ error: 'Post hittades inte' }, { status: 404 });
   return NextResponse.json(result);
 }
 

@@ -81,11 +81,15 @@ export default function TimerPage() {
     }
   }, []);
 
+  function toLocalDate(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
   async function fetchRecent() {
     const now = new Date();
     const start = new Date(now);
     start.setDate(start.getDate() - 7);
-    const res = await fetch(`/api/time-entries?startDate=${start.toISOString().split('T')[0]}&endDate=${now.toISOString().split('T')[0]}`);
+    const res = await fetch(`/api/time-entries?startDate=${toLocalDate(start)}&endDate=${toLocalDate(now)}`);
     if (res.ok) {
       const entries = await res.json();
       setRecentEntries(entries.slice(-5).reverse());

@@ -125,6 +125,7 @@ export default function TidPage() {
   // Dialog states
   const [detailEntry, setDetailEntry] = useState<TimeEntry | null>(null);
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
+  const [submitError, setSubmitError] = useState('');
 
   const week = getWeekDates(weekOffset);
 
@@ -248,7 +249,8 @@ export default function TidPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await fetch('/api/time-entries', {
+    setSubmitError('');
+    const res = await fetch('/api/time-entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -262,6 +264,11 @@ export default function TidPage() {
         description,
       }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setSubmitError(err.error || 'Kunde inte spara tidsregistrering');
+      return;
+    }
     setStartTime('');
     setEndTime('');
     setBreakMinutes('');
@@ -281,7 +288,6 @@ export default function TidPage() {
   }
 
   const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
-  const today = new Date().toISOString().split('T')[0];
 
   return (
     <div>
@@ -446,6 +452,9 @@ export default function TidPage() {
             </span>
           )}
         </div>
+        {submitError && (
+          <p className="mt-2 text-sm text-red-600">{submitError}</p>
+        )}
       </form>
 
       <div className="bg-white rounded-lg shadow p-4 sm:p-6">
