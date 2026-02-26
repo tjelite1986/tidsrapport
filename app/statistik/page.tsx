@@ -15,6 +15,8 @@ interface StatsData {
   monthlyHours: { month: string; totalHours: number; count: number }[];
   projectHours: { projectName: string; totalHours: number }[];
   weekdayHours: number[];
+  weekdayAvg: number[];
+  weekdayCount: number[];
   entryTypes: { entryType: string; totalHours: number; count: number }[];
   monthlyIncome: { month: string; basePay: number; obPay: number; netPay: number }[];
   obDistribution: { percent: number; hours: number; amount: number }[];
@@ -48,6 +50,11 @@ export default function StatistikPage() {
   }));
 
   const weekdayData = stats.weekdayHours.map((h, i) => ({
+    label: dayNames[i],
+    value: h,
+  }));
+
+  const weekdayAvgData = (stats.weekdayAvg ?? []).map((h, i) => ({
     label: dayNames[i],
     value: h,
   }));
@@ -146,15 +153,28 @@ export default function StatistikPage() {
           </div>
         )}
 
-        {/* Hours per weekday */}
+        {/* Total hours per weekday */}
         <div className="bg-white p-6 rounded-lg shadow">
           <BarChart
             data={weekdayData}
-            title="Timmar per veckodag"
+            title="Totalt timmar per veckodag"
             color="#10b981"
             height={200}
             formatValue={(v) => v.toFixed(0)}
           />
+          <p className="text-xs text-gray-400 mt-2">Summan av alla timmar registrerade per veckodag under {stats.year}.</p>
+        </div>
+
+        {/* Average hours per weekday */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <BarChart
+            data={weekdayAvgData}
+            title="Snittimmar per veckodag"
+            color="#8b5cf6"
+            height={200}
+            formatValue={(v) => v.toFixed(1)}
+          />
+          <p className="text-xs text-gray-400 mt-2">Genomsnittligt antal timmar per pass, uppdelat per veckodag.</p>
         </div>
 
         {/* Net pay trend */}

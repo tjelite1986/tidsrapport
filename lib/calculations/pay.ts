@@ -19,11 +19,14 @@ export interface PaySettings {
   taxRate: number;
   vacationPayRate: number;
   vacationPayMode: 'included' | 'separate';
-  hourlyRate?: number; // Override from user.hourlyRate
+  hourlyRate?: number; // Override from user.hourlyRate (used in 'contract' and 'hourly' modes)
   taxMode?: 'percentage' | 'table';
   taxTable?: number | null;
   taxYear?: number;
   includeVacationInSalary?: boolean; // Per-månad: semesterersättning inkluderas i bruttolön
+  salaryMode?: 'contract' | 'hourly' | 'fixed_plus';
+  fixedMonthlySalary?: number; // Used in 'fixed_plus' mode
+  workingHoursPerMonth?: number; // Used to derive hourly rate from fixed salary
 }
 
 export interface DayPayDetail {
@@ -68,7 +71,22 @@ export function calculateMonthlyPay(
   entries: TimeEntryForPay[],
   settings: PaySettings
 ): MonthlyPayResult {
-  const hourlyRate = settings.hourlyRate ?? getHourlyRate(settings.contractLevel);
+  const salaryMode = settings.salaryMode ?? 'contract';
+  const isFixedPlus = salaryMode === 'fixed_plus';
+
+  // Determine effective hourly rate for OB, overtime and sick pay calculations
+  let hourlyRate: number;
+  if (salaryMode === 'hourly') {
+    hourlyRate = settings.hourlyRate ?? getHourlyRate(settings.contractLevel);
+  } else if (salaryMode === 'fixed_plus') {
+    const fixedSalary = settings.fixedMonthlySalary ?? 0;
+    const hoursPerMonth = settings.workingHoursPerMonth ?? 160;
+    hourlyRate = hoursPerMonth > 0 ? fixedSalary / hoursPerMonth : 0;
+  } else {
+    // contract (default)
+    hourlyRate = settings.hourlyRate ?? getHourlyRate(settings.contractLevel);
+  }
+
   const days: DayPayDetail[] = [];
 
   let totalHours = 0;
@@ -133,7 +151,8 @@ export function calculateMonthlyPay(
     }
 
     workHours += hours;
-    const dayBasePay = hourlyRate * hours;
+    // For fixed_plus: base pay is a fixed monthly salary, not per-hour
+    const dayBasePay = isFixedPlus ? 0 : hourlyRate * hours;
     basePay += dayBasePay;
 
     // Calculate OB if we have start/end times
@@ -190,6 +209,11 @@ export function calculateMonthlyPay(
       sickPay: 0,
       entryType: 'work',
     });
+  }
+
+  // For fixed_plus: override accumulated basePay with the fixed monthly salary
+  if (isFixedPlus) {
+    basePay = settings.fixedMonthlySalary ?? 0;
   }
 
   // Build OB breakdown by percent

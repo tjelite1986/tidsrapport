@@ -30,6 +30,9 @@ export async function GET() {
       taxMode: 'percentage',
       taxTable: null,
       municipality: null,
+      salaryMode: 'contract',
+      customHourlyRate: null,
+      fixedMonthlySalary: null,
     });
   }
 
@@ -61,6 +64,9 @@ export async function PUT(req: NextRequest) {
     taxMode: body.taxMode ?? 'percentage',
     taxTable: body.taxTable ?? null,
     municipality: body.municipality ?? null,
+    salaryMode: body.salaryMode ?? 'contract',
+    customHourlyRate: body.customHourlyRate ?? null,
+    fixedMonthlySalary: body.fixedMonthlySalary ?? null,
   };
 
   if (existing) {

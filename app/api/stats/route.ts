@@ -73,13 +73,18 @@ export async function GET(req: NextRequest) {
     )
     .all();
 
-  const weekdayHours: number[] = [0, 0, 0, 0, 0, 0, 0]; // Mon-Sun
+  const weekdayHours: number[] = [0, 0, 0, 0, 0, 0, 0]; // Mon-Sun totalt
+  const weekdayCount: number[] = [0, 0, 0, 0, 0, 0, 0]; // antal pass per veckodag
   for (const entry of allEntries) {
     const d = new Date(entry.date + 'T12:00:00');
     const jsDay = d.getDay();
     const idx = jsDay === 0 ? 6 : jsDay - 1;
     weekdayHours[idx] += entry.hours;
+    weekdayCount[idx]++;
   }
+  const weekdayAvg: number[] = weekdayHours.map((h, i) =>
+    weekdayCount[i] > 0 ? h / weekdayCount[i] : 0
+  );
 
   // Entry type distribution
   const entryTypes = db
@@ -176,6 +181,8 @@ export async function GET(req: NextRequest) {
     monthlyHours,
     projectHours,
     weekdayHours,
+    weekdayAvg,
+    weekdayCount,
     entryTypes,
     monthlyIncome,
     obDistribution,

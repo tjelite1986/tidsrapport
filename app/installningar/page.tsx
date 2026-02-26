@@ -171,6 +171,9 @@ export default function InstallningarPage() {
     taxMode: 'percentage' as string,
     taxTable: null as number | null,
     municipality: '' as string,
+    salaryMode: 'contract' as string,
+    customHourlyRate: null as number | null,
+    fixedMonthlySalary: null as number | null,
   });
   const [municipalities, setMunicipalities] = useState<{ name: string; taxRate: number; tableNumber: number }[]>([]);
   const [municipalitySearch, setMunicipalitySearch] = useState('');
@@ -203,6 +206,9 @@ export default function InstallningarPage() {
         taxMode: data.taxMode || 'percentage',
         taxTable: data.taxTable ?? null,
         municipality: data.municipality || '',
+        salaryMode: data.salaryMode || 'contract',
+        customHourlyRate: data.customHourlyRate ?? null,
+        fixedMonthlySalary: data.fixedMonthlySalary ?? null,
       });
       if (data.municipality) setMunicipalitySearch(data.municipality);
     });
@@ -304,6 +310,39 @@ export default function InstallningarPage() {
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <h2 className="text-lg font-semibold mb-4">Löne- och OB-inställningar</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Lönetyp-väljare */}
+          <div className="col-span-1 md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Lönetyp</label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              {[
+                { value: 'contract', label: 'Avtalsenlig timlön', desc: 'Timlön enligt Handels avtalsnivå' },
+                { value: 'hourly',   label: 'Individuell timlön', desc: 'Ange din timlön manuellt i kr/h' },
+                { value: 'fixed_plus', label: 'Fast lön + tillägg', desc: 'Fast månadslön, OB och övertid ovanpå' },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex-1 border rounded-lg p-3 cursor-pointer transition-colors ${
+                    settings.salaryMode === opt.value
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="salaryMode"
+                    value={opt.value}
+                    checked={settings.salaryMode === opt.value}
+                    onChange={(e) => setSettings({ ...settings, salaryMode: e.target.value })}
+                    className="sr-only"
+                  />
+                  <div className="text-sm font-medium text-gray-800">{opt.label}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Arbetsplatstyp</label>
             <select
@@ -316,18 +355,52 @@ export default function InstallningarPage() {
               <option value="lager">Lager</option>
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Avtalsnivå</label>
-            <select
-              value={settings.contractLevel}
-              onChange={(e) => setSettings({ ...settings, contractLevel: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {contractOptions.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
+
+          {settings.salaryMode === 'contract' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Avtalsnivå</label>
+              <select
+                value={settings.contractLevel}
+                onChange={(e) => setSettings({ ...settings, contractLevel: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {contractOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {settings.salaryMode === 'hourly' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Timlön (kr/h)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={settings.customHourlyRate ?? ''}
+                onChange={(e) => setSettings({ ...settings, customHourlyRate: parseFloat(e.target.value) || null })}
+                placeholder="T.ex. 175.50"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          {settings.salaryMode === 'fixed_plus' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fast månadslön (kr)</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={settings.fixedMonthlySalary ?? ''}
+                onChange={(e) => setSettings({ ...settings, fixedMonthlySalary: parseFloat(e.target.value) || null })}
+                placeholder="T.ex. 28000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">OB-tillägg och övertid beräknas ovanpå månadslönen.</p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Skattemetod</label>
             <select

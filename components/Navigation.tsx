@@ -14,6 +14,7 @@ const navItems = [
   { href: '/lon', label: 'Lön' },
   { href: '/statistik', label: 'Statistik' },
   { href: '/installningar', label: 'Inställningar' },
+  { href: '/hjalp', label: 'Hjälp' },
 ];
 
 export default function Navigation() {

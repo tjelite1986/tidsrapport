@@ -49,17 +49,24 @@ export async function GET(req: NextRequest) {
         .get()
     : null;
 
+  const salaryMode = (settings?.salaryMode ?? 'contract') as 'contract' | 'hourly' | 'fixed_plus';
+
   const paySettings: PaySettings = {
     workplaceType: (settings?.workplaceType as any) ?? 'none',
     contractLevel: settings?.contractLevel ?? '3plus',
     taxRate: settings?.taxRate ?? 30,
     vacationPayRate: settings?.vacationPayRate ?? 12,
     vacationPayMode: (settings?.vacationPayMode as any) ?? 'included',
-    hourlyRate: user.hourlyRate ?? undefined,
+    hourlyRate: salaryMode === 'hourly'
+      ? (settings?.customHourlyRate ?? user.hourlyRate ?? undefined)
+      : (user.hourlyRate ?? undefined),
     taxMode: (settings?.taxMode as any) ?? 'percentage',
     taxTable: settings?.taxTable ?? null,
     taxYear: month ? parseInt(month.split('-')[0]) : new Date().getFullYear(),
     includeVacationInSalary: inclusion?.includeInSalary ?? false,
+    salaryMode,
+    fixedMonthlySalary: settings?.fixedMonthlySalary ?? undefined,
+    workingHoursPerMonth: settings?.workingHoursPerMonth ?? 160,
   };
 
   const result = calculateMonthlyPay(payEntries, paySettings);

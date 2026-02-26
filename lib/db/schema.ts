@@ -61,6 +61,9 @@ export const userSettings = sqliteTable('user_settings', {
   taxMode: text('tax_mode').notNull().default('percentage'),
   taxTable: integer('tax_table'),
   municipality: text('municipality'),
+  salaryMode: text('salary_mode').notNull().default('contract'), // 'contract' | 'hourly' | 'fixed_plus'
+  customHourlyRate: real('custom_hourly_rate'),
+  fixedMonthlySalary: real('fixed_monthly_salary'),
 });
 
 export const workTemplates = sqliteTable('work_templates', {
