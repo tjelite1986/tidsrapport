@@ -20,6 +20,8 @@ interface StatsData {
   entryTypes: { entryType: string; totalHours: number; count: number }[];
   monthlyIncome: { month: string; basePay: number; obPay: number; netPay: number }[];
   obDistribution: { percent: number; hours: number; amount: number }[];
+  departmentHours: { department: string; totalHours: number }[];
+  departmentMonthly: { month: string; data: { department: string; hours: number }[] }[];
 }
 
 function formatCurrency(amount: number) {
@@ -71,6 +73,38 @@ export default function StatistikPage() {
       ],
     };
   });
+
+  // Department colors
+  const deptColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+
+  // Department bar chart data
+  const deptBarData = (stats.departmentHours || []).map((d, i) => ({
+    label: d.department,
+    value: d.totalHours,
+    color: deptColors[i % deptColors.length],
+  }));
+
+  // Department stacked monthly chart
+  const allDepts = (stats.departmentHours || []).map((d) => d.department);
+  const deptMonthlyStackData = Array.from({ length: 12 }, (_, i) => {
+    const m = `${year}-${String(i + 1).padStart(2, '0')}`;
+    const monthData = (stats.departmentMonthly || []).find((d) => d.month === m);
+    return {
+      label: monthNames[i],
+      segments: allDepts.map((dept, di) => ({
+        value: monthData?.data.find((d) => d.department === dept)?.hours ?? 0,
+        color: deptColors[di % deptColors.length],
+        label: dept,
+      })),
+    };
+  });
+
+  // Department donut chart
+  const deptDonutData = (stats.departmentHours || []).map((d, i) => ({
+    label: d.department,
+    value: d.totalHours,
+    color: deptColors[i % deptColors.length],
+  }));
 
   // OB distribution for donut chart
   const obColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -222,6 +256,40 @@ export default function StatistikPage() {
           </div>
         )}
       </div>
+
+      {deptBarData.length > 0 && (
+        <>
+          <h2 className="text-xl font-bold mt-8 mb-4">Avdelningsstatistik</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow">
+              <BarChart
+                data={deptBarData}
+                title="Timmar per avdelning"
+                height={240}
+                formatValue={(v) => v.toFixed(1)}
+              />
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <DonutChart
+                data={deptDonutData}
+                title="Fördelning per avdelning"
+                size={180}
+                formatValue={(v) => `${v.toFixed(1)}h`}
+              />
+            </div>
+            {allDepts.length > 0 && (
+              <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">
+                <StackedBarChart
+                  data={deptMonthlyStackData}
+                  title="Timmar per avdelning och månad"
+                  height={240}
+                  formatValue={(v) => v.toFixed(1)}
+                />
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

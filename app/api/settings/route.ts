@@ -33,6 +33,7 @@ export async function GET() {
       salaryMode: 'contract',
       customHourlyRate: null,
       fixedMonthlySalary: null,
+      departments: '[]',
     });
   }
 
@@ -67,6 +68,7 @@ export async function PUT(req: NextRequest) {
     salaryMode: body.salaryMode ?? 'contract',
     customHourlyRate: body.customHourlyRate ?? null,
     fixedMonthlySalary: body.fixedMonthlySalary ?? null,
+    departments: body.departments ?? '[]',
   };
 
   if (existing) {

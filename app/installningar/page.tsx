@@ -155,6 +155,8 @@ function ScheduleMonthPreview({
 }
 
 export default function InstallningarPage() {
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [newDepartment, setNewDepartment] = useState('');
   const [settings, setSettings] = useState({
     workplaceType: 'none',
     contractLevel: '3plus',
@@ -211,6 +213,11 @@ export default function InstallningarPage() {
         fixedMonthlySalary: data.fixedMonthlySalary ?? null,
       });
       if (data.municipality) setMunicipalitySearch(data.municipality);
+      try {
+        setDepartments(JSON.parse(data.departments || '[]'));
+      } catch {
+        setDepartments([]);
+      }
     });
     fetch('/api/municipalities').then((r) => r.json()).then(setMunicipalities);
     fetch('/api/templates').then((r) => r.json()).then(setTemplates);
@@ -228,10 +235,21 @@ export default function InstallningarPage() {
     await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings),
+      body: JSON.stringify({ ...settings, departments: JSON.stringify(departments) }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function addDepartment() {
+    const trimmed = newDepartment.trim();
+    if (!trimmed || departments.includes(trimmed)) return;
+    setDepartments([...departments, trimmed]);
+    setNewDepartment('');
+  }
+
+  function removeDepartment(name: string) {
+    setDepartments(departments.filter((d) => d !== name));
   }
 
   async function addTemplate() {
@@ -565,6 +583,46 @@ export default function InstallningarPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Departments */}
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <h2 className="text-lg font-semibold mb-1">Avdelningar</h2>
+        <p className="text-sm text-gray-500 mb-4">Avdelningar du kan logga per arbetspass (t.ex. Kassa, Varuplock).</p>
+        {departments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {departments.map((d) => (
+              <span key={d} className="flex items-center gap-1 bg-blue-50 text-blue-800 text-sm px-3 py-1 rounded-full border border-blue-200">
+                {d}
+                <button
+                  type="button"
+                  onClick={() => removeDepartment(d)}
+                  className="text-blue-400 hover:text-red-500 ml-1 leading-none"
+                  title="Ta bort"
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newDepartment}
+            onChange={(e) => setNewDepartment(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDepartment(); } }}
+            placeholder="Ny avdelning..."
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            onClick={addDepartment}
+            className="bg-green-600 text-white px-3 py-2 rounded-md text-sm hover:bg-green-700"
+          >
+            Lägg till
+          </button>
         </div>
       </div>
 

@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
       breakMinutes: timeEntries.breakMinutes,
       entryType: timeEntries.entryType,
       overtimeType: timeEntries.overtimeType,
+      taskSegments: timeEntries.taskSegments,
     })
     .from(timeEntries)
     .where(
@@ -176,6 +177,37 @@ export async function GET(req: NextRequest) {
     .map(([percent, data]) => ({ percent, hours: data.hours, amount: data.amount }))
     .sort((a, b) => a.percent - b.percent);
 
+  // Department hours from task_segments
+  const deptTotalMap = new Map<string, number>();
+  const deptMonthMap = new Map<string, Map<string, number>>();
+
+  for (const entry of allEntries) {
+    if (!entry.taskSegments) continue;
+    try {
+      const segments = JSON.parse(entry.taskSegments) as { department: string; startTime: string; endTime: string }[];
+      const month = entry.date.slice(0, 7);
+      for (const seg of segments) {
+        if (!seg.department || !seg.startTime || !seg.endTime) continue;
+        const [sh, sm] = seg.startTime.split(':').map(Number);
+        const [eh, em] = seg.endTime.split(':').map(Number);
+        const hours = Math.max(0, (eh * 60 + em) - (sh * 60 + sm)) / 60;
+        deptTotalMap.set(seg.department, (deptTotalMap.get(seg.department) || 0) + hours);
+        if (!deptMonthMap.has(month)) deptMonthMap.set(month, new Map());
+        const mMap = deptMonthMap.get(month)!;
+        mMap.set(seg.department, (mMap.get(seg.department) || 0) + hours);
+      }
+    } catch {}
+  }
+
+  const departmentHours = Array.from(deptTotalMap.entries())
+    .map(([department, totalHours]) => ({ department, totalHours }))
+    .sort((a, b) => b.totalHours - a.totalHours);
+
+  const departmentMonthly = Array.from(deptMonthMap.entries()).map(([month, mMap]) => ({
+    month,
+    data: Array.from(mMap.entries()).map(([department, hours]) => ({ department, hours })),
+  }));
+
   return NextResponse.json({
     year,
     monthlyHours,
@@ -186,5 +218,7 @@ export async function GET(req: NextRequest) {
     entryTypes,
     monthlyIncome,
     obDistribution,
+    departmentHours,
+    departmentMonthly,
   });
 }

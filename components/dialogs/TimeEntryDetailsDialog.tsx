@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { parseTaskSegments } from '@/lib/types/segments';
+import { BreakPeriod, sumBreakMinutes } from '@/lib/types/break-periods';
 
 interface TimeEntryDetail {
   id: number;
@@ -11,9 +13,11 @@ interface TimeEntryDetail {
   startTime: string | null;
   endTime: string | null;
   breakMinutes: number | null;
+  breakPeriods?: BreakPeriod[] | null;
   entryType: string;
   overtimeType: string;
   description: string | null;
+  taskSegments: string | null;
 }
 
 interface PayDetail {
@@ -143,7 +147,18 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit }: Props
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <span className="text-gray-500">Rast</span>
-                <p className="font-medium">{entry.breakMinutes ?? 0} min</p>
+                <p className="font-medium">
+                  {entry.breakPeriods && entry.breakPeriods.length > 0
+                    ? `${sumBreakMinutes(entry.breakPeriods)} min`
+                    : `${entry.breakMinutes ?? 0} min`}
+                </p>
+                {entry.breakPeriods && entry.breakPeriods.length > 0 && (
+                  <div className="text-xs text-gray-400 mt-0.5 space-y-0.5">
+                    {entry.breakPeriods.map((bp, i) => (
+                      <div key={i}>{bp.start}–{bp.end}</div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <span className="text-gray-500">Effektiv tid</span>
@@ -198,6 +213,9 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit }: Props
             </div>
           )}
 
+          {/* Task segments */}
+          <TaskSegmentsView entry={entry} />
+
           {/* Edit button */}
           <button
             onClick={() => onEdit(entry)}
@@ -206,6 +224,88 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit }: Props
             Redigera
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const SEGMENT_COLORS = [
+  { bg: '#3b82f6', text: '#fff' }, // blue
+  { bg: '#22c55e', text: '#fff' }, // green
+  { bg: '#f97316', text: '#fff' }, // orange
+  { bg: '#a855f7', text: '#fff' }, // purple
+  { bg: '#14b8a6', text: '#fff' }, // teal
+];
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function TaskSegmentsView({ entry }: { entry: TimeEntryDetail }) {
+  const segments = parseTaskSegments(entry.taskSegments);
+  if (segments.length === 0) return null;
+
+  const passStartMin = entry.startTime ? timeToMinutes(entry.startTime) : null;
+  let passEndMin = entry.endTime ? timeToMinutes(entry.endTime) : null;
+  if (passStartMin !== null && passEndMin !== null && passEndMin <= passStartMin) {
+    passEndMin += 1440;
+  }
+  const duration = passStartMin !== null && passEndMin !== null ? passEndMin - passStartMin : 0;
+
+  return (
+    <div className="bg-gray-50 rounded-lg p-4">
+      <h3 className="text-sm font-semibold text-gray-700 mb-3">Avdelningsloggning</h3>
+
+      {/* Tidslinje */}
+      {duration > 0 && (
+        <div className="mb-3">
+          <div className="w-full h-6 rounded overflow-hidden flex bg-gray-200">
+            {segments.map((seg, i) => {
+              if (!seg.startTime || !seg.endTime) return null;
+              const segStart = timeToMinutes(seg.startTime);
+              let segEnd = timeToMinutes(seg.endTime);
+              if (segEnd <= segStart) segEnd += 1440;
+              const leftPct = ((segStart - passStartMin!) / duration) * 100;
+              const widthPct = ((segEnd - segStart) / duration) * 100;
+              const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
+              return (
+                <div
+                  key={i}
+                  title={`${seg.department}: ${seg.startTime}–${seg.endTime}`}
+                  style={{
+                    marginLeft: i === 0 ? `${Math.max(0, leftPct)}%` : undefined,
+                    width: `${Math.max(0, widthPct)}%`,
+                    backgroundColor: color.bg,
+                  }}
+                  className="h-full flex items-center justify-center overflow-hidden"
+                >
+                  <span className="text-xs font-medium truncate px-1" style={{ color: color.text }}>
+                    {seg.department}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <span>{entry.startTime}</span>
+            <span>{entry.endTime}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Lista */}
+      <div className="space-y-1">
+        {segments.map((seg, i) => {
+          const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
+          return (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: color.bg }} />
+              <span className="font-medium text-gray-800 min-w-[80px]">{seg.department}</span>
+              <span className="text-gray-500">{seg.startTime}–{seg.endTime}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

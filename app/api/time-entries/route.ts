@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { timeEntries, projects } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateWorkHours, calculateAutoBreak } from '@/lib/calculations';
+import { parseBreakPeriods, serializeBreakPeriods, sumBreakMinutes } from '@/lib/types/break-periods';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -30,9 +31,11 @@ export async function GET(req: NextRequest) {
       startTime: timeEntries.startTime,
       endTime: timeEntries.endTime,
       breakMinutes: timeEntries.breakMinutes,
+      breakPeriods: timeEntries.breakPeriods,
       entryType: timeEntries.entryType,
       overtimeType: timeEntries.overtimeType,
       description: timeEntries.description,
+      taskSegments: timeEntries.taskSegments,
       createdAt: timeEntries.createdAt,
     })
     .from(timeEntries)
@@ -40,7 +43,12 @@ export async function GET(req: NextRequest) {
     .where(and(...conditions))
     .all();
 
-  return NextResponse.json(entries);
+  const result = entries.map((e) => ({
+    ...e,
+    breakPeriods: parseBreakPeriods(e.breakPeriods),
+  }));
+
+  return NextResponse.json(result);
 }
 
 export async function POST(req: NextRequest) {
@@ -48,20 +56,32 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
 
   const body = await req.json();
-  const { projectId, date, hours, startTime, endTime, breakMinutes, entryType, overtimeType, description } = body;
+  const { projectId, date, hours, startTime, endTime, breakMinutes, breakPeriods: breakPeriodsRaw, entryType, overtimeType, description, taskSegments } = body;
 
   if (!projectId || !date) {
     return NextResponse.json({ error: 'Projekt och datum krävs' }, { status: 400 });
   }
 
-  // Calculate hours from start/end if provided
   let calculatedHours = hours ? parseFloat(hours) : 0;
-  let actualBreak = breakMinutes ?? 0;
+  let actualBreak = 0;
+  let serializedBreakPeriods: string | null = null;
 
-  if (startTime && endTime) {
+  if (breakPeriodsRaw && Array.isArray(breakPeriodsRaw) && breakPeriodsRaw.length > 0) {
+    const periods = parseBreakPeriods(JSON.stringify(breakPeriodsRaw));
+    actualBreak = sumBreakMinutes(periods);
+    serializedBreakPeriods = serializeBreakPeriods(periods);
+  } else if (startTime && endTime) {
     if (breakMinutes === undefined || breakMinutes === null) {
       actualBreak = calculateAutoBreak(startTime, endTime);
+    } else {
+      actualBreak = breakMinutes ?? 0;
     }
+    serializedBreakPeriods = null;
+  } else {
+    actualBreak = breakMinutes ?? 0;
+  }
+
+  if (startTime && endTime) {
     calculatedHours = calculateWorkHours(startTime, endTime, actualBreak);
   }
 
@@ -79,9 +99,11 @@ export async function POST(req: NextRequest) {
       startTime: startTime || null,
       endTime: endTime || null,
       breakMinutes: actualBreak,
+      breakPeriods: serializedBreakPeriods,
       entryType: entryType || 'work',
       overtimeType: overtimeType || 'none',
       description,
+      taskSegments: taskSegments || null,
     })
     .returning()
     .get();
@@ -94,17 +116,30 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
 
   const body = await req.json();
-  const { id, projectId, date, hours, startTime, endTime, breakMinutes, entryType, overtimeType, description } = body;
+  const { id, projectId, date, hours, startTime, endTime, breakMinutes, breakPeriods: breakPeriodsRaw, entryType, overtimeType, description, taskSegments } = body;
 
   if (!id) return NextResponse.json({ error: 'ID krävs' }, { status: 400 });
 
   let calculatedHours = hours ? parseFloat(hours) : 0;
-  let actualBreak = breakMinutes ?? 0;
+  let actualBreak = 0;
+  let serializedBreakPeriods: string | null = null;
 
-  if (startTime && endTime) {
+  if (breakPeriodsRaw && Array.isArray(breakPeriodsRaw) && breakPeriodsRaw.length > 0) {
+    const periods = parseBreakPeriods(JSON.stringify(breakPeriodsRaw));
+    actualBreak = sumBreakMinutes(periods);
+    serializedBreakPeriods = serializeBreakPeriods(periods);
+  } else if (startTime && endTime) {
     if (breakMinutes === undefined || breakMinutes === null) {
       actualBreak = calculateAutoBreak(startTime, endTime);
+    } else {
+      actualBreak = breakMinutes ?? 0;
     }
+    serializedBreakPeriods = null;
+  } else {
+    actualBreak = breakMinutes ?? 0;
+  }
+
+  if (startTime && endTime) {
     calculatedHours = calculateWorkHours(startTime, endTime, actualBreak);
   }
 
@@ -115,9 +150,11 @@ export async function PUT(req: NextRequest) {
   if (startTime !== undefined) updateData.startTime = startTime || null;
   if (endTime !== undefined) updateData.endTime = endTime || null;
   updateData.breakMinutes = actualBreak;
+  updateData.breakPeriods = serializedBreakPeriods;
   if (entryType !== undefined) updateData.entryType = entryType;
   if (overtimeType !== undefined) updateData.overtimeType = overtimeType;
   if (description !== undefined) updateData.description = description;
+  if (taskSegments !== undefined) updateData.taskSegments = taskSegments || null;
 
   const result = db
     .update(timeEntries)
