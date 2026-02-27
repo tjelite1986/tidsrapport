@@ -38,7 +38,7 @@ docker exec tidsrapport npx tsx scripts/migrate-$ARGUMENTS.ts /app/data/tidsrapp
 
 Om inget argument angavs, fråga: "Behöver du köra en migration? (ange t.ex. v10, eller nej)"
 
-Senast kända migration: **v9**
+Senast kända migration: **v9** (se @.claude/architecture.md för schema-info)
 DB-sökväg i container: `/app/data/tidsrapport.db`
 
 ## Steg 4 – Kontrollera loggarna

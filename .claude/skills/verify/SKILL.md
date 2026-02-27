@@ -1,7 +1,8 @@
 ---
 name: verify
 description: Kör verify-salary och/eller debug-ob mot lokal databas för att kontrollera löneberäkningar mot lönebesked.
-argument-hint: "[månad YYYY-MM | ob | all]"
+argument-hint: "[månad YYYY-MM | ob | jan | pdf | all]"
+context: fork
 allowed-tools: Bash(npx tsx scripts/verify-salary.ts:*), Bash(npx tsx scripts/verify-jan.ts:*), Bash(npx tsx scripts/debug-ob.ts:*), Bash(npx tsx scripts/generate-comparison-pdf.ts:*)
 ---
 

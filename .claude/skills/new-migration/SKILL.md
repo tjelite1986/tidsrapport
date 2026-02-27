@@ -67,3 +67,4 @@ Visa det skapade scriptet och be användaren granska det innan migration körs.
 - Använd ALLTID `PRAGMA table_info` för att kontrollera om kolumn/tabell redan finns
 - Ange alltid `data/tidsrapport.db` som default-sökväg i scriptet
 - Container-sökväg vid docker exec: `/app/data/tidsrapport.db`
+- Se @.claude/architecture.md för nuvarande DB-schema

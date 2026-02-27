@@ -1,0 +1,20 @@
+# Stora datafiler - ska ALDRIG läsas av Claude
+lib/tax-tables/data-*.json
+lib/tax-tables/municipalities-*.json
+
+# Build-output
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Databas och känsliga filer
+data/
+docs/*.pdf
+docs/*.jpg
+docs/*.png
+
+# Genererade filer
+*.generated.ts
+drizzle/
