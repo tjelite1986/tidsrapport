@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       entryType: timeEntries.entryType,
       overtimeType: timeEntries.overtimeType,
       description: timeEntries.description,
+      taskSegments: timeEntries.taskSegments,
     })
     .from(timeEntries)
     .leftJoin(projects, eq(timeEntries.projectId, projects.id))

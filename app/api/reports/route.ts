@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { timeEntries, projects, users } from '@/lib/db/schema';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     .leftJoin(projects, eq(timeEntries.projectId, projects.id))
     .leftJoin(users, eq(timeEntries.userId, users.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(timeEntries.date), desc(timeEntries.id))
     .all();
 
   return NextResponse.json(entries);

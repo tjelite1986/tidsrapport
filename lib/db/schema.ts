@@ -30,9 +30,11 @@ export const timeEntries = sqliteTable('time_entries', {
   startTime: text('start_time'), // HH:MM format
   endTime: text('end_time'), // HH:MM format
   breakMinutes: integer('break_minutes').default(0),
+  breakPeriods: text('break_periods'),
   entryType: text('entry_type', { enum: ['work', 'sick'] }).notNull().default('work'),
   overtimeType: text('overtime_type', { enum: ['none', 'mertid', 'enkel', 'kvalificerad'] }).notNull().default('none'),
   description: text('description'),
+  taskSegments: text('task_segments'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
@@ -64,6 +66,7 @@ export const userSettings = sqliteTable('user_settings', {
   salaryMode: text('salary_mode').notNull().default('contract'), // 'contract' | 'hourly' | 'fixed_plus'
   customHourlyRate: real('custom_hourly_rate'),
   fixedMonthlySalary: real('fixed_monthly_salary'),
+  departments: text('departments').notNull().default('[]'),
 });
 
 export const workTemplates = sqliteTable('work_templates', {

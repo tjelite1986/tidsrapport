@@ -9,6 +9,9 @@ import EditTimeEntryDialog from '@/components/dialogs/EditTimeEntryDialog';
 import CalendarWeekView from '@/components/calendar/CalendarWeekView';
 import CalendarMonthView from '@/components/calendar/CalendarMonthView';
 import CalendarViewToggle from '@/components/calendar/CalendarViewToggle';
+import TaskSegmentEditor from '@/components/TaskSegmentEditor';
+import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
+import { BreakPeriod, sumBreakMinutes, serializeBreakPeriods } from '@/lib/types/break-periods';
 
 interface Project {
   id: number;
@@ -25,9 +28,11 @@ interface TimeEntry {
   startTime: string | null;
   endTime: string | null;
   breakMinutes: number | null;
+  breakPeriods?: BreakPeriod[] | null;
   entryType: string;
   overtimeType: string;
   description: string | null;
+  taskSegments: string | null;
 }
 
 interface Template {
@@ -74,7 +79,7 @@ function calcHoursPreview(startTime: string, endTime: string, breakMin: number):
   return total > 0 ? total.toFixed(2) : '0';
 }
 
-function autoBreak(startTime: string, endTime: string): number {
+function autoBreakCalc(startTime: string, endTime: string): number {
   if (!startTime || !endTime) return 0;
   const [sh, sm] = startTime.split(':').map(Number);
   const [eh, em] = endTime.split(':').map(Number);
@@ -86,6 +91,23 @@ function autoBreak(startTime: string, endTime: string): number {
   if (hours >= 6) return 30;
   if (hours >= 4) return 15;
   return 0;
+}
+
+function generateBreakPeriod(startTime: string, endTime: string, breakMins: number): BreakPeriod {
+  const [sh, sm] = startTime.split(':').map(Number);
+  const [eh, em] = endTime.split(':').map(Number);
+  let startTotal = sh * 60 + sm;
+  let endTotal = eh * 60 + em;
+  if (endTotal <= startTotal) endTotal += 1440;
+  const midpoint = Math.floor((startTotal + endTotal) / 2);
+  const bsMin = midpoint - Math.floor(breakMins / 2);
+  const beMin = bsMin + breakMins;
+  const bsNorm = ((bsMin % 1440) + 1440) % 1440;
+  const beNorm = ((beMin % 1440) + 1440) % 1440;
+  return {
+    start: `${String(Math.floor(bsNorm / 60)).padStart(2, '0')}:${String(bsNorm % 60).padStart(2, '0')}`,
+    end: `${String(Math.floor(beNorm / 60)).padStart(2, '0')}:${String(beNorm % 60).padStart(2, '0')}`,
+  };
 }
 
 export default function TidPage() {
@@ -107,15 +129,14 @@ export default function TidPage() {
   });
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [breakMinutes, setBreakMinutes] = useState('');
+  const [breakPeriods, setBreakPeriods] = useState<BreakPeriod[]>([]);
   const [autoBreakEnabled, setAutoBreakEnabled] = useState(true);
-  const [breakMode, setBreakMode] = useState<'minutes' | 'time'>('minutes');
-  const [breakStart, setBreakStart] = useState('');
-  const [breakEnd, setBreakEnd] = useState('');
   const [entryType, setEntryType] = useState('work');
   const [overtimeType, setOvertimeType] = useState('none');
   const [description, setDescription] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [taskSegments, setTaskSegments] = useState<TaskSegment[]>([]);
 
   // Calendar view
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('month');
@@ -142,6 +163,7 @@ export default function TidPage() {
     });
     fetch('/api/settings').then((r) => r.json()).then((s: any) => {
       if (s.autoBreakCalc !== undefined) setAutoBreakEnabled(s.autoBreakCalc);
+      try { setDepartments(JSON.parse(s.departments || '[]')); } catch { setDepartments([]); }
     });
   }, []);
 
@@ -154,16 +176,25 @@ export default function TidPage() {
     setEntries(await res.json());
   }
 
+  async function fetchCalendarEntries() {
+    const start = `${monthYear.year}-${String(monthYear.month + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(monthYear.year, monthYear.month + 1, 0).getDate();
+    const end = `${monthYear.year}-${String(monthYear.month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    fetch(`/api/calendar-data?startDate=${start}&endDate=${end}`)
+      .then((r) => r.json())
+      .then((data) => setCalendarEntries(data.entries || []))
+      .catch(() => setCalendarEntries([]));
+  }
+
+  async function refreshAll() {
+    await fetchEntries();
+    await fetchCalendarEntries();
+  }
+
   // Fetch calendar data with pay info for month view
   useEffect(() => {
     if (calendarView === 'month') {
-      const start = `${monthYear.year}-${String(monthYear.month + 1).padStart(2, '0')}-01`;
-      const lastDay = new Date(monthYear.year, monthYear.month + 1, 0).getDate();
-      const end = `${monthYear.year}-${String(monthYear.month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      fetch(`/api/calendar-data?startDate=${start}&endDate=${end}`)
-        .then((r) => r.json())
-        .then((data) => setCalendarEntries(data.entries || []))
-        .catch(() => setCalendarEntries([]));
+      fetchCalendarEntries();
     }
   }, [calendarView, monthYear]);
 
@@ -181,29 +212,31 @@ export default function TidPage() {
     if (schedEntry && schedEntry.startTime && !startTime && !endTime) {
       setStartTime(schedEntry.startTime);
       setEndTime(schedEntry.endTime);
-      if (autoBreakEnabled) {
-        setBreakMinutes(String(autoBreak(schedEntry.startTime, schedEntry.endTime)));
-      } else {
-        setBreakMinutes(String(schedEntry.breakMinutes));
+      // If auto is off, set break from schedule; if auto is on, the auto-break effect handles it
+      if (!autoBreakEnabled) {
+        if (schedEntry.breakMinutes > 0) {
+          setBreakPeriods([generateBreakPeriod(schedEntry.startTime, schedEntry.endTime, schedEntry.breakMinutes)]);
+        } else {
+          setBreakPeriods([]);
+        }
       }
     }
   }, [date, scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount, refillTrigger]);
 
-  // Auto-calculate break when times change
+  // Auto-calculate break when times change (or when auto mode is toggled on)
   useEffect(() => {
-    if (autoBreakEnabled && startTime && endTime) {
-      setBreakMinutes(String(autoBreak(startTime, endTime)));
+    if (!autoBreakEnabled) return;
+    if (!startTime || !endTime) {
+      setBreakPeriods([]);
+      return;
     }
+    const mins = autoBreakCalc(startTime, endTime);
+    if (mins === 0) {
+      setBreakPeriods([]);
+      return;
+    }
+    setBreakPeriods([generateBreakPeriod(startTime, endTime, mins)]);
   }, [startTime, endTime, autoBreakEnabled]);
-
-  // Beräkna rastminuter från klockslag
-  useEffect(() => {
-    if (breakMode !== 'time' || !breakStart || !breakEnd) return;
-    const [sh, sm] = breakStart.split(':').map(Number);
-    const [eh, em] = breakEnd.split(':').map(Number);
-    const mins = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
-    setBreakMinutes(String(mins));
-  }, [breakStart, breakEnd, breakMode]);
 
   function applyTemplate(templateId: string) {
     setSelectedTemplate(templateId);
@@ -211,7 +244,14 @@ export default function TidPage() {
     if (tmpl) {
       setStartTime(tmpl.startTime);
       setEndTime(tmpl.endTime);
-      setBreakMinutes(String(tmpl.breakMinutes));
+      // Auto-break effect handles it if auto is on; else set from template
+      if (!autoBreakEnabled) {
+        if (tmpl.breakMinutes > 0) {
+          setBreakPeriods([generateBreakPeriod(tmpl.startTime, tmpl.endTime, tmpl.breakMinutes)]);
+        } else {
+          setBreakPeriods([]);
+        }
+      }
     }
   }
 
@@ -234,22 +274,29 @@ export default function TidPage() {
     if (sched) {
       setStartTime(sched.startTime);
       setEndTime(sched.endTime);
-      setBreakMinutes(autoBreakEnabled
-        ? String(autoBreak(sched.startTime, sched.endTime))
-        : String(sched.breakMinutes));
+      if (!autoBreakEnabled) {
+        if (sched.breakMinutes > 0) {
+          setBreakPeriods([generateBreakPeriod(sched.startTime, sched.endTime, sched.breakMinutes)]);
+        } else {
+          setBreakPeriods([]);
+        }
+      }
+      // Auto-break effect fires when startTime/endTime are updated if autoBreakEnabled
     } else {
       setStartTime('');
       setEndTime('');
-      setBreakMinutes('');
+      setBreakPeriods([]);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  const previewHours = calcHoursPreview(startTime, endTime, parseInt(breakMinutes) || 0);
+  const totalBreakMinutes = sumBreakMinutes(breakPeriods);
+  const previewHours = calcHoursPreview(startTime, endTime, totalBreakMinutes);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError('');
+    const validPeriods = breakPeriods.filter((bp) => bp.start && bp.end);
     const res = await fetch('/api/time-entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -258,10 +305,13 @@ export default function TidPage() {
         date,
         startTime: startTime || undefined,
         endTime: endTime || undefined,
-        breakMinutes: startTime && endTime ? parseInt(breakMinutes) || 0 : undefined,
+        ...(validPeriods.length > 0
+          ? { breakPeriods: validPeriods }
+          : { breakMinutes: startTime && endTime ? 0 : undefined }),
         entryType,
         overtimeType,
         description,
+        taskSegments: serializeTaskSegments(taskSegments),
       }),
     });
     if (!res.ok) {
@@ -271,20 +321,19 @@ export default function TidPage() {
     }
     setStartTime('');
     setEndTime('');
-    setBreakMinutes('');
-    setBreakStart('');
-    setBreakEnd('');
+    setBreakPeriods([]);
     setDescription('');
     setSelectedTemplate('');
     setOvertimeType('none');
     setEntryType('work');
+    setTaskSegments([]);
     setRefillTrigger((t) => t + 1); // Triggar om schema-auto-fill för nästa post
-    fetchEntries();
+    refreshAll();
   }
 
   async function handleDelete(id: number) {
     await fetch(`/api/time-entries?id=${id}`, { method: 'DELETE' });
-    setEntries(entries.filter((e) => e.id !== id));
+    refreshAll();
   }
 
   const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
@@ -357,54 +406,66 @@ export default function TidPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-          <div>
+          <div className="lg:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Rast
+              Raster
               <span className="ml-2 inline-flex rounded overflow-hidden border border-gray-200 text-xs align-middle">
                 <button type="button"
-                  onClick={() => { setAutoBreakEnabled(true); setBreakMode('minutes'); }}
+                  onClick={() => setAutoBreakEnabled(true)}
                   className={`px-2 py-1 transition-colors ${autoBreakEnabled ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
                   Auto
                 </button>
                 <button type="button"
-                  onClick={() => { setAutoBreakEnabled(false); setBreakMode('minutes'); }}
-                  className={`px-2 py-1 transition-colors border-l border-gray-200 ${!autoBreakEnabled && breakMode === 'minutes' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                  min
-                </button>
-                <button type="button"
-                  onClick={() => { setAutoBreakEnabled(false); setBreakMode('time'); }}
-                  className={`px-2 py-1 transition-colors border-l border-gray-200 ${breakMode === 'time' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                  tid
+                  onClick={() => setAutoBreakEnabled(false)}
+                  className={`px-2 py-1 transition-colors border-l border-gray-200 ${!autoBreakEnabled ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  Manuell
                 </button>
               </span>
             </label>
-            {breakMode === 'time' ? (
-              <div>
-                <div className="grid grid-cols-2 gap-1">
+            <div className="space-y-1">
+              {breakPeriods.map((bp, idx) => (
+                <div key={idx} className="flex items-center gap-2">
                   <TimePicker
-                    value={breakStart}
-                    onChange={setBreakStart}
+                    value={bp.start}
+                    onChange={(v) => {
+                      setAutoBreakEnabled(false);
+                      setBreakPeriods((prev) => prev.map((p, i) => i === idx ? { ...p, start: v } : p));
+                    }}
                     placeholder="Start"
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
+                  <span className="text-gray-400 text-sm">–</span>
                   <TimePicker
-                    value={breakEnd}
-                    onChange={setBreakEnd}
+                    value={bp.end}
+                    onChange={(v) => {
+                      setAutoBreakEnabled(false);
+                      setBreakPeriods((prev) => prev.map((p, i) => i === idx ? { ...p, end: v } : p));
+                    }}
                     placeholder="Slut"
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
+                  <button
+                    type="button"
+                    onClick={() => { setAutoBreakEnabled(false); setBreakPeriods((prev) => prev.filter((_, i) => i !== idx)); }}
+                    className="text-red-500 hover:text-red-700 text-xs px-1 flex-shrink-0"
+                  >
+                    Ta bort
+                  </button>
                 </div>
-                {breakMinutes && <p className="text-xs text-gray-500 mt-1">= {breakMinutes} min</p>}
-              </div>
-            ) : (
-              <input
-                type="number"
-                min="0"
-                value={breakMinutes}
-                disabled={autoBreakEnabled}
-                onChange={(e) => { setAutoBreakEnabled(false); setBreakMinutes(e.target.value); }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
-              />
+              ))}
+              {breakPeriods.length === 0 && (
+                <p className="text-xs text-gray-400">Ingen rast</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => { setAutoBreakEnabled(false); setBreakPeriods((prev) => [...prev, { start: '', end: '' }]); }}
+              className="mt-1 text-xs text-blue-600 hover:underline"
+            >
+              + Lägg till rast
+            </button>
+            {totalBreakMinutes > 0 && (
+              <p className="text-xs text-gray-500 mt-1">Totalt: {totalBreakMinutes} min</p>
             )}
           </div>
           <div>
@@ -441,6 +502,14 @@ export default function TidPage() {
             />
           </div>
         </div>
+
+        <TaskSegmentEditor
+          segments={taskSegments}
+          onChange={setTaskSegments}
+          departments={departments}
+          passStart={startTime}
+          passEnd={endTime}
+        />
 
         <div className="mt-4 flex items-center gap-4">
           <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
@@ -540,7 +609,9 @@ export default function TidPage() {
                     {entry.startTime && entry.endTime
                       ? `${entry.startTime}-${entry.endTime}`
                       : '-'}
-                    {entry.breakMinutes ? ` (${entry.breakMinutes}m rast)` : ''}
+                    {entry.breakPeriods && entry.breakPeriods.length > 0
+                      ? ` (${sumBreakMinutes(entry.breakPeriods)}m rast)`
+                      : entry.breakMinutes ? ` (${entry.breakMinutes}m rast)` : ''}
                   </td>
                   <td className="px-4 py-2">{entry.hours.toFixed(2)}</td>
                   <td className="px-4 py-2">
@@ -589,8 +660,9 @@ export default function TidPage() {
       <EditTimeEntryDialog
         entry={editEntry}
         projects={projects}
+        departments={departments}
         onClose={() => setEditEntry(null)}
-        onSaved={fetchEntries}
+        onSaved={refreshAll}
       />
     </div>
   );

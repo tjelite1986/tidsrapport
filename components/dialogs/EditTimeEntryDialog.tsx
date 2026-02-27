@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import DatePicker from '@/components/DatePicker';
 import TimePicker from '@/components/TimePicker';
+import TaskSegmentEditor from '@/components/TaskSegmentEditor';
+import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
+import { BreakPeriod, sumBreakMinutes } from '@/lib/types/break-periods';
 
 interface TimeEntryDetail {
   id: number;
@@ -13,9 +16,11 @@ interface TimeEntryDetail {
   startTime: string | null;
   endTime: string | null;
   breakMinutes: number | null;
+  breakPeriods?: BreakPeriod[] | null;
   entryType: string;
   overtimeType: string;
   description: string | null;
+  taskSegments: string | null;
 }
 
 interface Project {
@@ -27,6 +32,7 @@ interface Project {
 interface Props {
   entry: TimeEntryDetail | null;
   projects: Project[];
+  departments: string[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -42,18 +48,16 @@ function calcHoursPreview(startTime: string, endTime: string, breakMin: number):
   return total > 0 ? total.toFixed(2) : '0';
 }
 
-export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved }: Props) {
+export default function EditTimeEntryDialog({ entry, projects, departments, onClose, onSaved }: Props) {
   const [projectId, setProjectId] = useState('');
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [breakMinutes, setBreakMinutes] = useState('');
-  const [breakMode, setBreakMode] = useState<'minutes' | 'time'>('minutes');
-  const [breakStart, setBreakStart] = useState('');
-  const [breakEnd, setBreakEnd] = useState('');
+  const [breakPeriods, setBreakPeriods] = useState<BreakPeriod[]>([]);
   const [entryType, setEntryType] = useState('work');
   const [overtimeType, setOvertimeType] = useState('none');
   const [description, setDescription] = useState('');
+  const [taskSegments, setTaskSegments] = useState<TaskSegment[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,26 +67,24 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
     setDate(entry.date);
     setStartTime(entry.startTime || '');
     setEndTime(entry.endTime || '');
-    setBreakMinutes(String(entry.breakMinutes ?? 0));
-    setBreakMode('minutes');
-    setBreakStart('');
-    setBreakEnd('');
+    if (entry.breakPeriods && entry.breakPeriods.length > 0) {
+      setBreakPeriods(entry.breakPeriods);
+    } else if (entry.breakMinutes && entry.breakMinutes > 0) {
+      // Legacy entry without period data: show one row with empty times
+      setBreakPeriods([{ start: '', end: '' }]);
+    } else {
+      setBreakPeriods([]);
+    }
     setEntryType(entry.entryType);
     setOvertimeType(entry.overtimeType);
     setDescription(entry.description || '');
+    setTaskSegments(parseTaskSegments(entry.taskSegments));
   }, [entry]);
-
-  useEffect(() => {
-    if (breakMode !== 'time' || !breakStart || !breakEnd) return;
-    const [sh, sm] = breakStart.split(':').map(Number);
-    const [eh, em] = breakEnd.split(':').map(Number);
-    const mins = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
-    setBreakMinutes(String(mins));
-  }, [breakStart, breakEnd, breakMode]);
 
   if (!entry) return null;
 
-  const previewHours = calcHoursPreview(startTime, endTime, parseInt(breakMinutes) || 0);
+  const totalBreakMinutes = sumBreakMinutes(breakPeriods);
+  const previewHours = calcHoursPreview(startTime, endTime, totalBreakMinutes);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -90,6 +92,7 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
     setError('');
 
     try {
+      const validPeriods = breakPeriods.filter((bp) => bp.start && bp.end);
       const res = await fetch('/api/time-entries', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -99,10 +102,13 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
           date,
           startTime: startTime || undefined,
           endTime: endTime || undefined,
-          breakMinutes: startTime && endTime ? parseInt(breakMinutes) || 0 : undefined,
+          ...(validPeriods.length > 0
+            ? { breakPeriods: validPeriods }
+            : { breakMinutes: startTime && endTime ? 0 : undefined }),
           entryType,
           overtimeType,
           description: description || undefined,
+          taskSegments: serializeTaskSegments(taskSegments),
         }),
       });
 
@@ -178,62 +184,62 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Rast
-                <span className="ml-2 inline-flex rounded overflow-hidden border border-gray-200 text-xs align-middle">
-                  <button type="button"
-                    onClick={() => setBreakMode('minutes')}
-                    className={`px-2 py-0.5 transition-colors ${breakMode === 'minutes' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                    min
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Raster</label>
+            <div className="space-y-1">
+              {breakPeriods.map((bp, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <TimePicker
+                    value={bp.start}
+                    onChange={(v) => setBreakPeriods((prev) => prev.map((p, i) => i === idx ? { ...p, start: v } : p))}
+                    placeholder="Start"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <span className="text-gray-400 text-sm">–</span>
+                  <TimePicker
+                    value={bp.end}
+                    onChange={(v) => setBreakPeriods((prev) => prev.map((p, i) => i === idx ? { ...p, end: v } : p))}
+                    placeholder="Slut"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setBreakPeriods((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-red-500 hover:text-red-700 text-xs px-1 flex-shrink-0"
+                  >
+                    Ta bort
                   </button>
-                  <button type="button"
-                    onClick={() => setBreakMode('time')}
-                    className={`px-2 py-0.5 transition-colors border-l border-gray-200 ${breakMode === 'time' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
-                    tid
-                  </button>
-                </span>
-              </label>
-              {breakMode === 'time' ? (
-                <div>
-                  <div className="grid grid-cols-2 gap-1">
-                    <TimePicker
-                      value={breakStart}
-                      onChange={setBreakStart}
-                      placeholder="Start"
-                      className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                    <TimePicker
-                      value={breakEnd}
-                      onChange={setBreakEnd}
-                      placeholder="Slut"
-                      className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                  {breakMinutes && <p className="text-xs text-gray-500 mt-1">= {breakMinutes} min</p>}
                 </div>
-              ) : (
-                <input
-                  type="number"
-                  min="0"
-                  value={breakMinutes}
-                  onChange={(e) => setBreakMinutes(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              ))}
+              {breakPeriods.length === 0 && (
+                <p className="text-xs text-gray-400">Ingen rast</p>
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
-              <select
-                value={entryType}
-                onChange={(e) => setEntryType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="work">Arbete</option>
-                <option value="sick">Sjukdag</option>
-              </select>
-            </div>
+            <button
+              type="button"
+              onClick={() => setBreakPeriods((prev) => [...prev, { start: '', end: '' }])}
+              className="mt-1 text-xs text-blue-600 hover:underline"
+            >
+              + Lägg till rast
+            </button>
+            {totalBreakMinutes > 0 && (
+              <p className="text-xs text-gray-500 mt-1">Totalt: {totalBreakMinutes} min</p>
+            )}
+            {breakPeriods.some((bp) => !bp.start || !bp.end) && entry?.breakMinutes && entry.breakMinutes > 0 && (
+              <p className="text-xs text-gray-400 mt-0.5">Befintlig rast: {entry.breakMinutes} min (ingen tidsangivelse)</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+            <select
+              value={entryType}
+              onChange={(e) => setEntryType(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="work">Arbete</option>
+              <option value="sick">Sjukdag</option>
+            </select>
           </div>
 
           <div>
@@ -259,6 +265,14 @@ export default function EditTimeEntryDialog({ entry, projects, onClose, onSaved 
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          <TaskSegmentEditor
+            segments={taskSegments}
+            onChange={setTaskSegments}
+            departments={departments}
+            passStart={startTime}
+            passEnd={endTime}
+          />
 
           {previewHours && (
             <p className="text-sm text-gray-600">
