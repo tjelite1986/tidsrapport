@@ -6,6 +6,7 @@ interface ParsedShift {
   date: string;
   startTime: string;
   endTime: string;
+  breakMinutes: number;
 }
 
 interface Project {
@@ -95,9 +96,9 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
         return;
       }
 
-      const parsed: ParsedShift[] = (data.shifts || []).sort(
-        (a: ParsedShift, b: ParsedShift) => a.date.localeCompare(b.date)
-      );
+      const parsed: ParsedShift[] = (data.shifts || [])
+        .sort((a: ParsedShift, b: ParsedShift) => a.date.localeCompare(b.date))
+        .map((s: ParsedShift) => ({ ...s, breakMinutes: 0 }));
 
       if (parsed.length === 0) {
         setError('Inga arbetspass hittades i bilden. Försök med en tydligare bild.');
@@ -136,6 +137,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
           date: shift.date,
           startTime: shift.startTime,
           endTime: shift.endTime,
+          breakMinutes: shift.breakMinutes || 0,
         }),
       });
       if (res.ok) count++;
@@ -176,7 +178,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
     setSelected(next);
   }
 
-  function updateShiftTime(idx: number, field: 'startTime' | 'endTime', value: string) {
+  function updateShift(idx: number, field: keyof ParsedShift, value: string | number) {
     setShifts((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   }
 
@@ -323,15 +325,25 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
                       <input
                         type="time"
                         value={shift.startTime}
-                        onChange={(e) => updateShiftTime(idx, 'startTime', e.target.value)}
+                        onChange={(e) => updateShift(idx, 'startTime', e.target.value)}
                         className="text-sm border border-gray-200 rounded px-1.5 py-1 font-mono w-24 focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                       <span className="text-gray-400 text-sm">–</span>
                       <input
                         type="time"
                         value={shift.endTime}
-                        onChange={(e) => updateShiftTime(idx, 'endTime', e.target.value)}
+                        onChange={(e) => updateShift(idx, 'endTime', e.target.value)}
                         className="text-sm border border-gray-200 rounded px-1.5 py-1 font-mono w-24 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="5"
+                        value={shift.breakMinutes || ''}
+                        onChange={(e) => updateShift(idx, 'breakMinutes', parseInt(e.target.value) || 0)}
+                        placeholder="Rast"
+                        title="Rast i minuter"
+                        className="text-sm border border-gray-200 rounded px-1.5 py-1 w-16 focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
                   ))}
