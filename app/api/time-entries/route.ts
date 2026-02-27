@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { timeEntries, projects } from '@/lib/db/schema';
+import { timeEntries, projects, userSettings } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateWorkHours, calculateAutoBreak } from '@/lib/calculations';
 import { parseBreakPeriods, serializeBreakPeriods, sumBreakMinutes } from '@/lib/types/break-periods';
+import { BreakRule } from '@/lib/calculations';
+
+function getUserBreakRules(userId: number): BreakRule[] | undefined {
+  const s = db.select({ autoBreakRules: userSettings.autoBreakRules }).from(userSettings).where(eq(userSettings.userId, userId)).get();
+  if (!s?.autoBreakRules) return undefined;
+  try { return JSON.parse(s.autoBreakRules); } catch { return undefined; }
+}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -72,7 +79,7 @@ export async function POST(req: NextRequest) {
     serializedBreakPeriods = serializeBreakPeriods(periods);
   } else if (startTime && endTime) {
     if (breakMinutes === undefined || breakMinutes === null) {
-      actualBreak = calculateAutoBreak(startTime, endTime);
+      actualBreak = calculateAutoBreak(startTime, endTime, getUserBreakRules(parseInt(session.user.id)));
     } else {
       actualBreak = breakMinutes ?? 0;
     }
@@ -130,7 +137,7 @@ export async function PUT(req: NextRequest) {
     serializedBreakPeriods = serializeBreakPeriods(periods);
   } else if (startTime && endTime) {
     if (breakMinutes === undefined || breakMinutes === null) {
-      actualBreak = calculateAutoBreak(startTime, endTime);
+      actualBreak = calculateAutoBreak(startTime, endTime, getUserBreakRules(parseInt(session.user.id)));
     } else {
       actualBreak = breakMinutes ?? 0;
     }

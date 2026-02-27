@@ -154,11 +154,14 @@ function ScheduleMonthPreview({
   );
 }
 
+interface BreakRule { minHours: number; breakMinutes: number; }
+
 export default function InstallningarPage() {
   const [departments, setDepartments] = useState<string[]>([]);
   const [newDepartment, setNewDepartment] = useState('');
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const [deleteAllDone, setDeleteAllDone] = useState(false);
+  const [autoBreakRules, setAutoBreakRules] = useState<BreakRule[]>([]);
   const [settings, setSettings] = useState({
     workplaceType: 'none',
     contractLevel: '3plus',
@@ -215,11 +218,8 @@ export default function InstallningarPage() {
         fixedMonthlySalary: data.fixedMonthlySalary ?? null,
       });
       if (data.municipality) setMunicipalitySearch(data.municipality);
-      try {
-        setDepartments(JSON.parse(data.departments || '[]'));
-      } catch {
-        setDepartments([]);
-      }
+      try { setDepartments(JSON.parse(data.departments || '[]')); } catch { setDepartments([]); }
+      try { setAutoBreakRules(JSON.parse(data.autoBreakRules || '[]')); } catch { setAutoBreakRules([]); }
     });
     fetch('/api/municipalities').then((r) => r.json()).then(setMunicipalities);
     fetch('/api/templates').then((r) => r.json()).then(setTemplates);
@@ -237,7 +237,7 @@ export default function InstallningarPage() {
     await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...settings, departments: JSON.stringify(departments) }),
+      body: JSON.stringify({ ...settings, departments: JSON.stringify(departments), autoBreakRules: JSON.stringify(autoBreakRules) }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -558,6 +558,66 @@ export default function InstallningarPage() {
             />
             <label htmlFor="autoBreak" className="text-sm text-gray-700">Automatisk rastberäkning</label>
           </div>
+
+          {settings.autoBreakCalc && (
+            <div className="col-span-1 md:col-span-2 mt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rastgränser</label>
+              <p className="text-xs text-gray-400 mb-2">Pass som är minst X timmar får automatiskt Y minuters rast. Lägg till flera regler – den längsta matchande gäller.</p>
+              {autoBreakRules.length > 0 && (
+                <div className="space-y-1.5 mb-2">
+                  {autoBreakRules.map((rule, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500 w-20">Min timmar</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={rule.minHours}
+                        onChange={(e) => {
+                          const next = [...autoBreakRules];
+                          next[i] = { ...next[i], minHours: parseFloat(e.target.value) || 0 };
+                          setAutoBreakRules(next);
+                        }}
+                        className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-500">→ Rast</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="5"
+                        value={rule.breakMinutes}
+                        onChange={(e) => {
+                          const next = [...autoBreakRules];
+                          next[i] = { ...next[i], breakMinutes: parseInt(e.target.value) || 0 };
+                          setAutoBreakRules(next);
+                        }}
+                        className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-500">min</span>
+                      <button
+                        type="button"
+                        onClick={() => setAutoBreakRules(autoBreakRules.filter((_, j) => j !== i))}
+                        className="text-red-400 hover:text-red-600 text-lg leading-none ml-1"
+                        title="Ta bort"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {autoBreakRules.length === 0 && (
+                <p className="text-xs text-gray-400 italic mb-2">Inga regler – standardvärden används (4h→15min, 6h→30min, 8h→60min).</p>
+              )}
+              <button
+                type="button"
+                onClick={() => setAutoBreakRules([...autoBreakRules, { minHours: 6, breakMinutes: 30 }])}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                + Lägg till regel
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

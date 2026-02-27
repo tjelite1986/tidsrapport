@@ -34,6 +34,7 @@ export async function GET() {
       customHourlyRate: null,
       fixedMonthlySalary: null,
       departments: '[]',
+      autoBreakRules: '[]',
     });
   }
 
@@ -69,6 +70,7 @@ export async function PUT(req: NextRequest) {
     customHourlyRate: body.customHourlyRate ?? null,
     fixedMonthlySalary: body.fixedMonthlySalary ?? null,
     departments: body.departments ?? '[]',
+    autoBreakRules: body.autoBreakRules ?? '[]',
   };
 
   if (existing) {

@@ -67,6 +67,7 @@ export const userSettings = sqliteTable('user_settings', {
   customHourlyRate: real('custom_hourly_rate'),
   fixedMonthlySalary: real('fixed_monthly_salary'),
   departments: text('departments').notNull().default('[]'),
+  autoBreakRules: text('auto_break_rules'),
 });
 
 export const workTemplates = sqliteTable('work_templates', {

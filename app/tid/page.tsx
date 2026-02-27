@@ -13,6 +13,7 @@ import TaskSegmentEditor from '@/components/TaskSegmentEditor';
 import ScheduleImportDialog from '@/components/dialogs/ScheduleImportDialog';
 import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
 import { BreakPeriod, sumBreakMinutes, serializeBreakPeriods } from '@/lib/types/break-periods';
+import { BreakRule } from '@/lib/calculations';
 
 interface Project {
   id: number;
@@ -80,7 +81,7 @@ function calcHoursPreview(startTime: string, endTime: string, breakMin: number):
   return total > 0 ? total.toFixed(2) : '0';
 }
 
-function autoBreakCalc(startTime: string, endTime: string): number {
+function autoBreakCalc(startTime: string, endTime: string, rules?: BreakRule[]): number {
   if (!startTime || !endTime) return 0;
   const [sh, sm] = startTime.split(':').map(Number);
   const [eh, em] = endTime.split(':').map(Number);
@@ -88,6 +89,11 @@ function autoBreakCalc(startTime: string, endTime: string): number {
   let endMinutes = eh * 60 + em;
   if (endMinutes <= startMinutes) endMinutes += 1440;
   const hours = (endMinutes - startMinutes) / 60;
+  if (rules && rules.length > 0) {
+    const sorted = [...rules].sort((a, b) => b.minHours - a.minHours);
+    const match = sorted.find((r) => hours >= r.minHours);
+    return match ? match.breakMinutes : 0;
+  }
   if (hours >= 8) return 60;
   if (hours >= 6) return 30;
   if (hours >= 4) return 15;
@@ -132,6 +138,7 @@ export default function TidPage() {
   const [endTime, setEndTime] = useState('');
   const [breakPeriods, setBreakPeriods] = useState<BreakPeriod[]>([]);
   const [autoBreakEnabled, setAutoBreakEnabled] = useState(true);
+  const [autoBreakRules, setAutoBreakRules] = useState<BreakRule[]>([]);
   const [entryType, setEntryType] = useState('work');
   const [overtimeType, setOvertimeType] = useState('none');
   const [description, setDescription] = useState('');
@@ -166,6 +173,7 @@ export default function TidPage() {
     fetch('/api/settings').then((r) => r.json()).then((s: any) => {
       if (s.autoBreakCalc !== undefined) setAutoBreakEnabled(s.autoBreakCalc);
       try { setDepartments(JSON.parse(s.departments || '[]')); } catch { setDepartments([]); }
+      try { setAutoBreakRules(JSON.parse(s.autoBreakRules || '[]')); } catch { setAutoBreakRules([]); }
     });
   }, []);
 
@@ -232,13 +240,13 @@ export default function TidPage() {
       setBreakPeriods([]);
       return;
     }
-    const mins = autoBreakCalc(startTime, endTime);
+    const mins = autoBreakCalc(startTime, endTime, autoBreakRules.length > 0 ? autoBreakRules : undefined);
     if (mins === 0) {
       setBreakPeriods([]);
       return;
     }
     setBreakPeriods([generateBreakPeriod(startTime, endTime, mins)]);
-  }, [startTime, endTime, autoBreakEnabled]);
+  }, [startTime, endTime, autoBreakEnabled, autoBreakRules]);
 
   function applyTemplate(templateId: string) {
     setSelectedTemplate(templateId);

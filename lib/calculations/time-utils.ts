@@ -43,11 +43,19 @@ export function calculateWorkHours(startTime: string, endTime: string, breakMinu
   return Math.max(0, totalMinutes / 60);
 }
 
-export function calculateAutoBreak(startTime: string, endTime: string): number {
+export interface BreakRule { minHours: number; breakMinutes: number; }
+
+export function calculateAutoBreak(startTime: string, endTime: string, rules?: BreakRule[]): number {
   let startMin = timeToMinutes(startTime);
   let endMin = timeToMinutes(endTime);
   if (endMin <= startMin) endMin += 24 * 60;
   const totalHours = (endMin - startMin) / 60;
+
+  if (rules && rules.length > 0) {
+    const sorted = [...rules].sort((a, b) => b.minHours - a.minHours);
+    const match = sorted.find((r) => totalHours >= r.minHours);
+    return match ? match.breakMinutes : 0;
+  }
 
   if (totalHours >= 8) return 60;
   if (totalHours >= 6) return 30;
