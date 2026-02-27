@@ -10,6 +10,7 @@ import CalendarWeekView from '@/components/calendar/CalendarWeekView';
 import CalendarMonthView from '@/components/calendar/CalendarMonthView';
 import CalendarViewToggle from '@/components/calendar/CalendarViewToggle';
 import TaskSegmentEditor from '@/components/TaskSegmentEditor';
+import ScheduleImportDialog from '@/components/dialogs/ScheduleImportDialog';
 import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
 import { BreakPeriod, sumBreakMinutes, serializeBreakPeriods } from '@/lib/types/break-periods';
 
@@ -146,6 +147,7 @@ export default function TidPage() {
   // Dialog states
   const [detailEntry, setDetailEntry] = useState<TimeEntry | null>(null);
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
+  const [scheduleImportOpen, setScheduleImportOpen] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
   const week = getWeekDates(weekOffset);
@@ -343,7 +345,16 @@ export default function TidPage() {
       <h1 className="text-2xl font-bold mb-6">Tidsregistrering</h1>
 
       <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-lg shadow mb-6">
-        <h2 className="text-lg font-semibold mb-4">Logga tid</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Logga tid</h2>
+          <button
+            type="button"
+            onClick={() => setScheduleImportOpen(true)}
+            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Importera schema
+          </button>
+        </div>
 
         {templates.length > 0 && (
           <div className="mb-4">
@@ -656,6 +667,11 @@ export default function TidPage() {
         entry={detailEntry}
         onClose={() => setDetailEntry(null)}
         onEdit={(e) => { setDetailEntry(null); setEditEntry(e); }}
+        onDelete={async (id) => {
+          await fetch(`/api/time-entries?id=${id}`, { method: 'DELETE' });
+          setDetailEntry(null);
+          refreshAll();
+        }}
       />
       <EditTimeEntryDialog
         entry={editEntry}
@@ -663,6 +679,12 @@ export default function TidPage() {
         departments={departments}
         onClose={() => setEditEntry(null)}
         onSaved={refreshAll}
+      />
+      <ScheduleImportDialog
+        open={scheduleImportOpen}
+        projects={projects}
+        onClose={() => setScheduleImportOpen(false)}
+        onImported={refreshAll}
       />
     </div>
   );

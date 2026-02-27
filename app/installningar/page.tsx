@@ -157,6 +157,8 @@ function ScheduleMonthPreview({
 export default function InstallningarPage() {
   const [departments, setDepartments] = useState<string[]>([]);
   const [newDepartment, setNewDepartment] = useState('');
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
+  const [deleteAllDone, setDeleteAllDone] = useState(false);
   const [settings, setSettings] = useState({
     workplaceType: 'none',
     contractLevel: '3plus',
@@ -269,6 +271,13 @@ export default function InstallningarPage() {
   async function deleteTemplate(id: number) {
     await fetch(`/api/templates?id=${id}`, { method: 'DELETE' });
     setTemplates(templates.filter((t) => t.id !== id));
+  }
+
+  async function deleteAllEntries() {
+    await fetch('/api/time-entries?all=true', { method: 'DELETE' });
+    setDeleteAllConfirm(false);
+    setDeleteAllDone(true);
+    setTimeout(() => setDeleteAllDone(false), 4000);
   }
 
   async function saveSchedule() {
@@ -829,6 +838,44 @@ export default function InstallningarPage() {
             scheduleD={scheduleD}
             weekCount={weekCount}
           />
+        )}
+      </div>
+
+      {/* Danger zone */}
+      <div className="bg-white p-6 rounded-lg shadow mt-6 border border-red-200">
+        <h2 className="text-lg font-semibold text-red-700 mb-1">Farlig zon</h2>
+        <p className="text-sm text-gray-500 mb-4">Dessa åtgärder är permanenta och kan inte ångras.</p>
+
+        {deleteAllDone && (
+          <div className="bg-green-50 text-green-700 p-3 rounded mb-4 text-sm">Alla tidsregistreringar raderades.</div>
+        )}
+
+        {deleteAllConfirm ? (
+          <div className="border border-red-300 rounded-lg p-4 bg-red-50">
+            <p className="text-sm text-red-800 font-medium mb-1">Radera alla dina tidsregistreringar?</p>
+            <p className="text-xs text-red-600 mb-3">Detta raderar permanent alla dina inregistrerade tider. Åtgärden kan inte ångras.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={deleteAllEntries}
+                className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition"
+              >
+                Ja, radera allt
+              </button>
+              <button
+                onClick={() => setDeleteAllConfirm(false)}
+                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-50 transition"
+              >
+                Avbryt
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setDeleteAllConfirm(true)}
+            className="border border-red-300 text-red-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-red-50 transition"
+          >
+            Radera alla mina tidsregistreringar
+          </button>
         )}
       </div>
     </div>

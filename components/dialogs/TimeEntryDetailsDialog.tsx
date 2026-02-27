@@ -37,6 +37,7 @@ interface Props {
   entry: TimeEntryDetail | null;
   onClose: () => void;
   onEdit: (entry: TimeEntryDetail) => void;
+  onDelete?: (id: number) => void;
 }
 
 const dayNamesFull = ['Söndag', 'Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag'];
@@ -54,8 +55,9 @@ function getDayInfo(date: string) {
   return { dayName, isSaturday, isSunday };
 }
 
-export default function TimeEntryDetailsDialog({ entry, onClose, onEdit }: Props) {
+export default function TimeEntryDetailsDialog({ entry, onClose, onEdit, onDelete }: Props) {
   const [payDetail, setPayDetail] = useState<PayDetail | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (!entry) return;
@@ -223,6 +225,36 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit }: Props
           >
             Redigera
           </button>
+
+          {/* Delete button */}
+          {onDelete && (
+            confirmDelete ? (
+              <div className="border border-red-200 rounded-lg p-3 bg-red-50">
+                <p className="text-sm text-red-700 mb-2 font-medium">Radera denna tidsregistrering?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { onDelete(entry.id); onClose(); }}
+                    className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition"
+                  >
+                    Ja, radera
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-50 transition"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full border border-red-300 text-red-600 py-2.5 rounded-lg font-medium hover:bg-red-50 transition text-sm"
+              >
+                Radera
+              </button>
+            )
+          )}
         </div>
       </div>
     </div>

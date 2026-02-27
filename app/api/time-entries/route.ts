@@ -173,6 +173,13 @@ export async function DELETE(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
+  const all = searchParams.get('all');
+
+  if (all === 'true') {
+    db.delete(timeEntries).where(eq(timeEntries.userId, parseInt(session.user.id))).run();
+    return NextResponse.json({ ok: true });
+  }
+
   if (!id) return NextResponse.json({ error: 'ID krävs' }, { status: 400 });
 
   db.delete(timeEntries)
