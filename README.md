@@ -2,6 +2,19 @@
 
 Webbaserad tidsrapporteringsapp för anställda inom Handels-avtalet. Hanterar tidsregistrering, OB-tillägg, övertid, löneuträkning och semesterersättning.
 
+## Demo
+
+Prova appen live: **[demotidrapport.mecloud.win](https://demotidrapport.mecloud.win)**
+
+| Konto | E-post | Lösenord |
+|-------|--------|----------|
+| Admin | admin@example.com | admin123 |
+| Användare | anna@example.com | user123 |
+
+Demo-databasen återställs automatiskt varje natt kl 03:00.
+
+---
+
 ## Funktioner
 
 - **Tidsregistrering** — Stämpla in/ut med start- och sluttid, rast och projektval
