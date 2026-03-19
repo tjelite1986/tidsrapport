@@ -2,13 +2,24 @@
 
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+interface DemoConfig {
+  enabled: boolean;
+  admin?: { email: string; password: string };
+  user?: { email: string; password: string };
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [demo, setDemo] = useState<DemoConfig>({ enabled: false });
+
+  useEffect(() => {
+    fetch('/api/demo').then(r => r.json()).then(setDemo).catch(() => {});
+  }, []);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -83,6 +94,19 @@ export default function LoginPage() {
         <h2 className="text-lg text-gray-600 text-center mb-6">
           {mode === 'login' ? 'Logga in' : 'Skapa konto'}
         </h2>
+
+        {demo.enabled && demo.admin && demo.user && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6 text-sm">
+            <p className="font-semibold text-blue-800 mb-2">Demomiljo — testkonten</p>
+            <p className="text-blue-700 mb-1">
+              <span className="font-medium">Admin:</span> {demo.admin.email} / {demo.admin.password}
+            </p>
+            <p className="text-blue-700 mb-2">
+              <span className="font-medium">Anvandare:</span> {demo.user.email} / {demo.user.password}
+            </p>
+            <p className="text-blue-600 text-xs">Databasen aterststalls varje natt kl 03:00.</p>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm">
