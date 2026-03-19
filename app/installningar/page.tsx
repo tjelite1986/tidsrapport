@@ -567,20 +567,6 @@ export default function InstallningarPage() {
                 <div className="space-y-1.5 mb-2">
                   {autoBreakRules.map((rule, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500 w-20">Min timmar</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        value={rule.minHours}
-                        onChange={(e) => {
-                          const next = [...autoBreakRules];
-                          next[i] = { ...next[i], minHours: parseFloat(e.target.value) || 0 };
-                          setAutoBreakRules(next);
-                        }}
-                        className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-500">→ Rast</span>
                       <input
                         type="number"
                         min="0"
@@ -591,9 +577,22 @@ export default function InstallningarPage() {
                           next[i] = { ...next[i], breakMinutes: parseInt(e.target.value) || 0 };
                           setAutoBreakRules(next);
                         }}
-                        className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <span className="text-sm text-gray-500">min</span>
+                      <span className="text-sm text-gray-500">min vid</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={rule.minHours}
+                        onChange={(e) => {
+                          const next = [...autoBreakRules];
+                          next[i] = { ...next[i], minHours: parseFloat(e.target.value) || 0 };
+                          setAutoBreakRules(next);
+                        }}
+                        className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-500">h</span>
                       <button
                         type="button"
                         onClick={() => setAutoBreakRules(autoBreakRules.filter((_, j) => j !== i))}

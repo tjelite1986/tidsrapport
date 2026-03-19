@@ -10,7 +10,7 @@ Följ dessa steg för att deploya tidsrapport:
 ## Steg 1 – Verifiera bygget lokalt
 
 ```bash
-cd /home/thomas/appbuilds/tidsrapport
+cd /home/thomas/projekt/tidsrapport
 npm run build
 ```
 
