@@ -14,6 +14,7 @@ export interface TimeEntryForPay {
   startTime: string | null;
   endTime: string | null;
   breakMinutes: number | null;
+  breakPeriods?: { start: string; end: string }[] | null;
   entryType: string; // 'work' | 'sick'
   overtimeType: string; // 'none' | 'mertid' | 'enkel' | 'kvalificerad'
 }
@@ -170,7 +171,8 @@ export function calculateMonthlyPay(
         entry.endTime,
         entry.breakMinutes ?? 0,
         hourlyRate,
-        settings.workplaceType
+        settings.workplaceType,
+        entry.breakPeriods
       );
       totalOB += obResult.totalOBAmount;
     }

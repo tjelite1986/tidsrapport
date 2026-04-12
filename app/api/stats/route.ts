@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { timeEntries, projects, users, userSettings, vacationPayInclusions } from '@/lib/db/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import { calculateMonthlyPay, type TimeEntryForPay, type PaySettings } from '@/lib/calculations';
+import { parseBreakPeriods } from '@/lib/types/break-periods';
 import { getHourlyRate } from '@/lib/calculations/contracts';
 import type { WorkplaceType } from '@/lib/calculations/ob';
 
@@ -66,6 +67,7 @@ export async function GET(req: NextRequest) {
       startTime: timeEntries.startTime,
       endTime: timeEntries.endTime,
       breakMinutes: timeEntries.breakMinutes,
+      breakPeriods: timeEntries.breakPeriods,
       entryType: timeEntries.entryType,
       overtimeType: timeEntries.overtimeType,
       taskSegments: timeEntries.taskSegments,
@@ -156,6 +158,7 @@ export async function GET(req: NextRequest) {
       startTime: e.startTime,
       endTime: e.endTime,
       breakMinutes: e.breakMinutes,
+      breakPeriods: parseBreakPeriods(e.breakPeriods),
       entryType: e.entryType,
       overtimeType: e.overtimeType,
     }));

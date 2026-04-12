@@ -104,7 +104,8 @@ export function calculateOB(
   endTime: string,
   breakMinutes: number,
   hourlyRate: number,
-  workplaceType: WorkplaceType
+  workplaceType: WorkplaceType,
+  breakPeriods?: { start: string; end: string }[] | null
 ): OBResult {
   if (workplaceType === 'none') {
     const startMin = timeToMinutes(startTime);
@@ -145,18 +146,51 @@ export function calculateOB(
     };
   });
 
-  // Distribute break to the longest segment first, then overflow to next
-  let remainingBreak = breakMinutes;
-  // Sort by duration descending to allocate break to longest first
-  const sortedBySize = [...segmentsWithOB].sort((a, b) => b.spanMinutes - a.spanMinutes);
+  // Distribute break to segments based on where it actually falls (if breakPeriods known),
+  // otherwise fall back to longest-segment-first allocation
   const breakAllocation = new Map<number, number>(); // index → break minutes
 
-  for (const seg of sortedBySize) {
-    if (remainingBreak <= 0) break;
-    const idx = segmentsWithOB.indexOf(seg);
-    const allocated = Math.min(remainingBreak, seg.spanMinutes);
-    breakAllocation.set(idx, allocated);
-    remainingBreak -= allocated;
+  if (breakPeriods && breakPeriods.length > 0) {
+    // Accurate allocation: check overlap between each break period and each segment
+    for (const bp of breakPeriods) {
+      const bpStart = timeToMinutes(bp.start);
+      let bpEnd = timeToMinutes(bp.end);
+      if (bpEnd <= bpStart) bpEnd += 1440;
+
+      for (let i = 0; i < segmentsWithOB.length; i++) {
+        const seg = segmentsWithOB[i];
+        // Try the break period both in its natural range and shifted +1440 (for overnight segments)
+        for (const offset of [0, 1440]) {
+          const bStart = bpStart + offset;
+          const bEnd = bpEnd + offset;
+          const overlapStart = Math.max(bStart, seg.startMinutes);
+          const overlapEnd = Math.min(bEnd, seg.endMinutes);
+          const overlap = Math.max(0, overlapEnd - overlapStart);
+          if (overlap > 0) {
+            breakAllocation.set(i, (breakAllocation.get(i) || 0) + overlap);
+          }
+        }
+      }
+    }
+    // Safety: clamp so total allocated ≤ breakMinutes
+    const totalAllocated = Array.from(breakAllocation.values()).reduce((s, v) => s + v, 0);
+    if (totalAllocated > breakMinutes && totalAllocated > 0) {
+      const scale = breakMinutes / totalAllocated;
+      for (const [k, v] of breakAllocation) {
+        breakAllocation.set(k, Math.round(v * scale));
+      }
+    }
+  } else {
+    // Fallback: allocate to longest segments first
+    let remainingBreak = breakMinutes;
+    const sortedBySize = [...segmentsWithOB].sort((a, b) => b.spanMinutes - a.spanMinutes);
+    for (const seg of sortedBySize) {
+      if (remainingBreak <= 0) break;
+      const idx = segmentsWithOB.indexOf(seg);
+      const allocated = Math.min(remainingBreak, seg.spanMinutes);
+      breakAllocation.set(idx, allocated);
+      remainingBreak -= allocated;
+    }
   }
 
   // Build OB segments with break-adjusted hours

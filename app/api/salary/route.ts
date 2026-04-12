@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { timeEntries, users, userSettings, vacationPayInclusions } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay, type SickDayContext } from '@/lib/calculations';
+import { parseBreakPeriods } from '@/lib/types/break-periods';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
     startTime: e.startTime,
     endTime: e.endTime,
     breakMinutes: e.breakMinutes,
+    breakPeriods: parseBreakPeriods(e.breakPeriods),
     entryType: e.entryType,
     overtimeType: e.overtimeType,
   }));
