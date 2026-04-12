@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { timeEntries, users, userSettings, vacationPayInclusions } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay } from '@/lib/calculations';
+import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay, type SickDayContext } from '@/lib/calculations';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -49,6 +49,39 @@ export async function GET(req: NextRequest) {
         .get()
     : null;
 
+  // Bygg sjukdagskontext från föregående månad för att hantera karensdag vid månadsskifte
+  let prevSickContext: SickDayContext | undefined;
+  if (month) {
+    const [y, m] = month.split('-').map(Number);
+    const prevMonthDate = new Date(y, m - 2, 1); // föregående månad
+    const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    const prevEntries = db
+      .select()
+      .from(timeEntries)
+      .where(and(eq(timeEntries.userId, userId), gte(timeEntries.date, `${prevMonthStr}-01`), lte(timeEntries.date, `${prevMonthStr}-31`)))
+      .all();
+    const prevSick = prevEntries
+      .filter((e) => e.entryType === 'sick')
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (prevSick.length > 0) {
+      let consecutive = 0;
+      let lastDate: string | null = null;
+      for (const e of prevSick) {
+        if (lastDate) {
+          const diff = Math.round(
+            (new Date(e.date + 'T12:00:00').getTime() - new Date(lastDate + 'T12:00:00').getTime()) /
+              (1000 * 60 * 60 * 24)
+          );
+          consecutive = diff <= 1 ? consecutive + 1 : 1;
+        } else {
+          consecutive = 1;
+        }
+        lastDate = e.date;
+      }
+      prevSickContext = { consecutiveSickDays: consecutive, lastSickDate: lastDate };
+    }
+  }
+
   const salaryMode = (settings?.salaryMode ?? 'contract') as 'contract' | 'hourly' | 'fixed_plus';
 
   const paySettings: PaySettings = {
@@ -69,7 +102,7 @@ export async function GET(req: NextRequest) {
     workingHoursPerMonth: settings?.workingHoursPerMonth ?? 160,
   };
 
-  const result = calculateMonthlyPay(payEntries, paySettings);
+  const result = calculateMonthlyPay(payEntries, paySettings, prevSickContext);
 
   return NextResponse.json({
     user: { id: user.id, name: user.name, salaryType: user.salaryType },

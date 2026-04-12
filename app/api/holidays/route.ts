@@ -8,7 +8,11 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
+  const yearParam = searchParams.get('year');
+  const year = yearParam ? parseInt(yearParam) : new Date().getFullYear();
+  if (isNaN(year)) {
+    return NextResponse.json({ error: 'Ogiltigt år' }, { status: 400 });
+  }
 
   const holidays = getHolidays(year);
   return NextResponse.json(holidays);

@@ -68,6 +68,7 @@ export const userSettings = sqliteTable('user_settings', {
   fixedMonthlySalary: real('fixed_monthly_salary'),
   departments: text('departments').notNull().default('[]'),
   autoBreakRules: text('auto_break_rules'),
+  vacationDaysPerYear: integer('vacation_days_per_year').notNull().default(25),
 });
 
 export const workTemplates = sqliteTable('work_templates', {
@@ -96,6 +97,14 @@ export const vacationPayWithdrawals = sqliteTable('vacation_pay_withdrawals', {
   netAmount: real('net_amount').notNull().default(0),
   note: text('note'),
   withdrawnAt: text('withdrawn_at').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const vacationDays = sqliteTable('vacation_days', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id),
+  date: text('date').notNull(),
+  note: text('note'),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 
 export const vacationPayInclusions = sqliteTable('vacation_pay_inclusions', {

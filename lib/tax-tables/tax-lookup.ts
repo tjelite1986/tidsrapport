@@ -58,6 +58,12 @@ export function lookupMonthlyTax(grossMonthly: number, tableNumber: number, year
     }
   }
 
+  // Fallback: lönen överstiger alla brackets — använd högsta percent-bracket
+  const lastBracket = table.percentBrackets[table.percentBrackets.length - 1];
+  if (lastBracket) {
+    return Math.round(rounded * lastBracket.rate / 100);
+  }
+
   return 0;
 }
 

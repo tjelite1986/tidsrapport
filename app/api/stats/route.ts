@@ -13,7 +13,9 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const year = searchParams.get('year') || String(new Date().getFullYear());
+  const yearParam = searchParams.get('year') || String(new Date().getFullYear());
+  const allTime = yearParam === 'all';
+  const year = allTime ? String(new Date().getFullYear()) : yearParam;
   const userId = parseInt(session.user.id);
 
   // Hours per month
@@ -25,11 +27,13 @@ export async function GET(req: NextRequest) {
     })
     .from(timeEntries)
     .where(
-      and(
-        eq(timeEntries.userId, userId),
-        gte(timeEntries.date, `${year}-01-01`),
-        lte(timeEntries.date, `${year}-12-31`)
-      )
+      allTime
+        ? eq(timeEntries.userId, userId)
+        : and(
+            eq(timeEntries.userId, userId),
+            gte(timeEntries.date, `${year}-01-01`),
+            lte(timeEntries.date, `${year}-12-31`)
+          )
     )
     .groupBy(sql`substr(${timeEntries.date}, 1, 7)`)
     .all();
@@ -43,11 +47,13 @@ export async function GET(req: NextRequest) {
     .from(timeEntries)
     .leftJoin(projects, eq(timeEntries.projectId, projects.id))
     .where(
-      and(
-        eq(timeEntries.userId, userId),
-        gte(timeEntries.date, `${year}-01-01`),
-        lte(timeEntries.date, `${year}-12-31`)
-      )
+      allTime
+        ? eq(timeEntries.userId, userId)
+        : and(
+            eq(timeEntries.userId, userId),
+            gte(timeEntries.date, `${year}-01-01`),
+            lte(timeEntries.date, `${year}-12-31`)
+          )
     )
     .groupBy(projects.name)
     .all();
@@ -66,11 +72,13 @@ export async function GET(req: NextRequest) {
     })
     .from(timeEntries)
     .where(
-      and(
-        eq(timeEntries.userId, userId),
-        gte(timeEntries.date, `${year}-01-01`),
-        lte(timeEntries.date, `${year}-12-31`)
-      )
+      allTime
+        ? eq(timeEntries.userId, userId)
+        : and(
+            eq(timeEntries.userId, userId),
+            gte(timeEntries.date, `${year}-01-01`),
+            lte(timeEntries.date, `${year}-12-31`)
+          )
     )
     .all();
 
@@ -96,11 +104,13 @@ export async function GET(req: NextRequest) {
     })
     .from(timeEntries)
     .where(
-      and(
-        eq(timeEntries.userId, userId),
-        gte(timeEntries.date, `${year}-01-01`),
-        lte(timeEntries.date, `${year}-12-31`)
-      )
+      allTime
+        ? eq(timeEntries.userId, userId)
+        : and(
+            eq(timeEntries.userId, userId),
+            gte(timeEntries.date, `${year}-01-01`),
+            lte(timeEntries.date, `${year}-12-31`)
+          )
     )
     .groupBy(timeEntries.entryType)
     .all();
@@ -136,7 +146,7 @@ export async function GET(req: NextRequest) {
     entriesByMonth.get(month)!.push(entry);
   }
 
-  const monthlyIncome: { month: string; basePay: number; obPay: number; netPay: number }[] = [];
+  const monthlyIncome: { month: string; basePay: number; obPay: number; overtimePay: number; grossPay: number; netPay: number }[] = [];
   const obDistributionMap = new Map<number, { hours: number; amount: number }>();
 
   for (const [month, monthEntries] of entriesByMonth) {
@@ -161,6 +171,8 @@ export async function GET(req: NextRequest) {
       month,
       basePay: result.basePay,
       obPay: result.totalOB,
+      overtimePay: result.totalOvertimePay,
+      grossPay: result.grossPay,
       netPay: result.netPay,
     });
 
@@ -208,8 +220,19 @@ export async function GET(req: NextRequest) {
     data: Array.from(mMap.entries()).map(([department, hours]) => ({ department, hours })),
   }));
 
+  // Tillgängliga år med data
+  const allYearsRaw = db
+    .select({ year: sql<string>`substr(${timeEntries.date}, 1, 4)` })
+    .from(timeEntries)
+    .where(eq(timeEntries.userId, userId))
+    .groupBy(sql`substr(${timeEntries.date}, 1, 4)`)
+    .all();
+  const allYears = allYearsRaw.map((r) => r.year).sort((a, b) => b.localeCompare(a));
+
   return NextResponse.json({
     year,
+    allTime,
+    allYears,
     monthlyHours,
     projectHours,
     weekdayHours,

@@ -46,148 +46,218 @@ function formatCurrency(amount: number) {
 }
 
 export default function TotalSummaryCard({ salary, month, userName, includeVacation, onToggleVacation }: Props) {
-  return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 sm:p-6 text-white">
-        <h2 className="text-xl font-bold">Lönesammanfattning</h2>
-        <p className="text-blue-100 text-sm">{userName} - {month}</p>
-      </div>
+  const gross = salary.grossBeforeVacation;
+  const baseW = gross > 0 ? (salary.basePay / gross) * 100 : 0;
+  const obW = gross > 0 ? (salary.totalOB / gross) * 100 : 0;
+  const otW = gross > 0 ? (salary.totalOvertimePay / gross) * 100 : 0;
+  const sickW = gross > 0 ? (salary.sickPay / gross) * 100 : 0;
 
-      <div className="p-4 sm:p-6 space-y-4">
-        {/* Work time section */}
-        <div>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Arbetstid</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatBox label="Total tid" value={`${salary.totalHours.toFixed(1)}h`} />
-            <StatBox label="Arbetad tid" value={`${salary.workHours.toFixed(1)}h`} />
-            <StatBox label="Timlön" value={formatCurrency(salary.hourlyRate)} />
-            {salary.sickDays > 0 && <StatBox label="Sjukdagar" value={String(salary.sickDays)} color="red" />}
+  const taxMode = salary.settings.taxMode === 'table' && salary.settings.taxTable;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-5 text-white">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Lönesammanfattning</p>
+            <h2 className="text-xl font-bold mt-0.5">{userName}</h2>
+            <p className="text-slate-400 text-sm mt-0.5">{month}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-slate-400 text-xs">Nettolön</p>
+            <p className="text-2xl font-bold text-emerald-400 mt-0.5">{formatCurrency(salary.netPay)}</p>
           </div>
         </div>
+      </div>
 
-        <div className="border-t" />
-
-        {/* Base pay */}
-        <Row label="Grundlön" sublabel={`${salary.workHours.toFixed(1)}h × ${formatCurrency(salary.hourlyRate)}`} value={formatCurrency(salary.basePay)} />
-
-        {/* OB breakdown */}
-        {salary.obBreakdown && salary.obBreakdown.length > 0 && (
-          <div className="bg-orange-50 rounded-lg p-3">
-            <div className="text-sm font-medium text-orange-800 mb-1">OB-tillägg</div>
-            {salary.obBreakdown.map((ob) => (
-              <div key={ob.percent} className="flex justify-between text-sm py-0.5">
-                <span className="text-orange-700">OB {ob.percent}% ({ob.hours.toFixed(1)}h)</span>
-                <span className="font-medium text-orange-800">{formatCurrency(ob.amount)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between text-sm font-semibold border-t border-orange-200 pt-1 mt-1">
-              <span className="text-orange-800">Totalt OB</span>
-              <span className="text-orange-800">{formatCurrency(salary.totalOB)}</span>
+      <div className="p-5 sm:p-6 space-y-5">
+        {/* Visual breakdown bar */}
+        {gross > 0 && (
+          <div>
+            <div className="flex rounded-full overflow-hidden h-2.5 mb-3">
+              {baseW > 0 && <div className="bg-blue-500" style={{ width: `${baseW}%` }} />}
+              {obW > 0 && <div className="bg-orange-400" style={{ width: `${obW}%` }} />}
+              {otW > 0 && <div className="bg-amber-400" style={{ width: `${otW}%` }} />}
+              {sickW > 0 && <div className="bg-red-400" style={{ width: `${sickW}%` }} />}
+            </div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <LegendDot color="bg-blue-500" label="Grundlön" />
+              {salary.totalOB > 0 && <LegendDot color="bg-orange-400" label="OB" />}
+              {salary.totalOvertimePay > 0 && <LegendDot color="bg-amber-400" label="Övertid" />}
+              {salary.sickPay > 0 && <LegendDot color="bg-red-400" label="Sjuklön" />}
             </div>
           </div>
         )}
 
-        {/* Overtime */}
-        {salary.totalOvertimePay > 0 && (
-          <div className="bg-amber-50 rounded-lg p-3">
-            <div className="text-sm font-medium text-amber-800 mb-1">Övertid/Mertid</div>
-            {salary.overtidMertid > 0 && (
-              <Row label="Mertid (+35%)" value={formatCurrency(salary.overtidMertid)} small />
-            )}
-            {salary.overtidEnkel > 0 && (
-              <Row label="Enkel övertid (+35%)" value={formatCurrency(salary.overtidEnkel)} small />
-            )}
-            {salary.overtidKvalificerad > 0 && (
-              <Row label="Kvalificerad övertid (+70%)" value={formatCurrency(salary.overtidKvalificerad)} small />
-            )}
-          </div>
-        )}
+        {/* Work time */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatBox label="Total tid" value={`${salary.totalHours.toFixed(1)}h`} />
+          <StatBox label="Arbetad tid" value={`${salary.workHours.toFixed(1)}h`} />
+          <StatBox label="Timlön" value={formatCurrency(salary.hourlyRate)} />
+          {salary.sickDays > 0
+            ? <StatBox label="Sjukdagar" value={String(salary.sickDays)} highlight="red" />
+            : <StatBox label="Sjukdagar" value="0" />}
+        </div>
 
-        {/* Sick pay */}
-        {salary.sickPay > 0 && (
-          <Row label="Sjuklön (80%)" value={formatCurrency(salary.sickPay)} />
-        )}
+        <div className="border-t border-gray-100" />
 
-        <div className="border-t" />
+        {/* Line items */}
+        <div className="space-y-2">
+          <LineRow
+            label="Grundlön"
+            sub={`${salary.workHours.toFixed(1)}h × ${formatCurrency(salary.hourlyRate)}`}
+            value={formatCurrency(salary.basePay)}
+          />
 
-        {/* Gross */}
-        <Row label="Bruttolön" value={formatCurrency(salary.grossBeforeVacation)} bold />
+          {/* OB */}
+          {salary.obBreakdown && salary.obBreakdown.length > 0 && (
+            <div className="bg-orange-50 rounded-xl p-3">
+              <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2">OB-tillägg</p>
+              {salary.obBreakdown.map((ob) => (
+                <div key={ob.percent} className="flex justify-between text-sm py-0.5">
+                  <span className="text-orange-700">OB {ob.percent}% · {ob.hours.toFixed(1)}h</span>
+                  <span className="font-semibold text-orange-800">{formatCurrency(ob.amount)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm font-bold border-t border-orange-200 pt-1.5 mt-1.5 text-orange-800">
+                <span>Totalt OB</span>
+                <span>{formatCurrency(salary.totalOB)}</span>
+              </div>
+            </div>
+          )}
 
-        {/* Vacation pay med toggle */}
-        <div className="flex justify-between items-start gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-gray-600">Semesterersättning ({salary.settings.vacationPayRate}%)</span>
-            {salary.settings.vacationPayMode === 'separate' && (
-              <button
-                onClick={onToggleVacation}
-                className={`text-xs px-2 py-0.5 rounded border transition-colors ${
-                  includeVacation
-                    ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                {includeVacation ? 'Inkluderad i lön' : 'Inkludera i lön'}
-              </button>
-            )}
-            {salary.settings.vacationPayMode !== 'separate' && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-                Inkluderad i timlön
+          {/* Overtime */}
+          {salary.totalOvertimePay > 0 && (
+            <div className="bg-amber-50 rounded-xl p-3">
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Övertid / Mertid</p>
+              {salary.overtidMertid > 0 && (
+                <LineRow label="Mertid (+35%)" value={formatCurrency(salary.overtidMertid)} small />
+              )}
+              {salary.overtidEnkel > 0 && (
+                <LineRow label="Enkel övertid (+35%)" value={formatCurrency(salary.overtidEnkel)} small />
+              )}
+              {salary.overtidKvalificerad > 0 && (
+                <LineRow label="Kvalificerad övertid (+70%)" value={formatCurrency(salary.overtidKvalificerad)} small />
+              )}
+            </div>
+          )}
+
+          {/* Sick pay */}
+          {salary.sickPay > 0 && (
+            <LineRow label="Sjuklön (80%)" value={formatCurrency(salary.sickPay)} />
+          )}
+
+          <div className="border-t border-gray-100" />
+          <LineRow label="Bruttolön" value={formatCurrency(salary.grossBeforeVacation)} bold />
+
+          {/* Vacation pay */}
+          <div className="flex justify-between items-center gap-2 py-1">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <span className="text-gray-600 text-sm">Semesterersättning ({salary.settings.vacationPayRate}%)</span>
+              {salary.settings.vacationPayMode === 'separate' ? (
+                <button
+                  onClick={onToggleVacation}
+                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                    includeVacation
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                      : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                  }`}
+                >
+                  {includeVacation ? 'Inkluderad' : 'Inkludera i lön'}
+                </button>
+              ) : (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                  Inkluderad i timlön
+                </span>
+              )}
+            </div>
+            <div className="text-right shrink-0">
+              <span className={`font-medium text-sm whitespace-nowrap ${
+                salary.settings.vacationPayMode === 'separate' && !includeVacation ? 'text-gray-400' : ''
+              }`}>
+                {formatCurrency(salary.vacationPay)}
               </span>
-            )}
+              {salary.settings.vacationPayMode === 'separate' && !includeVacation && (
+                <p className="text-xs text-gray-400 mt-0.5">→ semesterpotten</p>
+              )}
+            </div>
           </div>
-          <span className="font-medium whitespace-nowrap">
-            {(salary.settings.vacationPayMode === 'separate' || includeVacation)
-              ? formatCurrency(salary.vacationPay)
-              : '-'}
-          </span>
+
+          {includeVacation && (
+            <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-xs text-emerald-700">
+              Semesterersättning inkluderas i bruttolönen och skattas denna månad.
+            </div>
+          )}
+
+          {salary.vacationPay > 0 && includeVacation && (
+            <LineRow label="Total före skatt" value={formatCurrency(salary.grossPay)} bold />
+          )}
+
+          <LineRow
+            label={taxMode ? `Skatt (tabell ${salary.settings.taxTable})` : `Skatt (${salary.settings.taxRate}%)`}
+            value={`−${formatCurrency(salary.tax)}`}
+            red
+          />
         </div>
 
-        {includeVacation && (
-          <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-700">
-            Semesterersättning inkluderas i bruttolönen och skattas denna månad — läggs ej till semesterpotten.
+        {/* Net pay */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wide">Nettolön</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {taxMode ? `Skatteavdrag tabell ${salary.settings.taxTable}` : `${salary.settings.taxRate}% i skatt`}
+            </p>
           </div>
-        )}
-
-        {salary.vacationPay > 0 && includeVacation && (
-          <Row label="Total före skatt" value={formatCurrency(salary.grossPay)} bold />
-        )}
-
-        <Row
-          label={salary.settings.taxMode === 'table' && salary.settings.taxTable
-            ? `Skatt (tabell ${salary.settings.taxTable})`
-            : `Skatt (${salary.settings.taxRate}%)`}
-          value={`-${formatCurrency(salary.tax)}`}
-        />
-
-        {/* Net pay - hero */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 text-center">
-          <div className="text-sm text-green-700 font-medium">Nettolön</div>
-          <div className="text-2xl sm:text-3xl font-bold text-green-600 mt-1">{formatCurrency(salary.netPay)}</div>
+          <p className="text-3xl font-bold text-emerald-600">{formatCurrency(salary.netPay)}</p>
         </div>
       </div>
     </div>
   );
 }
 
-function StatBox({ label, value, color }: { label: string; value: string; color?: string }) {
-  const colorClass = color === 'red' ? 'text-red-600' : 'text-blue-600';
+function StatBox({ label, value, highlight }: { label: string; value: string; highlight?: string }) {
+  const textColor = highlight === 'red' ? 'text-red-600' : 'text-slate-700';
   return (
-    <div className="bg-gray-50 rounded-lg p-2 text-center">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className={`text-lg font-bold ${colorClass}`}>{value}</div>
+    <div className="bg-gray-50 rounded-xl p-3 text-center">
+      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      <p className={`text-base font-bold ${textColor}`}>{value}</p>
     </div>
   );
 }
 
-function Row({ label, sublabel, value, bold, small }: { label: string; sublabel?: string; value: string; bold?: boolean; small?: boolean }) {
+function LineRow({
+  label, sub, value, bold, small, red,
+}: {
+  label: string;
+  sub?: string;
+  value: React.ReactNode;
+  bold?: boolean;
+  small?: boolean;
+  red?: boolean;
+}) {
   return (
-    <div className={`flex justify-between ${small ? 'py-0.5' : 'py-1'}`}>
-      <div>
-        <span className={`${bold ? 'font-semibold text-gray-800' : 'text-gray-600'} ${small ? 'text-sm' : ''}`}>{label}</span>
-        {sublabel && <span className="text-xs text-gray-400 ml-2">{sublabel}</span>}
+    <div className={`flex justify-between items-baseline ${small ? 'py-0.5' : 'py-1'}`}>
+      <div className="min-w-0 mr-2">
+        <span className={`${bold ? 'font-semibold text-gray-800' : 'text-gray-600'} ${small ? 'text-sm' : ''}`}>
+          {label}
+        </span>
+        {sub && <span className="text-xs text-gray-400 ml-1.5">{sub}</span>}
       </div>
-      <span className={`${bold ? 'font-bold' : 'font-medium'} ${small ? 'text-sm' : ''}`}>{value}</span>
+      <span
+        className={`shrink-0 ${bold ? 'font-bold text-gray-800' : 'font-medium text-gray-700'} ${small ? 'text-sm' : ''} ${red ? 'text-red-500' : ''}`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1 text-gray-500">
+      <div className={`w-2 h-2 rounded-full ${color}`} />
+      {label}
     </div>
   );
 }

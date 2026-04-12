@@ -57,7 +57,45 @@ export async function GET(req: NextRequest) {
     )
     .all();
 
-  const enrichedEntries = entries.map((entry) => {
+  // Hämta sjukdagsstate från perioden precis före vyfönstret för korrekt karensdag-hantering
+  const prevEntries = db
+    .select({ date: timeEntries.date, entryType: timeEntries.entryType })
+    .from(timeEntries)
+    .where(
+      and(
+        eq(timeEntries.userId, userId),
+        gte(timeEntries.date, new Date(new Date(startDate).getTime() - 14 * 24 * 60 * 60 * 1000)
+          .toISOString().slice(0, 10)),
+        lte(timeEntries.date, new Date(new Date(startDate).getTime() - 24 * 60 * 60 * 1000)
+          .toISOString().slice(0, 10))
+      )
+    )
+    .all();
+
+  const prevSick = prevEntries
+    .filter((e) => e.entryType === 'sick')
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  let consecutiveSickDays = 0;
+  let lastSickDate: string | null = null;
+  for (const e of prevSick) {
+    if (lastSickDate) {
+      const diff = Math.round(
+        (new Date(e.date + 'T12:00:00').getTime() - new Date(lastSickDate + 'T12:00:00').getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+      consecutiveSickDays = diff <= 1 ? consecutiveSickDays + 1 : 1;
+    } else {
+      consecutiveSickDays = 1;
+    }
+    lastSickDate = e.date;
+  }
+
+  // Sortera poster efter datum för korrekt sekventiell beräkning
+  const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const enrichedMap = new Map<number, (typeof entries)[0] & { pay: object }>();
+
+  for (const entry of sortedEntries) {
     let basePay = 0;
     let obAmount = 0;
     let obSegments: { hours: number; obPercent: number; obAmount: number }[] = [];
@@ -65,8 +103,23 @@ export async function GET(req: NextRequest) {
     let sickPay = 0;
 
     if (entry.entryType === 'sick') {
-      sickPay = hourlyRate * entry.hours * 0.8; // simplified - doesn't handle karensdag across API
+      // Uppdatera sjukdagskedjans state
+      if (lastSickDate) {
+        const diff = Math.round(
+          (new Date(entry.date + 'T12:00:00').getTime() - new Date(lastSickDate + 'T12:00:00').getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+        consecutiveSickDays = diff <= 1 ? consecutiveSickDays + 1 : 1;
+      } else {
+        consecutiveSickDays = 1;
+      }
+      lastSickDate = entry.date;
+      // Dag 1 = karensdag = 0 kr, dag 2+ = 80%
+      sickPay = consecutiveSickDays === 1 ? 0 : hourlyRate * entry.hours * 0.8;
     } else {
+      // Arbetsdag bryter sjukdagskedjan
+      consecutiveSickDays = 0;
+      lastSickDate = null;
       basePay = hourlyRate * entry.hours;
 
       if (entry.startTime && entry.endTime && workplaceType !== 'none') {
@@ -96,12 +149,16 @@ export async function GET(req: NextRequest) {
     }
 
     const grossPay = basePay + obAmount + overtimePay + sickPay;
-    const vacationPay = vacationPayMode === 'separate' ? grossPay * (vacationPayRate / 100) : 0;
-    const totalGross = grossPay + vacationPay;
+    // Beräkna semesterersättning för visning oavsett läge.
+    // 'separate': läggs i potten, ingår INTE i bruttolönen eller skatteunderlaget.
+    // 'included': läggs till bruttolönen och skattas ihop med lönen.
+    const vacationPay = grossPay * (vacationPayRate / 100);
+    const vacationPayInSalary = vacationPayMode === 'included' ? vacationPay : 0;
+    const totalGross = grossPay + vacationPayInSalary;
     const tax = totalGross * (taxRate / 100);
     const netPay = totalGross - tax;
 
-    return {
+    enrichedMap.set(entry.id, {
       ...entry,
       pay: {
         basePay,
@@ -115,8 +172,11 @@ export async function GET(req: NextRequest) {
         netPay,
         hourlyRate,
       },
-    };
-  });
+    });
+  }
+
+  // Returnera i originalordning (UI kan ha sorterat annorlunda)
+  const enrichedEntries = entries.map((e) => enrichedMap.get(e.id)!);
 
   return NextResponse.json({ entries: enrichedEntries });
 }

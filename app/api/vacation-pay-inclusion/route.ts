@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { db, sqlite } from '@/lib/db';
 import { vacationPayInclusions } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
@@ -39,23 +39,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'month och includeInSalary krävs' }, { status: 400 });
   }
 
-  // Kontrollera om rad finns
-  const existing = db
-    .select()
-    .from(vacationPayInclusions)
-    .where(and(eq(vacationPayInclusions.userId, userId), eq(vacationPayInclusions.month, month)))
-    .get();
-
-  if (existing) {
-    db.update(vacationPayInclusions)
-      .set({ includeInSalary })
+  // Atomär UPSERT via transaktion för att förhindra race conditions
+  const upsert = sqlite.transaction(() => {
+    const existing = db
+      .select()
+      .from(vacationPayInclusions)
       .where(and(eq(vacationPayInclusions.userId, userId), eq(vacationPayInclusions.month, month)))
-      .run();
-  } else {
-    db.insert(vacationPayInclusions)
-      .values({ userId, month, includeInSalary })
-      .run();
-  }
+      .get();
+
+    if (existing) {
+      db.update(vacationPayInclusions)
+        .set({ includeInSalary })
+        .where(and(eq(vacationPayInclusions.userId, userId), eq(vacationPayInclusions.month, month)))
+        .run();
+    } else {
+      db.insert(vacationPayInclusions)
+        .values({ userId, month, includeInSalary })
+        .run();
+    }
+  });
+  upsert();
 
   return NextResponse.json({ month, includeInSalary });
 }

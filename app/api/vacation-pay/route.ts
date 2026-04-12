@@ -75,9 +75,10 @@ export async function GET(req: NextRequest) {
     const settingsWithYear = { ...paySettings, taxYear: year };
     const result = calculateMonthlyPay(payEntries, settingsWithYear);
 
-    // Om semesterersättningen inkluderades i lönen denna månad läggs den INTE till potten
+    // Om semesterersättningen inkluderades i lönen denna månad läggs den INTE till potten.
+    // Detsamma gäller för 'included'-läge — semesterersättning ingår alltid i lönen och hamnar aldrig i potten.
     const isIncludedInSalary = inclusionsByMonth.has(month);
-    const vacationPayForPot = isIncludedInSalary ? 0 : result.vacationPay;
+    const vacationPayForPot = (isIncludedInSalary || paySettings.vacationPayMode === 'included') ? 0 : result.vacationPay;
 
     const entry = {
       month,
@@ -143,6 +144,69 @@ export async function POST(req: NextRequest) {
   const amount = parseFloat(body.amount);
   if (!amount || amount <= 0) {
     return NextResponse.json({ error: 'Ogiltigt belopp' }, { status: 400 });
+  }
+
+  // Kontrollera att uttaget inte överstiger tillgängligt saldo
+  const allWithdrawals = db
+    .select()
+    .from(vacationPayWithdrawals)
+    .where(eq(vacationPayWithdrawals.userId, userId))
+    .all();
+  const totalWithdrawn = allWithdrawals.reduce((sum, w) => sum + w.amount, 0);
+
+  const allEntries = db
+    .select()
+    .from(timeEntries)
+    .where(eq(timeEntries.userId, userId))
+    .all();
+  const allInclusionsForCheck = db
+    .select()
+    .from(vacationPayInclusions)
+    .where(eq(vacationPayInclusions.userId, userId))
+    .all();
+  const inclusionsSetForCheck = new Set(
+    allInclusionsForCheck.filter((i) => i.includeInSalary).map((i) => i.month)
+  );
+  const userSettingsForCheck = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
+  const vacationPayModeForCheck = (userSettingsForCheck?.vacationPayMode as 'included' | 'separate') ?? 'included';
+
+  const entriesByMonthForCheck: Record<string, typeof allEntries> = {};
+  for (const e of allEntries) {
+    const m = e.date.substring(0, 7);
+    if (!entriesByMonthForCheck[m]) entriesByMonthForCheck[m] = [];
+    entriesByMonthForCheck[m].push(e);
+  }
+  let totalAccumulatedForCheck = 0;
+  for (const [m, monthEntries] of Object.entries(entriesByMonthForCheck)) {
+    const payEntriesForCheck = monthEntries.map((e) => ({
+      date: e.date,
+      hours: e.hours,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      breakMinutes: e.breakMinutes,
+      entryType: e.entryType,
+      overtimeType: e.overtimeType,
+    }));
+    const settingsForCheck = {
+      workplaceType: (userSettingsForCheck?.workplaceType as 'butik' | 'lager' | 'none') ?? 'none',
+      contractLevel: userSettingsForCheck?.contractLevel ?? '3plus',
+      taxRate: userSettingsForCheck?.taxRate ?? 30,
+      vacationPayRate: userSettingsForCheck?.vacationPayRate ?? 12,
+      vacationPayMode: vacationPayModeForCheck,
+      taxYear: parseInt(m.split('-')[0]),
+    };
+    const r = calculateMonthlyPay(payEntriesForCheck, settingsForCheck);
+    const isIncluded = inclusionsSetForCheck.has(m);
+    if (!isIncluded && vacationPayModeForCheck !== 'included') {
+      totalAccumulatedForCheck += r.vacationPay;
+    }
+  }
+  const currentBalance = totalAccumulatedForCheck - totalWithdrawn;
+  if (amount > currentBalance) {
+    return NextResponse.json(
+      { error: `Otillräckligt saldo. Tillgängligt: ${currentBalance.toFixed(2)} kr` },
+      { status: 400 }
+    );
   }
 
   // Calculate tax on the withdrawal using user's tax settings

@@ -111,6 +111,12 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Du kan inte ta bort ditt eget konto' }, { status: 400 });
   }
 
+  // Förhindra att admins tar bort andra admins
+  const targetUser = db.select().from(users).where(eq(users.id, id)).get();
+  if (targetUser?.role === 'admin') {
+    return NextResponse.json({ error: 'Administratörskonton kan inte tas bort' }, { status: 403 });
+  }
+
   // Kaskadradera all användardata
   sqlite.prepare('DELETE FROM vacation_pay_inclusions WHERE user_id = ?').run(id);
   sqlite.prepare('DELETE FROM vacation_pay_withdrawals WHERE user_id = ?').run(id);

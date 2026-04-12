@@ -3,6 +3,11 @@ import { getHourlyRate } from './contracts';
 import { calculateWorkHours } from './time-utils';
 import { lookupMonthlyTax } from '../tax-tables/tax-lookup';
 
+export interface SickDayContext {
+  consecutiveSickDays: number;
+  lastSickDate: string | null;
+}
+
 export interface TimeEntryForPay {
   date: string;
   hours: number;
@@ -69,7 +74,8 @@ export interface MonthlyPayResult {
 
 export function calculateMonthlyPay(
   entries: TimeEntryForPay[],
-  settings: PaySettings
+  settings: PaySettings,
+  prevSickContext?: SickDayContext
 ): MonthlyPayResult {
   const salaryMode = settings.salaryMode ?? 'contract';
   const isFixedPlus = salaryMode === 'fixed_plus';
@@ -102,9 +108,9 @@ export function calculateMonthlyPay(
   // Sort entries by date for sick day counting
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
 
-  // Track consecutive sick days
-  let consecutiveSickDays = 0;
-  let lastSickDate: string | null = null;
+  // Track consecutive sick days — initiera från föregående månads kontext om tillgänglig
+  let consecutiveSickDays = prevSickContext?.consecutiveSickDays ?? 0;
+  let lastSickDate: string | null = prevSickContext?.lastSickDate ?? null;
 
   for (const entry of sorted) {
     const hours = entry.hours;
@@ -238,17 +244,13 @@ export function calculateMonthlyPay(
   const grossBeforeVacation = basePay + totalOB + totalOvertimePay + sickPay;
 
   // Vacation pay
-  // If includeVacationInSalary is true this month: semesterersättning betalas ut med lönen,
-  // läggs till bruttolönen och skattas ihop (läggs INTE till semesterpotten).
-  const vacationPay = (settings.vacationPayMode === 'separate' || settings.includeVacationInSalary)
-    ? grossBeforeVacation * (settings.vacationPayRate / 100)
-    : 0;
+  // 'included': semesterersättning ingår alltid i bruttolönen (beräknas + läggs till gross).
+  // 'separate': semesterersättning läggs i potten (beräknas men läggs INTE till gross).
+  // includeVacationInSalary (per-månad override för separate-läge): läggs till gross denna månad.
+  const vacationPay = grossBeforeVacation * (settings.vacationPayRate / 100);
 
-  // When includeVacationInSalary: grossPay includes vacation pay (taxed together).
-  // When separate (normal): vacation pay goes to pot, taxed at withdrawal. grossPay = grossBeforeVacation.
-  const grossPay = settings.includeVacationInSalary
-    ? grossBeforeVacation + vacationPay
-    : grossBeforeVacation;
+  const addVacationToGross = settings.vacationPayMode === 'included' || settings.includeVacationInSalary;
+  const grossPay = addVacationToGross ? grossBeforeVacation + vacationPay : grossBeforeVacation;
   const tax = settings.taxMode === 'table' && settings.taxTable
     ? lookupMonthlyTax(grossPay, settings.taxTable, settings.taxYear)
     : grossPay * (settings.taxRate / 100);

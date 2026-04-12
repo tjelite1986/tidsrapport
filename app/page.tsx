@@ -16,6 +16,14 @@ interface TimeEntry {
   description: string | null;
 }
 
+interface SalarySummary {
+  netPay: number;
+  basePay: number;
+  totalOB: number;
+  totalOvertimePay: number;
+  grossPay: number;
+}
+
 function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -37,55 +45,50 @@ function getMonthRange(): { start: string; end: string } {
   return { start: toLocalDate(start), end: toLocalDate(end) };
 }
 
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(amount);
+}
+
 const dayNames = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
-
-const featureCards = [
-  { href: '/tid', title: 'Tidsregistrering', desc: 'Logga arbetstid med start/sluttid, raster och övertid.', color: 'bg-blue-500' },
-  { href: '/lon', title: 'Löneberäkning', desc: 'Se lönespecifikation med OB, övertid och skatt.', color: 'bg-green-500' },
-  { href: '/timer', title: 'Live Timer', desc: 'Starta en timer och spara automatiskt.', color: 'bg-purple-500' },
-  { href: '/statistik', title: 'Statistik', desc: 'Diagram och trender för din arbetstid och lön.', color: 'bg-orange-500' },
-  { href: '/rapporter', title: 'Rapporter', desc: 'Exportera tidsrapporter som CSV.', color: 'bg-red-500' },
-];
-
-const laborInfo = [
-  {
-    title: 'Kollektivavtal',
-    content: 'Kollektivavtal reglerar löner, arbetstider och andra villkor. Handels kollektivavtal gäller för butik och lager med specifika OB-tillägg för kvällar, helger och storhelger.',
-  },
-  {
-    title: 'Fackförbund',
-    content: 'Handelsanställdas förbund organiserar anställda inom handel och lager. Medlemskap ger tillgång till rådgivning, försäkringar och juridisk hjälp.',
-  },
-  {
-    title: 'A-kassa',
-    content: 'Handelsanställdas a-kassa ger ekonomisk trygghet vid arbetslöshet. Kvalificeringstid är normalt 12 månaders medlemskap och 6 månaders arbete.',
-  },
-];
-
-const resourceLinks = [
-  { label: 'Arbetsmiljöverket', url: 'https://www.av.se' },
-  { label: 'Diskrimineringsombudsmannen', url: 'https://www.do.se' },
-  { label: 'Arbetsförmedlingen', url: 'https://www.arbetsformedlingen.se' },
-  { label: 'Skatteverket', url: 'https://www.skatteverket.se' },
-];
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([]);
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
-  const [expandedInfo, setExpandedInfo] = useState<number | null>(null);
+  const [salary, setSalary] = useState<SalarySummary | null>(null);
+  const [vacationBalance, setVacationBalance] = useState<number | null>(null);
 
   useEffect(() => {
     const week = getWeekDates();
     const month = getMonthRange();
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
     fetch(`/api/time-entries?startDate=${week.start}&endDate=${week.end}`)
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => (r.ok ? r.json() : []))
       .then(setWeekEntries)
-      .catch(() => setWeekEntries([]));
+      .catch(() => {});
+
     fetch(`/api/time-entries?startDate=${month.start}&endDate=${month.end}`)
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => (r.ok ? r.json() : []))
       .then(setMonthEntries)
-      .catch(() => setMonthEntries([]));
+      .catch(() => {});
+
+    fetch(`/api/salary?month=${currentMonth}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setSalary({
+        netPay: data.netPay,
+        basePay: data.basePay,
+        totalOB: data.totalOB,
+        totalOvertimePay: data.totalOvertimePay,
+        grossPay: data.grossPay,
+      }))
+      .catch(() => {});
+
+    fetch('/api/vacation-pay')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setVacationBalance(data.balance))
+      .catch(() => {});
   }, []);
 
   const weekTotal = weekEntries.reduce((sum, e) => sum + e.hours, 0);
@@ -105,170 +108,226 @@ export default function DashboardPage() {
   }
   const weekChartData = weekDayHours.map((h, i) => ({ label: dayNames[i], value: h }));
 
+  const now = new Date();
+  const monthName = now.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+
   return (
-    <div>
-      {/* Welcome */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4 sm:p-6 mb-6">
-        <h1 className="text-2xl font-bold">Välkommen, {session?.user?.name}!</h1>
-        <p className="text-blue-100 mt-1">
-          Tidsrapport hjälper dig att registrera arbetstid, beräkna lön med OB-tillägg och hålla koll på din ekonomi.
-        </p>
+    <div className="space-y-6">
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <p className="text-slate-400 text-sm mb-1 capitalize">{monthName}</p>
+          <h1 className="text-2xl font-bold">Hej, {session?.user?.name?.split(' ')[0]}!</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            {weekTotal > 0
+              ? `Du har registrerat ${weekTotal.toFixed(1)} timmar denna vecka.`
+              : 'Inga registreringar denna vecka ännu.'}
+          </p>
+        </div>
+        <Link
+          href="/tid"
+          className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-400 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm self-start sm:self-auto"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Registrera tid
+        </Link>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 uppercase">Denna vecka</h3>
-          <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">{weekTotal.toFixed(1)}h</p>
-        </div>
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 uppercase">Denna månad</h3>
-          <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">{monthTotal.toFixed(1)}h</p>
-        </div>
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 uppercase">Registreringar denna vecka</h3>
-          <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">{weekEntries.length}</p>
-        </div>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Timmar denna vecka"
+          value={`${weekTotal.toFixed(1)}h`}
+          sub={`${weekEntries.length} pass`}
+          color="blue"
+          icon={
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Timmar denna månad"
+          value={`${monthTotal.toFixed(1)}h`}
+          sub={`${monthEntries.length} pass`}
+          color="indigo"
+          icon={
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Uppskattad nettolön"
+          value={salary ? formatCurrency(salary.netPay) : '—'}
+          sub={salary && salary.totalOB > 0 ? `varav OB ${formatCurrency(salary.totalOB)}` : 'denna månad'}
+          color="green"
+          icon={
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Semestersaldo"
+          value={vacationBalance !== null ? formatCurrency(vacationBalance) : '—'}
+          sub="intjänat saldo"
+          color="amber"
+          icon={
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          }
+        />
       </div>
 
-      {/* Feature overview */}
-      <div className="mb-8">
-        <h2 className="text-lg font-semibold mb-4">Funktioner</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {featureCards.map((card) => (
-            <Link
-              key={card.href}
-              href={card.href}
-              className="bg-white rounded-lg shadow hover:shadow-md transition p-4 group"
-            >
-              <div className={`w-10 h-10 ${card.color} rounded-lg mb-3 flex items-center justify-center`}>
-                <div className="w-5 h-5 bg-white/30 rounded" />
-              </div>
-              <h3 className="font-semibold text-sm group-hover:text-blue-600 transition">{card.title}</h3>
-              <p className="text-xs text-gray-500 mt-1">{card.desc}</p>
-            </Link>
-          ))}
+      {/* Salary breakdown */}
+      {salary && salary.grossPay > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-800">Lönefördelning denna månad</h2>
+            <Link href="/lon" className="text-sm text-blue-600 hover:underline">Visa detaljer →</Link>
+          </div>
+          <SalaryBar basePay={salary.basePay} ob={salary.totalOB} overtime={salary.totalOvertimePay} gross={salary.grossPay} />
         </div>
-      </div>
+      )}
 
-      {/* Charts and data */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      {/* Charts + Projects */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {weekEntries.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <BarChart
+              data={weekChartData}
+              title="Timmar per veckodag (denna vecka)"
+              color="#3b82f6"
+              height={180}
+              formatValue={(v) => v.toFixed(1)}
+            />
+          </div>
+        )}
+
         {Object.keys(projectSummary).length > 0 && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-lg font-semibold mb-4">Timmar per projekt (denna månad)</h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 className="font-semibold text-gray-800 mb-4">Timmar per projekt (denna månad)</h2>
             <div className="space-y-3">
               {Object.entries(projectSummary)
                 .sort(([, a], [, b]) => b - a)
                 .map(([project, hours]) => (
-                  <div key={project} className="flex items-center justify-between">
-                    <span className="font-medium">{project}</span>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-24 sm:w-48 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${Math.min(100, (hours / monthTotal) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium w-12 text-right">{hours.toFixed(1)}h</span>
+                  <div key={project}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-700 font-medium truncate pr-2">{project}</span>
+                      <span className="text-gray-500 shrink-0">{hours.toFixed(1)}h</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-500 h-1.5 rounded-full"
+                        style={{ width: `${Math.min(100, (hours / monthTotal) * 100)}%` }}
+                      />
                     </div>
                   </div>
                 ))}
             </div>
           </div>
         )}
-
-        {weekEntries.length > 0 && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <BarChart
-              data={weekChartData}
-              title="Timmar per veckodag (denna vecka)"
-              color="#3b82f6"
-              height={200}
-              formatValue={(v) => v.toFixed(1)}
-            />
-          </div>
-        )}
       </div>
 
       {/* Recent entries */}
       {weekEntries.length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
-          <h2 className="text-lg font-semibold p-6 pb-3">Senaste registreringar</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-800">Senaste registreringar</h2>
+            <Link href="/tid" className="text-sm text-blue-600 hover:underline">Visa alla →</Link>
+          </div>
           <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
-                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Projekt</th>
-                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Tid</th>
-                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Timmar</th>
-                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Beskrivning</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {weekEntries.slice(0, 10).map((entry) => (
-                <tr key={entry.id}>
-                  <td className="px-3 py-2 sm:px-6 sm:py-3">{entry.date}</td>
-                  <td className="px-3 py-2 sm:px-6 sm:py-3">{entry.projectName}</td>
-                  <td className="px-3 py-2 sm:px-6 sm:py-3 text-sm text-gray-600">
-                    {entry.startTime && entry.endTime ? `${entry.startTime}-${entry.endTime}` : '-'}
-                  </td>
-                  <td className="px-3 py-2 sm:px-6 sm:py-3">{entry.hours.toFixed(1)}</td>
-                  <td className="px-3 py-2 sm:px-6 sm:py-3 text-gray-600">{entry.description || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-gray-50">
+                {weekEntries.slice(0, 8).map((entry) => (
+                  <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-3 text-gray-500 whitespace-nowrap">{entry.date}</td>
+                    <td className="px-5 py-3 font-medium text-gray-800 truncate max-w-[140px]">{entry.projectName}</td>
+                    <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                      {entry.startTime && entry.endTime ? `${entry.startTime}–${entry.endTime}` : '—'}
+                    </td>
+                    <td className="px-5 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{entry.hours.toFixed(1)}h</td>
+                    <td className="px-5 py-3 text-gray-400 truncate max-w-[160px] hidden md:table-cell">
+                      {entry.description || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* Labor law information */}
-      <div className="mb-8">
-        <h2 className="text-lg font-semibold mb-4">Arbetsrättsinformation</h2>
-        <div className="space-y-2">
-          {laborInfo.map((info, i) => (
-            <div key={i} className="bg-white rounded-lg shadow overflow-hidden">
-              <button
-                onClick={() => setExpandedInfo(expandedInfo === i ? null : i)}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition"
-              >
-                <span className="font-medium">{info.title}</span>
-                <svg className={`w-5 h-5 text-gray-400 transition-transform ${expandedInfo === i ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {expandedInfo === i && (
-                <div className="px-4 pb-4 text-sm text-gray-600">{info.content}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Resource links */}
-      <div className="mb-8">
-        <h2 className="text-lg font-semibold mb-4">Resurslänkar</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {resourceLinks.map((link) => (
-            <a
-              key={link.url}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white p-4 rounded-lg shadow text-center hover:shadow-md transition break-words"
-            >
-              <span className="text-sm font-medium text-blue-600 hover:underline">{link.label}</span>
-            </a>
-          ))}
-        </div>
-      </div>
-
       {/* Disclaimer */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-        <strong>Observera:</strong> Löneberäkningarna i denna app är uppskattningar baserade på Handels kollektivavtal.
-        De ersätter inte ett officiellt lönebesked från din arbetsgivare. Kontrollera alltid mot din faktiska lönespecifikation.
+      <p className="text-xs text-gray-400 text-center pb-2">
+        Löneberäkningar är uppskattningar baserade på Handels kollektivavtal och ersätter inte ett officiellt lönebesked.
+      </p>
+    </div>
+  );
+}
+
+function StatCard({
+  label, value, sub, color, icon,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  color: 'blue' | 'indigo' | 'green' | 'amber';
+  icon: React.ReactNode;
+}) {
+  const colors = {
+    blue: { bg: 'bg-blue-50', icon: 'bg-blue-500', text: 'text-blue-600' },
+    indigo: { bg: 'bg-indigo-50', icon: 'bg-indigo-500', text: 'text-indigo-600' },
+    green: { bg: 'bg-emerald-50', icon: 'bg-emerald-500', text: 'text-emerald-600' },
+    amber: { bg: 'bg-amber-50', icon: 'bg-amber-500', text: 'text-amber-600' },
+  };
+  const c = colors[color];
+
+  return (
+    <div className={`${c.bg} rounded-xl p-4 flex flex-col gap-3`}>
+      <div className={`${c.icon} w-9 h-9 rounded-lg flex items-center justify-center text-white`}>
+        {icon}
       </div>
+      <div>
+        <div className={`text-xl font-bold ${c.text}`}>{value}</div>
+        <div className="text-xs text-gray-500 mt-0.5 leading-tight">{label}</div>
+        <div className="text-xs text-gray-400 mt-0.5">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+function SalaryBar({ basePay, ob, overtime, gross }: { basePay: number; ob: number; overtime: number; gross: number }) {
+  const baseW = gross > 0 ? (basePay / gross) * 100 : 0;
+  const obW = gross > 0 ? (ob / gross) * 100 : 0;
+  const otW = gross > 0 ? (overtime / gross) * 100 : 0;
+
+  return (
+    <div>
+      <div className="flex rounded-full overflow-hidden h-3 mb-3">
+        {baseW > 0 && <div className="bg-blue-500 transition-all" style={{ width: `${baseW}%` }} />}
+        {obW > 0 && <div className="bg-orange-400 transition-all" style={{ width: `${obW}%` }} />}
+        {otW > 0 && <div className="bg-amber-400 transition-all" style={{ width: `${otW}%` }} />}
+      </div>
+      <div className="flex flex-wrap gap-4 text-sm">
+        <LegendItem color="bg-blue-500" label="Grundlön" value={formatCurrency(basePay)} />
+        {ob > 0 && <LegendItem color="bg-orange-400" label="OB" value={formatCurrency(ob)} />}
+        {overtime > 0 && <LegendItem color="bg-amber-400" label="Övertid" value={formatCurrency(overtime)} />}
+      </div>
+    </div>
+  );
+}
+
+function LegendItem({ color, label, value }: { color: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
+      <span className="text-gray-500">{label}</span>
+      <span className="font-medium text-gray-700">{value}</span>
     </div>
   );
 }
