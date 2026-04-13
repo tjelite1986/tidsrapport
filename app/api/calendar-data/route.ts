@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
 
   // Sortera poster efter datum för korrekt sekventiell beräkning
   const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  const enrichedMap = new Map<number, (typeof entries)[0] & { pay: object }>();
+  const enrichedMap = new Map<number, Omit<(typeof entries)[0], 'breakPeriods'> & { breakPeriods: import('@/lib/types/break-periods').BreakPeriod[] | null; pay: object }>();
 
   for (const entry of sortedEntries) {
     let basePay = 0;
@@ -165,6 +165,7 @@ export async function GET(req: NextRequest) {
 
     enrichedMap.set(entry.id, {
       ...entry,
+      breakPeriods: parseBreakPeriods(entry.breakPeriods),
       pay: {
         basePay,
         obAmount,
