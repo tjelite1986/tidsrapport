@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { timeEntries, projects, userSettings, users } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateOB, type WorkplaceType } from '@/lib/calculations/ob';
-import { getHourlyRate } from '@/lib/calculations/contracts';
+import { getHourlyRateForDate } from '@/lib/calculations/contracts';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const taxRate = settings?.taxRate ?? 30;
   const vacationPayRate = settings?.vacationPayRate ?? 12;
   const vacationPayMode = (settings?.vacationPayMode as 'included' | 'separate') ?? 'included';
-  const hourlyRate = user?.hourlyRate ?? getHourlyRate(contractLevel);
+  const customHourlyRate = user?.hourlyRate ?? null;
 
   const entries = db
     .select({
@@ -100,6 +100,7 @@ export async function GET(req: NextRequest) {
   const enrichedMap = new Map<number, Omit<(typeof entries)[0], 'breakPeriods'> & { breakPeriods: import('@/lib/types/break-periods').BreakPeriod[] | null; pay: object }>();
 
   for (const entry of sortedEntries) {
+    const hourlyRate = customHourlyRate ?? getHourlyRateForDate(contractLevel, entry.date);
     let basePay = 0;
     let obAmount = 0;
     let obSegments: { hours: number; obPercent: number; obAmount: number }[] = [];

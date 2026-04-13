@@ -1,5 +1,5 @@
 import { calculateOB, type OBResult, type WorkplaceType } from './ob';
-import { getHourlyRate } from './contracts';
+import { getHourlyRate, getHourlyRateForDate } from './contracts';
 import { calculateWorkHours } from './time-utils';
 import { lookupMonthlyTax } from '../tax-tables/tax-lookup';
 
@@ -81,18 +81,25 @@ export function calculateMonthlyPay(
   const salaryMode = settings.salaryMode ?? 'contract';
   const isFixedPlus = salaryMode === 'fixed_plus';
 
-  // Determine effective hourly rate for OB, overtime and sick pay calculations
-  let hourlyRate: number;
-  if (salaryMode === 'hourly') {
-    hourlyRate = settings.hourlyRate ?? getHourlyRate(settings.contractLevel);
-  } else if (salaryMode === 'fixed_plus') {
-    const fixedSalary = settings.fixedMonthlySalary ?? 0;
-    const hoursPerMonth = settings.workingHoursPerMonth ?? 160;
-    hourlyRate = hoursPerMonth > 0 ? fixedSalary / hoursPerMonth : 0;
-  } else {
-    // contract (default)
-    hourlyRate = settings.hourlyRate ?? getHourlyRate(settings.contractLevel);
+  // Bastimlön för fixed_plus (härleds från fast månadslön, ej datumbaserad)
+  const fixedHourlyRate = isFixedPlus
+    ? (() => {
+        const fixedSalary = settings.fixedMonthlySalary ?? 0;
+        const hoursPerMonth = settings.workingHoursPerMonth ?? 160;
+        return hoursPerMonth > 0 ? fixedSalary / hoursPerMonth : 0;
+      })()
+    : 0;
+
+  // Hjälpfunktion: returnerar rätt timlön för ett givet datum
+  function getEntryHourlyRate(date: string): number {
+    if (isFixedPlus) return fixedHourlyRate;
+    // Manuell timlön (admin-satt) överstyr alltid avtalstabellen
+    if (settings.hourlyRate != null) return settings.hourlyRate;
+    return getHourlyRateForDate(settings.contractLevel, date);
   }
+
+  // hourlyRate för MonthlyPayResult.hourlyRate — använd dagens datum som referens
+  const hourlyRate = getEntryHourlyRate(new Date().toISOString().slice(0, 10));
 
   const days: DayPayDetail[] = [];
 
@@ -116,6 +123,7 @@ export function calculateMonthlyPay(
   for (const entry of sorted) {
     const hours = entry.hours;
     totalHours += hours;
+    const entryRate = getEntryHourlyRate(entry.date);
 
     if (entry.entryType === 'sick') {
       // Check if consecutive
@@ -135,7 +143,7 @@ export function calculateMonthlyPay(
       sickDayCount++;
 
       // Karensdag = first sick day gets 0
-      const daySickPay = consecutiveSickDays === 1 ? 0 : hourlyRate * hours * 0.8;
+      const daySickPay = consecutiveSickDays === 1 ? 0 : entryRate * hours * 0.8;
       sickPay += daySickPay;
 
       days.push({
@@ -159,7 +167,7 @@ export function calculateMonthlyPay(
 
     workHours += hours;
     // For fixed_plus: base pay is a fixed monthly salary, not per-hour
-    const dayBasePay = isFixedPlus ? 0 : hourlyRate * hours;
+    const dayBasePay = isFixedPlus ? 0 : entryRate * hours;
     basePay += dayBasePay;
 
     // Calculate OB if we have start/end times
@@ -170,7 +178,7 @@ export function calculateMonthlyPay(
         entry.startTime,
         entry.endTime,
         entry.breakMinutes ?? 0,
-        hourlyRate,
+        entryRate,
         settings.workplaceType,
         entry.breakPeriods
       );
@@ -180,13 +188,13 @@ export function calculateMonthlyPay(
     // Overtime calculations
     let dayOvertimePay = 0;
     if (entry.overtimeType === 'mertid') {
-      dayOvertimePay = hourlyRate * hours * 0.35;
+      dayOvertimePay = entryRate * hours * 0.35;
       overtidMertid += dayOvertimePay;
     } else if (entry.overtimeType === 'enkel') {
-      dayOvertimePay = hourlyRate * hours * 0.35;
+      dayOvertimePay = entryRate * hours * 0.35;
       overtidEnkel += dayOvertimePay;
     } else if (entry.overtimeType === 'kvalificerad') {
-      dayOvertimePay = hourlyRate * hours * 0.70;
+      dayOvertimePay = entryRate * hours * 0.70;
       overtidKvalificerad += dayOvertimePay;
     }
 
