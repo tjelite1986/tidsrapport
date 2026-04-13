@@ -64,37 +64,18 @@ export function calculateAutoBreak(startTime: string, endTime: string, rules?: B
 }
 
 // Generera en rasttidsperiod givet skiftets start/slut och antal rastminuter.
-// På lördagar (om date ges) placeras rasten så att den slutar vid 12:00 (OB-gräns).
-// Annars placeras rasten vid skiftets mittpunkt.
+// Placerar rasten vid skiftets mittpunkt.
 export function generateBreakPeriod(
   startTime: string,
   endTime: string,
   breakMins: number,
-  date?: string
+  _date?: string
 ): { start: string; end: string } {
   const [sh, sm] = startTime.split(':').map(Number);
   const [eh, em] = endTime.split(':').map(Number);
   let startTotal = sh * 60 + sm;
   let endTotal = eh * 60 + em;
   if (endTotal <= startTotal) endTotal += 1440;
-
-  const obBoundary = 720; // 12:00 i minuter
-  if (date) {
-    const d = new Date(date + 'T12:00:00');
-    const isSaturday = d.getDay() === 6;
-    if (isSaturday && startTotal < obBoundary && endTotal > obBoundary + breakMins) {
-      const beMin = Math.min(obBoundary, endTotal - breakMins);
-      const bsMin = beMin - breakMins;
-      if (bsMin >= startTotal) {
-        const bsNorm = ((bsMin % 1440) + 1440) % 1440;
-        const beNorm = ((beMin % 1440) + 1440) % 1440;
-        return {
-          start: `${String(Math.floor(bsNorm / 60)).padStart(2, '0')}:${String(bsNorm % 60).padStart(2, '0')}`,
-          end: `${String(Math.floor(beNorm / 60)).padStart(2, '0')}:${String(beNorm % 60).padStart(2, '0')}`,
-        };
-      }
-    }
-  }
 
   const midpoint = Math.floor((startTotal + endTotal) / 2);
   const bsMin = midpoint - Math.floor(breakMins / 2);
