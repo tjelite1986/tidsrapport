@@ -6,6 +6,7 @@ import TimePicker from '@/components/TimePicker';
 import TaskSegmentEditor from '@/components/TaskSegmentEditor';
 import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
 import { BreakPeriod, sumBreakMinutes } from '@/lib/types/break-periods';
+import { generateBreakPeriod } from '@/lib/calculations';
 
 interface TimeEntryDetail {
   id: number;
@@ -69,9 +70,9 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
     setEndTime(entry.endTime || '');
     if (entry.breakPeriods && entry.breakPeriods.length > 0) {
       setBreakPeriods(entry.breakPeriods);
-    } else if (entry.breakMinutes && entry.breakMinutes > 0) {
-      // Legacy entry without period data: show one row with empty times
-      setBreakPeriods([{ start: '', end: '' }]);
+    } else if (entry.breakMinutes && entry.breakMinutes > 0 && entry.startTime && entry.endTime) {
+      // Auto-generera rasttid från starttid/sluttid och rastminuter
+      setBreakPeriods([generateBreakPeriod(entry.startTime, entry.endTime, entry.breakMinutes, entry.date)]);
     } else {
       setBreakPeriods([]);
     }
@@ -215,18 +216,26 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
                 <p className="text-xs text-gray-400">Ingen rast</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setBreakPeriods((prev) => [...prev, { start: '', end: '' }])}
-              className="mt-1 text-xs text-blue-600 hover:underline"
-            >
-              + Lägg till rast
-            </button>
+            <div className="flex items-center gap-3 mt-1">
+              <button
+                type="button"
+                onClick={() => setBreakPeriods((prev) => [...prev, { start: '', end: '' }])}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                + Lägg till rast
+              </button>
+              {breakPeriods.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setBreakPeriods([])}
+                  className="text-xs text-gray-400 hover:text-red-500"
+                >
+                  Ingen rast
+                </button>
+              )}
+            </div>
             {totalBreakMinutes > 0 && (
               <p className="text-xs text-gray-500 mt-1">Totalt: {totalBreakMinutes} min</p>
-            )}
-            {breakPeriods.some((bp) => !bp.start || !bp.end) && entry?.breakMinutes && entry.breakMinutes > 0 && (
-              <p className="text-xs text-gray-400 mt-0.5">Befintlig rast: {entry.breakMinutes} min (ingen tidsangivelse)</p>
             )}
           </div>
 

@@ -13,7 +13,7 @@ import TaskSegmentEditor from '@/components/TaskSegmentEditor';
 import ScheduleImportDialog from '@/components/dialogs/ScheduleImportDialog';
 import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
 import { BreakPeriod, sumBreakMinutes, serializeBreakPeriods } from '@/lib/types/break-periods';
-import { BreakRule } from '@/lib/calculations';
+import { BreakRule, generateBreakPeriod } from '@/lib/calculations';
 
 interface Project {
   id: number;
@@ -100,45 +100,6 @@ function autoBreakCalc(startTime: string, endTime: string, rules?: BreakRule[]):
   return 0;
 }
 
-function generateBreakPeriod(startTime: string, endTime: string, breakMins: number, date?: string): BreakPeriod {
-  const [sh, sm] = startTime.split(':').map(Number);
-  const [eh, em] = endTime.split(':').map(Number);
-  let startTotal = sh * 60 + sm;
-  let endTotal = eh * 60 + em;
-  if (endTotal <= startTotal) endTotal += 1440;
-
-  // Om lördag och skiftet korsar 12:00-gränsen (OB-gräns för butik):
-  // placera rasten så nära före 12:00 som möjligt (vanlig tid = lägre lönekostnad)
-  const obBoundary = 720; // 12:00 i minuter
-  if (date) {
-    const d = new Date(date + 'T12:00:00');
-    const isSaturday = d.getDay() === 6;
-    if (isSaturday && startTotal < obBoundary && endTotal > obBoundary + breakMins) {
-      // Lägg rasten så att den slutar precis vid (eller strax före) 12:00
-      const beMin = Math.min(obBoundary, endTotal - breakMins);
-      const bsMin = beMin - breakMins;
-      if (bsMin >= startTotal) {
-        const bsNorm = ((bsMin % 1440) + 1440) % 1440;
-        const beNorm = ((beMin % 1440) + 1440) % 1440;
-        return {
-          start: `${String(Math.floor(bsNorm / 60)).padStart(2, '0')}:${String(bsNorm % 60).padStart(2, '0')}`,
-          end: `${String(Math.floor(beNorm / 60)).padStart(2, '0')}:${String(beNorm % 60).padStart(2, '0')}`,
-        };
-      }
-    }
-  }
-
-  // Standard: mittpunkt
-  const midpoint = Math.floor((startTotal + endTotal) / 2);
-  const bsMin = midpoint - Math.floor(breakMins / 2);
-  const beMin = bsMin + breakMins;
-  const bsNorm = ((bsMin % 1440) + 1440) % 1440;
-  const beNorm = ((beMin % 1440) + 1440) % 1440;
-  return {
-    start: `${String(Math.floor(bsNorm / 60)).padStart(2, '0')}:${String(bsNorm % 60).padStart(2, '0')}`,
-    end: `${String(Math.floor(beNorm / 60)).padStart(2, '0')}:${String(beNorm % 60).padStart(2, '0')}`,
-  };
-}
 
 export default function TidPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -499,13 +460,24 @@ export default function TidPage() {
                 <p className="text-xs text-gray-400">Ingen rast</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => { setAutoBreakEnabled(false); setBreakPeriods((prev) => [...prev, { start: '', end: '' }]); }}
-              className="mt-1 text-xs text-blue-600 hover:underline"
-            >
-              + Lägg till rast
-            </button>
+            <div className="flex items-center gap-3 mt-1">
+              <button
+                type="button"
+                onClick={() => { setAutoBreakEnabled(false); setBreakPeriods((prev) => [...prev, { start: '', end: '' }]); }}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                + Lägg till rast
+              </button>
+              {(autoBreakEnabled || breakPeriods.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => { setAutoBreakEnabled(false); setBreakPeriods([]); }}
+                  className="text-xs text-gray-400 hover:text-red-500"
+                >
+                  Ingen rast
+                </button>
+              )}
+            </div>
             {totalBreakMinutes > 0 && (
               <p className="text-xs text-gray-500 mt-1">Totalt: {totalBreakMinutes} min</p>
             )}
