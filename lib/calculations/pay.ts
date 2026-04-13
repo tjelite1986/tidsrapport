@@ -98,8 +98,12 @@ export function calculateMonthlyPay(
     return getHourlyRateForDate(settings.contractLevel, date);
   }
 
-  // hourlyRate för MonthlyPayResult.hourlyRate — använd dagens datum som referens
-  const hourlyRate = getEntryHourlyRate(new Date().toISOString().slice(0, 10));
+  // hourlyRate för MonthlyPayResult.hourlyRate — använd första entryns datum som referens för visning
+  // (om inga entries finns, fall tillbaka på dagens datum)
+  const displayDate = entries.length > 0
+    ? [...entries].sort((a, b) => a.date.localeCompare(b.date))[0].date
+    : new Date().toISOString().slice(0, 10);
+  const hourlyRate = getEntryHourlyRate(displayDate);
 
   const days: DayPayDetail[] = [];
 
