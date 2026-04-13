@@ -100,12 +100,35 @@ function autoBreakCalc(startTime: string, endTime: string, rules?: BreakRule[]):
   return 0;
 }
 
-function generateBreakPeriod(startTime: string, endTime: string, breakMins: number): BreakPeriod {
+function generateBreakPeriod(startTime: string, endTime: string, breakMins: number, date?: string): BreakPeriod {
   const [sh, sm] = startTime.split(':').map(Number);
   const [eh, em] = endTime.split(':').map(Number);
   let startTotal = sh * 60 + sm;
   let endTotal = eh * 60 + em;
   if (endTotal <= startTotal) endTotal += 1440;
+
+  // Om lördag och skiftet korsar 12:00-gränsen (OB-gräns för butik):
+  // placera rasten så nära före 12:00 som möjligt (vanlig tid = lägre lönekostnad)
+  const obBoundary = 720; // 12:00 i minuter
+  if (date) {
+    const d = new Date(date + 'T12:00:00');
+    const isSaturday = d.getDay() === 6;
+    if (isSaturday && startTotal < obBoundary && endTotal > obBoundary + breakMins) {
+      // Lägg rasten så att den slutar precis vid (eller strax före) 12:00
+      const beMin = Math.min(obBoundary, endTotal - breakMins);
+      const bsMin = beMin - breakMins;
+      if (bsMin >= startTotal) {
+        const bsNorm = ((bsMin % 1440) + 1440) % 1440;
+        const beNorm = ((beMin % 1440) + 1440) % 1440;
+        return {
+          start: `${String(Math.floor(bsNorm / 60)).padStart(2, '0')}:${String(bsNorm % 60).padStart(2, '0')}`,
+          end: `${String(Math.floor(beNorm / 60)).padStart(2, '0')}:${String(beNorm % 60).padStart(2, '0')}`,
+        };
+      }
+    }
+  }
+
+  // Standard: mittpunkt
   const midpoint = Math.floor((startTotal + endTotal) / 2);
   const bsMin = midpoint - Math.floor(breakMins / 2);
   const beMin = bsMin + breakMins;
@@ -225,7 +248,7 @@ export default function TidPage() {
       // If auto is off, set break from schedule; if auto is on, the auto-break effect handles it
       if (!autoBreakEnabled) {
         if (schedEntry.breakMinutes > 0) {
-          setBreakPeriods([generateBreakPeriod(schedEntry.startTime, schedEntry.endTime, schedEntry.breakMinutes)]);
+          setBreakPeriods([generateBreakPeriod(schedEntry.startTime, schedEntry.endTime, schedEntry.breakMinutes, date)]);
         } else {
           setBreakPeriods([]);
         }
@@ -245,8 +268,8 @@ export default function TidPage() {
       setBreakPeriods([]);
       return;
     }
-    setBreakPeriods([generateBreakPeriod(startTime, endTime, mins)]);
-  }, [startTime, endTime, autoBreakEnabled, autoBreakRules]);
+    setBreakPeriods([generateBreakPeriod(startTime, endTime, mins, date)]);
+  }, [startTime, endTime, autoBreakEnabled, autoBreakRules, date]);
 
   function applyTemplate(templateId: string) {
     setSelectedTemplate(templateId);
@@ -257,7 +280,7 @@ export default function TidPage() {
       // Auto-break effect handles it if auto is on; else set from template
       if (!autoBreakEnabled) {
         if (tmpl.breakMinutes > 0) {
-          setBreakPeriods([generateBreakPeriod(tmpl.startTime, tmpl.endTime, tmpl.breakMinutes)]);
+          setBreakPeriods([generateBreakPeriod(tmpl.startTime, tmpl.endTime, tmpl.breakMinutes, date)]);
         } else {
           setBreakPeriods([]);
         }
@@ -286,7 +309,7 @@ export default function TidPage() {
       setEndTime(sched.endTime);
       if (!autoBreakEnabled) {
         if (sched.breakMinutes > 0) {
-          setBreakPeriods([generateBreakPeriod(sched.startTime, sched.endTime, sched.breakMinutes)]);
+          setBreakPeriods([generateBreakPeriod(sched.startTime, sched.endTime, sched.breakMinutes, dateStr)]);
         } else {
           setBreakPeriods([]);
         }
