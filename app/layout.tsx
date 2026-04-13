@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import SessionProvider from '@/components/SessionProvider';
 import Navigation from '@/components/Navigation';
 import PwaRegister from '@/components/PwaRegister';
+import PwaInstallBanner from '@/components/PwaInstallBanner';
 
 export const viewport: Viewport = {
   themeColor: '#2563eb',
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
         </SessionProvider>
         <PwaRegister />
+        <PwaInstallBanner />
       </body>
     </html>
   );
