@@ -8,6 +8,8 @@ import { calculateWorkHours, calculateAutoBreak } from '@/lib/calculations';
 import { parseBreakPeriods, serializeBreakPeriods, sumBreakMinutes } from '@/lib/types/break-periods';
 import { BreakRule } from '@/lib/calculations';
 
+export const dynamic = 'force-dynamic';
+
 function getUserBreakRules(userId: number): BreakRule[] | undefined {
   const s = db.select({ autoBreakRules: userSettings.autoBreakRules }).from(userSettings).where(eq(userSettings.userId, userId)).get();
   if (!s?.autoBreakRules) return undefined;

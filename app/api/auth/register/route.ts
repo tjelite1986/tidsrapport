@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { users, salarySettings } from '@/lib/db/schema';
 import { hashSync } from 'bcryptjs';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { name, email, password, confirmPassword } = body;

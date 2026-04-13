@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { userSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });

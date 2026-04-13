@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sqlite } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 interface ScheduleRow {
   day_of_week: number;
   start_time: string;

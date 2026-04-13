@@ -5,6 +5,8 @@ import { db, sqlite } from '@/lib/db';
 import { vacationPayInclusions } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });

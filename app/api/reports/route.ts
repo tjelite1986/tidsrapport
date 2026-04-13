@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { timeEntries, projects, users } from '@/lib/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });

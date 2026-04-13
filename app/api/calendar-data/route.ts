@@ -7,6 +7,8 @@ import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateOB, type WorkplaceType } from '@/lib/calculations/ob';
 import { getHourlyRate } from '@/lib/calculations/contracts';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });

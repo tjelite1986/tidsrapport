@@ -6,6 +6,8 @@ import { users, salarySettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { hashSync } from 'bcryptjs';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'admin') {

@@ -7,6 +7,8 @@ import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay } from '@/lib/calculations';
 import { lookupMonthlyTax } from '@/lib/tax-tables/tax-lookup';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
