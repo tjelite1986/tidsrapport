@@ -6,6 +6,7 @@ import { timeEntries, projects, userSettings, users } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateOB, type WorkplaceType } from '@/lib/calculations/ob';
 import { getHourlyRate } from '@/lib/calculations/contracts';
+import { parseBreakPeriods } from '@/lib/types/break-periods';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
       startTime: timeEntries.startTime,
       endTime: timeEntries.endTime,
       breakMinutes: timeEntries.breakMinutes,
+      breakPeriods: timeEntries.breakPeriods,
       entryType: timeEntries.entryType,
       overtimeType: timeEntries.overtimeType,
       description: timeEntries.description,
@@ -131,7 +133,8 @@ export async function GET(req: NextRequest) {
           entry.endTime,
           entry.breakMinutes ?? 0,
           hourlyRate,
-          workplaceType
+          workplaceType,
+          parseBreakPeriods(entry.breakPeriods)
         );
         obAmount = obResult.totalOBAmount;
         obSegments = obResult.segments.filter((s) => s.obAmount > 0).map((s) => ({
