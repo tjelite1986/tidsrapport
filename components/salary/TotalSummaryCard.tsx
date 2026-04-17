@@ -20,6 +20,8 @@ interface SalaryData {
   sickPay: number;
   grossBeforeVacation: number;
   vacationPay: number;
+  vacationDaysPay: number;
+  vacationDaysCount: number;
   grossPay: number;
   tax: number;
   netPay: number;
@@ -92,8 +94,8 @@ export default function TotalSummaryCard({ salary, month, userName, includeVacat
 
         {/* Work time */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatBox label="Total tid" value={`${salary.totalHours.toFixed(1)}h`} />
-          <StatBox label="Arbetad tid" value={`${salary.workHours.toFixed(1)}h`} />
+          <StatBox label="Total tid" value={`${salary.totalHours.toFixed(2)}h`} />
+          <StatBox label="Arbetad tid" value={`${salary.workHours.toFixed(2)}h`} />
           <StatBox label="Timlön" value={formatCurrency(salary.hourlyRate)} />
           {salary.sickDays > 0
             ? <StatBox label="Sjukdagar" value={String(salary.sickDays)} highlight="red" />
@@ -106,7 +108,7 @@ export default function TotalSummaryCard({ salary, month, userName, includeVacat
         <div className="space-y-2">
           <LineRow
             label="Grundlön"
-            sub={`${salary.workHours.toFixed(1)}h × ${formatCurrency(salary.hourlyRate)}`}
+            sub={`${salary.workHours.toFixed(2)}h × ${formatCurrency(salary.hourlyRate)}`}
             value={formatCurrency(salary.basePay)}
           />
 
@@ -116,7 +118,7 @@ export default function TotalSummaryCard({ salary, month, userName, includeVacat
               <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2">OB-tillägg</p>
               {salary.obBreakdown.map((ob) => (
                 <div key={ob.percent} className="flex justify-between text-sm py-0.5">
-                  <span className="text-orange-700">OB {ob.percent}% · {ob.hours.toFixed(1)}h</span>
+                  <span className="text-orange-700">OB {ob.percent}% · {ob.hours.toFixed(2)}h</span>
                   <span className="font-semibold text-orange-800">{formatCurrency(ob.amount)}</span>
                 </div>
               ))}
@@ -146,6 +148,18 @@ export default function TotalSummaryCard({ salary, month, userName, includeVacat
           {/* Sick pay */}
           {salary.sickPay > 0 && (
             <LineRow label="Sjuklön (80%)" value={formatCurrency(salary.sickPay)} />
+          )}
+
+          {/* Vacation day pay (semesterlön från föregående års pot) */}
+          {salary.vacationDaysPay > 0 && (
+            <div className="bg-teal-50 rounded-xl p-3">
+              <LineRow
+                label={`Semesterlön (${salary.vacationDaysCount} dag${salary.vacationDaysCount !== 1 ? 'ar' : ''})`}
+                sub={`${formatCurrency(salary.vacationDaysPay / salary.vacationDaysCount)}/dag från föregående års pot`}
+                value={formatCurrency(salary.vacationDaysPay)}
+                teal
+              />
+            </div>
           )}
 
           <div className="border-t border-gray-100" />
@@ -227,7 +241,7 @@ function StatBox({ label, value, highlight }: { label: string; value: string; hi
 }
 
 function LineRow({
-  label, sub, value, bold, small, red,
+  label, sub, value, bold, small, red, teal,
 }: {
   label: string;
   sub?: string;
@@ -235,17 +249,18 @@ function LineRow({
   bold?: boolean;
   small?: boolean;
   red?: boolean;
+  teal?: boolean;
 }) {
   return (
     <div className={`flex justify-between items-baseline ${small ? 'py-0.5' : 'py-1'}`}>
       <div className="min-w-0 mr-2">
-        <span className={`${bold ? 'font-semibold text-gray-800' : 'text-gray-600'} ${small ? 'text-sm' : ''}`}>
+        <span className={`${bold ? 'font-semibold text-gray-800' : teal ? 'text-teal-700' : 'text-gray-600'} ${small ? 'text-sm' : ''}`}>
           {label}
         </span>
         {sub && <span className="text-xs text-gray-400 ml-1.5">{sub}</span>}
       </div>
       <span
-        className={`shrink-0 ${bold ? 'font-bold text-gray-800' : 'font-medium text-gray-700'} ${small ? 'text-sm' : ''} ${red ? 'text-red-500' : ''}`}
+        className={`shrink-0 ${bold ? 'font-bold text-gray-800' : 'font-medium text-gray-700'} ${small ? 'text-sm' : ''} ${red ? 'text-red-500' : ''} ${teal ? 'text-teal-700' : ''}`}
       >
         {value}
       </span>

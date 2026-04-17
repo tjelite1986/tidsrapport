@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { timeEntries, users, userSettings, vacationPayWithdrawals, vacationPayInclusions } from '@/lib/db/schema';
+import { timeEntries, users, userSettings, vacationPayWithdrawals, vacationPayInclusions, vacationDays } from '@/lib/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay } from '@/lib/calculations';
 import { lookupMonthlyTax } from '@/lib/tax-tables/tax-lookup';
@@ -119,12 +119,36 @@ export async function GET(req: NextRequest) {
 
   const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
   const totalTax = withdrawals.reduce((sum, w) => sum + (w.tax ?? 0), 0);
-  const balance = totalAccumulated - totalWithdrawn;
+
+  // Beräkna hur mycket som betalats ut via semesterdagar (automatisk semesterlön)
+  // Semesterdagar tagna år X dras från år X-1:s pot
+  let vacationDaysPaidOut = 0;
+  if (paySettings.vacationPayMode === 'separate') {
+    const allVacDays = db.select().from(vacationDays).where(eq(vacationDays.userId, userId)).all();
+    // Gruppera semesterdagar per år
+    const vacDaysByYear: Record<number, number> = {};
+    for (const v of allVacDays) {
+      const y = parseInt(v.date.slice(0, 4));
+      vacDaysByYear[y] = (vacDaysByYear[y] ?? 0) + 1;
+    }
+    const daysPerYear = settings?.vacationDaysPerYear ?? 25;
+    for (const [yearStr, daysCount] of Object.entries(vacDaysByYear)) {
+      const year = parseInt(yearStr);
+      const prevYear = year - 1;
+      const prevYearPot = yearlyTotals[prevYear]?.earned ?? 0;
+      if (prevYearPot > 0 && daysPerYear > 0) {
+        vacationDaysPaidOut += (prevYearPot / daysPerYear) * daysCount;
+      }
+    }
+  }
+
+  const balance = totalAccumulated - totalWithdrawn - vacationDaysPaidOut;
 
   return NextResponse.json({
     totalAccumulated,
     totalWithdrawn,
     totalTax,
+    vacationDaysPaidOut,
     balance,
     vacationPayRate: paySettings.vacationPayRate,
     taxMode: paySettings.taxMode,

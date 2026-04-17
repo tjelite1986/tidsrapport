@@ -181,7 +181,7 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit, onDelet
                 <PayRow label="Grundlön" value={formatCurrency(payDetail.basePay)} />
                 {payDetail.obSegments.map((seg, i) => (
                   seg.obAmount > 0 && (
-                    <PayRow key={i} label={`OB ${seg.obPercent}% (${seg.hours.toFixed(1)}h)`} value={formatCurrency(seg.obAmount)} highlight />
+                    <PayRow key={i} label={`OB ${seg.obPercent}% (${seg.hours.toFixed(2)}h)`} value={formatCurrency(seg.obAmount)} highlight />
                   )
                 ))}
                 {payDetail.overtimePay > 0 && (

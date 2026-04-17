@@ -1,15 +1,6 @@
-const CACHE = "tidsrapport-v1";
+const CACHE = "tidsrapport-v2";
 
-const PRECACHE = [
-  "/",
-  "/icon.svg",
-  "/manifest.json",
-];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(PRECACHE))
-  );
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 

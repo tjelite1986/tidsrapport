@@ -28,6 +28,7 @@ interface VacationPayData {
   totalAccumulated: number;
   totalWithdrawn: number;
   totalTax: number;
+  vacationDaysPaidOut: number;
   balance: number;
   vacationPayRate: number;
   taxMode: string;
@@ -118,12 +119,14 @@ export default function VacationPayTracker({ refreshKey }: Props) {
             <div className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(data.totalAccumulated)}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500 uppercase font-medium">Uttaget (brutto)</div>
-            <div className="text-lg font-bold text-red-600 mt-1">{formatCurrency(data.totalWithdrawn)}</div>
+            <div className="text-xs text-gray-500 uppercase font-medium">Semesterlön</div>
+            <div className="text-lg font-bold text-teal-600 mt-1">
+              {data.vacationDaysPaidOut > 0 ? `-${formatCurrency(data.vacationDaysPaidOut)}` : formatCurrency(0)}
+            </div>
           </div>
           <div>
-            <div className="text-xs text-gray-500 uppercase font-medium">Skatt på uttag</div>
-            <div className="text-lg font-bold text-red-400 mt-1">{formatCurrency(data.totalTax)}</div>
+            <div className="text-xs text-gray-500 uppercase font-medium">Manuellt uttag</div>
+            <div className="text-lg font-bold text-red-600 mt-1">{formatCurrency(data.totalWithdrawn)}</div>
           </div>
           <div>
             <div className="text-xs text-gray-500 uppercase font-medium">Saldo</div>

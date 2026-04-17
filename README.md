@@ -21,12 +21,13 @@ Demo-databasen återställs automatiskt varje natt kl 03:00.
 - **Löpande tidtagning** — Realtidstimer som sparas i webbläsaren
 - **Löneuträkning** — Automatisk beräkning av bruttolön, OB, övertid och skatt per månad
 - **Skattetabeller** — Stöd för kommunal skattetabell (tabell 29–42) eller fast procentsats
-- **Semesterersättning** — Spårning av intjänandeår och uttag
+- **Semesterersättning** — Spårning av intjänandeår, semesterpott och uttag med dagersättning
+- **Semesterdagar** — Registrera semesterdagar i kalendern; semesterlön beräknas automatiskt från föregående års pott
 - **Veckoschema** — A/B- eller A/B/C/D-veckosystem med förhandsvisning
 - **Arbetsmallar** — Återanvändbara pass-mallar
 - **Statistik** — Diagram och sammanfattningar per period
 - **CSV/PDF-export** — Exportera rapporter
-- **PWA** — Installerbar som app på mobil
+- **PWA** — Installerbar som app på mobil med hårdladdningsknapp för att tvinga uppdatering
 - **AI-bildanalys** — Importera schema från foto via Anthropic API (valfritt)
 - **Flerbrukarstöd** — Varje användare ser bara sin egen data; admin hanterar konton
 
@@ -144,10 +145,10 @@ docker compose -f docker-compose.traefik.yml up -d
 Databasen uppgraderas med versionerade migreringsscript. Vid uppgradering till en ny version av appen kan migrering krävas — se release-noterna för vilken version som gäller.
 
 ```bash
-docker exec tidsrapport npx tsx scripts/migrate-v12.ts /app/data/tidsrapport.db
+docker exec tidsrapport npx tsx scripts/migrate-v13.ts /app/data/tidsrapport.db
 ```
 
-Migreringarna körs i ordning: v2 → v3 → ... → v12. Kör bara de versioner som är nyare än din nuvarande installation.
+Migreringarna körs i ordning: v2 → v3 → ... → v13. Kör bara de versioner som är nyare än din nuvarande installation.
 
 ---
 

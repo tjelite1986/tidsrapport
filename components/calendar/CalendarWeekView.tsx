@@ -20,9 +20,16 @@ interface ScheduleEntry {
   breakMinutes: number;
 }
 
+interface VacationDay {
+  date: string;
+  dailyPay: number;
+  note: string | null;
+}
+
 interface Props {
   weekOffset: number;
   entries: CalendarEntry[];
+  vacationDays?: VacationDay[];
   onDayClick: (date: string, entries: CalendarEntry[]) => void;
   onEntryClick: (entry: CalendarEntry) => void;
   onPrev: () => void;
@@ -56,7 +63,7 @@ function formatCurrency(amount: number) {
 }
 
 export default function CalendarWeekView({
-  weekOffset, entries, onDayClick, onEntryClick, onPrev, onNext,
+  weekOffset, entries, vacationDays = [], onDayClick, onEntryClick, onPrev, onNext,
   scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount,
 }: Props) {
   const dates = getWeekDates(weekOffset);
@@ -101,6 +108,7 @@ export default function CalendarWeekView({
           const isSaturday = i === 5;
           const hasSick = dayEntries.some((e) => e.entryType === 'sick');
           const schedEntry = getScheduledEntry(d, i);
+          const vacDay = vacationDays.find((v) => v.date === d);
 
           return (
             <div
@@ -129,7 +137,7 @@ export default function CalendarWeekView({
                     isSunday ? 'text-pink-600' :
                     isSaturday ? 'text-purple-600' :
                     'text-blue-600'
-                  }`}>{dayTotal.toFixed(1)}h</div>
+                  }`}>{dayTotal.toFixed(2)}h</div>
                   {dayPay > 0 && (
                     <div className="text-xs text-gray-500">{formatCurrency(dayPay)}</div>
                   )}
@@ -143,11 +151,19 @@ export default function CalendarWeekView({
                       onClick={(e) => { e.stopPropagation(); onEntryClick(entry); }}
                       className="text-[10px] truncate px-1 py-0.5 rounded bg-white/60 hover:bg-white cursor-pointer"
                     >
-                      {entry.startTime && entry.endTime ? `${entry.startTime}-${entry.endTime}` : `${entry.hours.toFixed(1)}h`}
+                      {entry.startTime && entry.endTime ? `${entry.startTime}-${entry.endTime}` : `${entry.hours.toFixed(2)}h`}
                     </div>
                   ))}
                   {dayEntries.length > 2 && (
                     <div className="text-[10px] text-gray-400">+{dayEntries.length - 2} till</div>
+                  )}
+                </div>
+              )}
+              {vacDay && (
+                <div className="mt-1 bg-teal-100 border border-teal-300 rounded px-1.5 py-1">
+                  <div className="text-[9px] text-teal-700 font-semibold">Semester</div>
+                  {vacDay.dailyPay > 0 && (
+                    <div className="text-[10px] text-teal-600 font-medium">{Math.round(vacDay.dailyPay).toLocaleString('sv-SE')} kr</div>
                   )}
                 </div>
               )}
@@ -163,7 +179,7 @@ export default function CalendarWeekView({
       </div>
 
       <div className="flex justify-between mt-3 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-        <span>Totalt: <strong className="text-blue-600">{totalHours.toFixed(1)}h</strong></span>
+        <span>Totalt: <strong className="text-blue-600">{totalHours.toFixed(2)}h</strong></span>
         {totalPay > 0 && <span>Brutto: <strong className="text-green-600">{formatCurrency(totalPay)}</strong></span>}
       </div>
     </div>

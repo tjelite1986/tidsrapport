@@ -30,6 +30,8 @@ export interface PaySettings {
   taxTable?: number | null;
   taxYear?: number;
   includeVacationInSalary?: boolean; // Per-månad: semesterersättning inkluderas i bruttolön
+  vacationDaysPay?: number; // Semesterlön från föregående års pot (dagar × dagersättning)
+  vacationDaysCount?: number; // Antal semesterdagar som genererat semesterlönen
   salaryMode?: 'contract' | 'hourly' | 'fixed_plus';
   fixedMonthlySalary?: number; // Used in 'fixed_plus' mode
   workingHoursPerMonth?: number; // Used to derive hourly rate from fixed salary
@@ -67,6 +69,8 @@ export interface MonthlyPayResult {
   sickPay: number;
   grossBeforeVacation: number;
   vacationPay: number;
+  vacationDaysPay: number;
+  vacationDaysCount: number;
   grossPay: number;
   tax: number;
   netPay: number;
@@ -264,7 +268,10 @@ export function calculateMonthlyPay(
   const vacationPay = grossBeforeVacation * (settings.vacationPayRate / 100);
 
   const addVacationToGross = settings.vacationPayMode === 'included' || settings.includeVacationInSalary;
-  const grossPay = addVacationToGross ? grossBeforeVacation + vacationPay : grossBeforeVacation;
+  // vacationDaysPay = semesterlön för uttagna dagar (från föregående års pot), alltid med i bruttolönen
+  const vacationDaysPay = settings.vacationDaysPay ?? 0;
+  const vacationDaysCount = settings.vacationDaysCount ?? 0;
+  const grossPay = (addVacationToGross ? grossBeforeVacation + vacationPay : grossBeforeVacation) + vacationDaysPay;
   const tax = settings.taxMode === 'table' && settings.taxTable
     ? lookupMonthlyTax(grossPay, settings.taxTable, settings.taxYear)
     : grossPay * (settings.taxRate / 100);
@@ -285,6 +292,8 @@ export function calculateMonthlyPay(
     sickPay,
     grossBeforeVacation,
     vacationPay,
+    vacationDaysPay,
+    vacationDaysCount,
     grossPay,
     tax,
     netPay,

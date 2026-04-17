@@ -20,10 +20,17 @@ interface ScheduleEntry {
   breakMinutes: number;
 }
 
+interface VacationDay {
+  date: string;
+  dailyPay: number;
+  note: string | null;
+}
+
 interface Props {
   year: number;
   month: number; // 0-indexed
   entries: CalendarEntry[];
+  vacationDays?: VacationDay[];
   onDayClick: (date: string, entries: CalendarEntry[]) => void;
   onEntryClick: (entry: CalendarEntry) => void;
   onPrev: () => void;
@@ -44,7 +51,7 @@ function formatCurrency(amount: number) {
 }
 
 export default function CalendarMonthView({
-  year, month, entries, onDayClick, onEntryClick, onPrev, onNext,
+  year, month, entries, vacationDays = [], onDayClick, onEntryClick, onPrev, onNext,
   scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount,
 }: Props) {
   const now = new Date();
@@ -125,6 +132,7 @@ export default function CalendarMonthView({
                 const dayNum = parseInt(dateStr.slice(8));
                 const schedEntry = getScheduledEntry(dateStr, di);
                 const hasScheduleOnly = dayTotal === 0 && schedEntry !== null;
+                const vacDay = vacationDays.find((v) => v.date === dateStr);
 
                 return (
                   <div
@@ -144,6 +152,15 @@ export default function CalendarMonthView({
                       isSaturday ? 'text-purple-600' :
                       'text-gray-700'
                     }`}>{dayNum}</div>
+
+                    {vacDay && (
+                      <div className="mt-0.5 bg-teal-100 border border-teal-300 rounded px-1 py-0.5">
+                        <div className="text-[8px] text-teal-700 font-semibold leading-none">Semester</div>
+                        {vacDay.dailyPay > 0 && (
+                          <div className="text-[8px] text-teal-600 leading-tight">{Math.round(vacDay.dailyPay).toLocaleString('sv-SE')} kr</div>
+                        )}
+                      </div>
+                    )}
 
                     {dayEntries.length > 0 && (
                       <div className="space-y-0.5">
@@ -169,7 +186,7 @@ export default function CalendarMonthView({
                                 isSunday ? 'text-pink-600' :
                                 isSaturday ? 'text-purple-600' :
                                 'text-blue-600'
-                              }`}>{entry.hours.toFixed(1)}h</span>
+                              }`}>{entry.hours.toFixed(2)}h</span>
                               {(entry.pay?.grossPay ?? 0) > 0 && (
                                 <span className="text-[8px] text-green-700">
                                   {Math.round(entry.pay!.grossPay).toLocaleString('sv-SE')} kr
@@ -183,7 +200,7 @@ export default function CalendarMonthView({
                         )}
                         {dayEntries.length > 1 && (
                           <div className="text-[8px] text-gray-500 border-t border-gray-100 pt-0.5 pl-0.5">
-                            <span className="font-medium">{dayTotal.toFixed(1)}h</span>
+                            <span className="font-medium">{dayTotal.toFixed(2)}h</span>
                             {dayPay > 0 && <span className="text-green-700 ml-1">{Math.round(dayPay).toLocaleString('sv-SE')} kr</span>}
                           </div>
                         )}
@@ -206,7 +223,7 @@ export default function CalendarMonthView({
       </div>
 
       <div className="flex justify-between mt-3 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-        <span>Totalt: <strong className="text-blue-600">{totalHours.toFixed(1)}h</strong></span>
+        <span>Totalt: <strong className="text-blue-600">{totalHours.toFixed(2)}h</strong></span>
         <span>{entries.length} registreringar</span>
         {totalPay > 0 && <span>Brutto: <strong className="text-green-600">{formatCurrency(totalPay)}</strong></span>}
       </div>

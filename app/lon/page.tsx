@@ -49,6 +49,8 @@ interface SalaryData {
   sickPay: number;
   grossBeforeVacation: number;
   vacationPay: number;
+  vacationDaysPay: number;
+  vacationDaysCount: number;
   grossPay: number;
   tax: number;
   netPay: number;
@@ -149,6 +151,8 @@ export default function LonPage() {
       vacationPay: salary.vacationPay,
       vacationPayRate: salary.settings.vacationPayRate,
       includeVacationInSalary: includeVacation,
+      vacationDaysPay: salary.vacationDaysPay,
+      vacationDaysCount: salary.vacationDaysCount,
       grossPay: salary.grossPay,
       tax: salary.tax,
       taxRate: salary.settings.taxRate,
@@ -267,7 +271,7 @@ export default function LonPage() {
                               {day.entryType === 'sick' ? 'Sjuk' : 'Arbete'}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-right">{day.hours.toFixed(1)}h</td>
+                          <td className="px-3 py-2 text-right">{day.hours.toFixed(2)}h</td>
                           <td className="px-3 py-2 text-right hidden sm:table-cell">{formatCurrency(day.basePay)}</td>
                           <td className="px-3 py-2 text-right hidden sm:table-cell">
                             {day.obResult && day.obResult.totalOBAmount > 0

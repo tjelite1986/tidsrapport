@@ -20,6 +20,8 @@ interface PayslipData {
   vacationPay: number;
   vacationPayRate: number;
   includeVacationInSalary?: boolean;
+  vacationDaysPay?: number;
+  vacationDaysCount?: number;
   grossPay: number;
   tax: number;
   taxRate: number;
@@ -93,7 +95,7 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   // Base pay
   addRow(
     'Timlön',
-    data.workHours.toFixed(1),
+    data.workHours.toFixed(2),
     'tim',
     formatCurrency(data.hourlyRate),
     formatCurrency(data.basePay)
@@ -103,7 +105,7 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   for (const ob of data.obBreakdown) {
     addRow(
       `OB-tillägg ${ob.percent}%`,
-      ob.hours.toFixed(1),
+      ob.hours.toFixed(2),
       'tim',
       formatCurrency(data.hourlyRate * ob.percent / 100),
       formatCurrency(ob.amount)
@@ -126,7 +128,19 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
     addRow('Sjuklön (80%)', String(data.sickDays), 'dagar', '', formatCurrency(data.sickPay));
   }
 
-  // Vacation pay
+  // Vacation day pay (semesterlön från föregående års pot)
+  if (data.vacationDaysPay && data.vacationDaysPay > 0 && data.vacationDaysCount) {
+    const dailyRate = data.vacationDaysPay / data.vacationDaysCount;
+    addRow(
+      `Semesterlön`,
+      String(data.vacationDaysCount),
+      'dagar',
+      formatCurrency(dailyRate),
+      formatCurrency(data.vacationDaysPay)
+    );
+  }
+
+  // Vacation pay (12% semesterersättning)
   if (data.vacationPay > 0) {
     const vacLabel = data.includeVacationInSalary
       ? `Semesterersättning (${data.vacationPayRate}%, inkl. i lön)`
@@ -165,7 +179,7 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   y += 5;
 
   doc.text('Arbetade timmar:', margin + 4, y);
-  doc.text(data.totalHours.toFixed(1) + ' tim', margin + contentWidth - 4, y, { align: 'right' });
+  doc.text(data.totalHours.toFixed(2) + ' tim', margin + contentWidth - 4, y, { align: 'right' });
   y += 7;
 
   doc.setFont('helvetica', 'bold');

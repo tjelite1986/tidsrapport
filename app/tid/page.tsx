@@ -134,6 +134,7 @@ export default function TidPage() {
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('month');
   const [monthYear, setMonthYear] = useState(() => ({ year: new Date().getFullYear(), month: new Date().getMonth() }));
   const [calendarEntries, setCalendarEntries] = useState<any[]>([]);
+  const [calendarVacationDays, setCalendarVacationDays] = useState<{ date: string; dailyPay: number; note: string | null }[]>([]);
 
   // Dialog states
   const [detailEntry, setDetailEntry] = useState<TimeEntry | null>(null);
@@ -163,6 +164,12 @@ export default function TidPage() {
 
   useEffect(() => {
     fetchEntries();
+    if (calendarView === 'week') {
+      fetch(`/api/calendar-data?startDate=${week.start}&endDate=${week.end}`)
+        .then((r) => r.json())
+        .then((data) => setCalendarVacationDays(data.vacationDays || []))
+        .catch(() => {});
+    }
   }, [weekOffset]);
 
   async function fetchEntries() {
@@ -176,7 +183,10 @@ export default function TidPage() {
     const end = `${monthYear.year}-${String(monthYear.month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     fetch(`/api/calendar-data?startDate=${start}&endDate=${end}`)
       .then((r) => r.json())
-      .then((data) => setCalendarEntries(data.entries || []))
+      .then((data) => {
+        setCalendarEntries(data.entries || []);
+        setCalendarVacationDays(data.vacationDays || []);
+      })
       .catch(() => setCalendarEntries([]));
   }
 
@@ -550,6 +560,7 @@ export default function TidPage() {
           <CalendarWeekView
             weekOffset={weekOffset}
             entries={entries}
+            vacationDays={calendarVacationDays}
             onDayClick={(clickedDate, dayEntries) => {
               if (dayEntries.length === 1) {
                 setDetailEntry(dayEntries[0] as any);
@@ -572,6 +583,7 @@ export default function TidPage() {
             year={monthYear.year}
             month={monthYear.month}
             entries={calendarEntries}
+            vacationDays={calendarVacationDays}
             onDayClick={(clickedDate, dayEntries) => {
               if (dayEntries.length === 1) {
                 setDetailEntry(dayEntries[0] as any);
