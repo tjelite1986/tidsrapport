@@ -20,10 +20,23 @@ Nästa: **v14**. Kör i container: `docker exec tidsrapport npx tsx scripts/migr
 
 ## Deploy
 ```bash
-unset DOCKER_HOST
-cd /home/thomas/docker2/tidsrapport && docker compose build && docker compose up -d
-docker logs tidsrapport --tail 20  # kontrollera att den startar
+git push origin master   # räcker — CI bygger och Watchtower uppdaterar Pi:n automatiskt
 ```
+
+Manuell kontroll om något är fel:
+```bash
+unset DOCKER_HOST
+cd /home/thomas/docker2/tidsrapport && docker compose pull && docker compose up -d
+docker logs tidsrapport --tail 20
+```
+
+## CI/CD-flöde (apr 2026)
+1. `git push origin master` → GitHub Actions bygger multi-arch image (arm64 + amd64)
+2. Image pushas till `ghcr.io/tjelite1986/tidsrapport:latest` (publikt paket)
+3. Watchtower på Pi:n kollar varje timme → drar ny image → startar om containern
+- Compose-filen använder `image: ghcr.io/tjelite1986/tidsrapport:latest`, INTE lokal `build:`
+- Watchtower: `/home/thomas/docker2/watchtower/docker-compose.yml`
+- Kör ALDRIG `docker compose build` för tidsrapport — imagen byggs av CI
 
 ## Dockerfile — multi-stage build (optimerad apr 2026)
 - **builder**: `node:20-alpine` + `python3 make g++` — kompilerar better-sqlite3, kör `npm run build`
