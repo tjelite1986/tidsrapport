@@ -15,16 +15,22 @@ Se `.claude/architecture.md` för fullständig filstruktur och API-referens.
 - Admin kan EJ se andra användares löne- eller rapportdata
 
 ## Migrations-ordning
-v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 (senaste)
-Nästa: **v10**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12 → v13 (senaste)
+Nästa: **v14**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
 
 ## Deploy
 ```bash
-npm run build                                                        # verifiera lokalt
-cd /home/thomas/docker && docker compose up -d tidsrapport --build  # bygg + starta
-docker logs tidsrapport --tail 20                                    # kontrollera
+unset DOCKER_HOST
+cd /home/thomas/docker2/tidsrapport && docker compose build && docker compose up -d
+docker logs tidsrapport --tail 20  # kontrollera att den startar
 ```
-Eller använd `/deploy` (skill).
+
+## Dockerfile — multi-stage build (optimerad apr 2026)
+- **builder**: `node:20-alpine` + `python3 make g++` — kompilerar better-sqlite3, kör `npm run build`
+- **runner**: `node:20-alpine` utan byggsverktyg — Next.js `standalone`-output buntar JS-beroenden
+- Runner kopierar bara `better-sqlite3`, `bindings`, `file-uri-to-path` (enda native-modulen)
+- Fullständiga `node_modules` kopieras INTE till runner — minskar imagen från 1.33 GB → 250 MB
+- Lägg ALDRIG till `python3 make g++` i runner-steget igen
 
 ## Varningar
 - `lib/tax-tables/data-*.json` är 323 KB/st — läs INTE dessa filer, använd `lib/tax-tables/tax-lookup.ts`
