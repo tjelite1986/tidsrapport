@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import { getWeekNumber, getWeekType } from '@/lib/calculations/time-utils';
+import { getHolidays } from '@/lib/calculations/holidays';
 
 interface CalendarEntry {
   id: number;
@@ -71,6 +73,18 @@ export default function CalendarWeekView({
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const weekNum = getWeekNumber(new Date(dates[0] + 'T12:00:00'));
 
+  const holidayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const years = new Set<number>();
+    for (const d of dates) years.add(parseInt(d.slice(0, 4)));
+    for (const y of years) {
+      for (const h of getHolidays(y)) {
+        if (!h.halfDay) map.set(h.date, h.name);
+      }
+    }
+    return map;
+  }, [dates]);
+
   const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
   const totalPay = entries.reduce((sum, e) => sum + (e.pay?.grossPay ?? 0), 0);
 
@@ -104,8 +118,10 @@ export default function CalendarWeekView({
           const dayTotal = dayEntries.reduce((sum, e) => sum + e.hours, 0);
           const dayPay = dayEntries.reduce((sum, e) => sum + (e.pay?.grossPay ?? 0), 0);
           const isToday = d === today;
-          const isSunday = i === 6;
-          const isSaturday = i === 5;
+          const holidayName = holidayMap.get(d) ?? null;
+          const isHoliday = holidayName !== null;
+          const isSunday = i === 6 || isHoliday;
+          const isSaturday = i === 5 && !isHoliday;
           const hasSick = dayEntries.some((e) => e.entryType === 'sick');
           const schedEntry = getScheduledEntry(d, i);
           const vacDay = vacationDays.find((v) => v.date === d);
@@ -130,6 +146,11 @@ export default function CalendarWeekView({
                   ''
                 }`}>{parseInt(d.slice(8))}</span>
               </div>
+              {holidayName && (
+                <div className="text-[10px] text-pink-600 font-medium leading-tight truncate" title={holidayName}>
+                  {holidayName}
+                </div>
+              )}
               {dayTotal > 0 && (
                 <div className="mt-1">
                   <div className={`text-lg font-bold ${

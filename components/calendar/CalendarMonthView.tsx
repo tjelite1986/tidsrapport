@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import { getWeekNumber, getWeekType } from '@/lib/calculations/time-utils';
+import { getHolidays } from '@/lib/calculations/holidays';
 
 interface CalendarEntry {
   id: number;
@@ -56,6 +58,14 @@ export default function CalendarMonthView({
 }: Props) {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const holidayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of getHolidays(year)) {
+      if (!h.halfDay) map.set(h.date, h.name);
+    }
+    return map;
+  }, [year]);
 
   // Build calendar grid
   const firstDay = new Date(year, month, 1);
@@ -127,8 +137,10 @@ export default function CalendarMonthView({
                 const dayTotal = dayEntries.reduce((sum, e) => sum + e.hours, 0);
                 const dayPay = dayEntries.reduce((sum, e) => sum + (e.pay?.grossPay ?? 0), 0);
                 const isToday = dateStr === today;
-                const isSunday = di === 6;
-                const isSaturday = di === 5;
+                const holidayName = holidayMap.get(dateStr) ?? null;
+                const isHoliday = holidayName !== null;
+                const isSunday = di === 6 || isHoliday;
+                const isSaturday = di === 5 && !isHoliday;
                 const dayNum = parseInt(dateStr.slice(8));
                 const schedEntry = getScheduledEntry(dateStr, di);
                 const hasScheduleOnly = dayTotal === 0 && schedEntry !== null;
@@ -152,6 +164,12 @@ export default function CalendarMonthView({
                       isSaturday ? 'text-purple-600' :
                       'text-gray-700'
                     }`}>{dayNum}</div>
+
+                    {holidayName && (
+                      <div className="text-[8px] text-pink-600 font-medium leading-tight truncate" title={holidayName}>
+                        {holidayName}
+                      </div>
+                    )}
 
                     {vacDay && (
                       <div className="mt-0.5 bg-teal-100 border border-teal-300 rounded px-1 py-0.5">
