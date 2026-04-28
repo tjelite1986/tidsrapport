@@ -189,13 +189,14 @@ export default function CalendarMonthView({
                             className="cursor-pointer hover:bg-white/60 rounded px-0.5"
                           >
                             {entry.startTime && entry.endTime && (
-                              <div className={`text-[9px] font-medium truncate ${
+                              <div className={`text-[9px] font-medium leading-[1.1] ${
                                 isToday ? 'text-indigo-700' :
                                 isSunday ? 'text-pink-700' :
                                 isSaturday ? 'text-purple-700' :
                                 'text-gray-700'
                               }`}>
-                                {entry.startTime}–{entry.endTime}
+                                <div>{entry.startTime}</div>
+                                <div>–{entry.endTime}</div>
                               </div>
                             )}
                             <div className="flex items-center gap-1 flex-wrap">
