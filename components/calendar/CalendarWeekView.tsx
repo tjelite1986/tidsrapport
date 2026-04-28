@@ -147,7 +147,7 @@ export default function CalendarWeekView({
                 }`}>{parseInt(d.slice(8))}</span>
               </div>
               {holidayName && (
-                <div className="text-[10px] text-pink-600 font-medium leading-tight truncate" title={holidayName}>
+                <div className="text-[10px] text-pink-600 font-medium leading-tight break-words" title={holidayName}>
                   {holidayName}
                 </div>
               )}

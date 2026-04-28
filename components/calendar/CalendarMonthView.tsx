@@ -166,7 +166,7 @@ export default function CalendarMonthView({
                     }`}>{dayNum}</div>
 
                     {holidayName && (
-                      <div className="text-[8px] text-pink-600 font-medium leading-tight truncate" title={holidayName}>
+                      <div className="text-[8px] text-pink-600 font-medium leading-tight break-words" title={holidayName}>
                         {holidayName}
                       </div>
                     )}
