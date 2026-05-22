@@ -16,6 +16,15 @@ function getUserBreakRules(userId: number): BreakRule[] | undefined {
   try { return JSON.parse(s.autoBreakRules); } catch { return undefined; }
 }
 
+function userOwnsProject(userId: number, projectId: number): boolean {
+  const row = db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .get();
+  return !!row;
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
@@ -71,6 +80,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Projekt och datum krävs' }, { status: 400 });
   }
 
+  const userId = parseInt(session.user.id);
+  if (!userOwnsProject(userId, projectId)) {
+    return NextResponse.json({ error: 'Projektet finns inte eller tillhör inte dig' }, { status: 404 });
+  }
+
   let calculatedHours = hours ? parseFloat(hours) : 0;
   let actualBreak = 0;
   let serializedBreakPeriods: string | null = null;
@@ -81,7 +95,7 @@ export async function POST(req: NextRequest) {
     serializedBreakPeriods = serializeBreakPeriods(periods);
   } else if (startTime && endTime) {
     if (breakMinutes === undefined || breakMinutes === null) {
-      actualBreak = calculateAutoBreak(startTime, endTime, getUserBreakRules(parseInt(session.user.id)));
+      actualBreak = calculateAutoBreak(startTime, endTime, getUserBreakRules(userId));
     } else {
       actualBreak = breakMinutes ?? 0;
     }
@@ -101,7 +115,7 @@ export async function POST(req: NextRequest) {
   const result = db
     .insert(timeEntries)
     .values({
-      userId: parseInt(session.user.id),
+      userId,
       projectId,
       date,
       hours: calculatedHours,
@@ -129,6 +143,11 @@ export async function PUT(req: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'ID krävs' }, { status: 400 });
 
+  const userId = parseInt(session.user.id);
+  if (projectId !== undefined && !userOwnsProject(userId, projectId)) {
+    return NextResponse.json({ error: 'Projektet finns inte eller tillhör inte dig' }, { status: 404 });
+  }
+
   let calculatedHours = hours ? parseFloat(hours) : 0;
   let actualBreak = 0;
   let serializedBreakPeriods: string | null = null;
@@ -139,7 +158,7 @@ export async function PUT(req: NextRequest) {
     serializedBreakPeriods = serializeBreakPeriods(periods);
   } else if (startTime && endTime) {
     if (breakMinutes === undefined || breakMinutes === null) {
-      actualBreak = calculateAutoBreak(startTime, endTime, getUserBreakRules(parseInt(session.user.id)));
+      actualBreak = calculateAutoBreak(startTime, endTime, getUserBreakRules(userId));
     } else {
       actualBreak = breakMinutes ?? 0;
     }
@@ -168,7 +187,7 @@ export async function PUT(req: NextRequest) {
   const result = db
     .update(timeEntries)
     .set(updateData)
-    .where(and(eq(timeEntries.id, id), eq(timeEntries.userId, parseInt(session.user.id))))
+    .where(and(eq(timeEntries.id, id), eq(timeEntries.userId, userId)))
     .returning()
     .get();
 

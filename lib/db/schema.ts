@@ -15,6 +15,7 @@ export const users = sqliteTable('users', {
 
 export const projects = sqliteTable('projects', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id),
   name: text('name').notNull(),
   description: text('description'),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
