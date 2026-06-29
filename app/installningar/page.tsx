@@ -162,6 +162,7 @@ export default function InstallningarPage() {
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const [deleteAllDone, setDeleteAllDone] = useState(false);
   const [autoBreakRules, setAutoBreakRules] = useState<BreakRule[]>([]);
+  const [rateHistory, setRateHistory] = useState<{ effectiveFrom: string; hourlyRate: number | null; note: string }[]>([]);
   const [settings, setSettings] = useState({
     workplaceType: 'none',
     contractLevel: '3plus',
@@ -220,6 +221,10 @@ export default function InstallningarPage() {
       if (data.municipality) setMunicipalitySearch(data.municipality);
       try { setDepartments(JSON.parse(data.departments || '[]')); } catch { setDepartments([]); }
       try { setAutoBreakRules(JSON.parse(data.autoBreakRules || '[]')); } catch { setAutoBreakRules([]); }
+      try {
+        const rh = JSON.parse(data.hourlyRateHistory || '[]');
+        setRateHistory(Array.isArray(rh) ? rh.map((r: any) => ({ effectiveFrom: r.effectiveFrom, hourlyRate: r.hourlyRate, note: r.note ?? '' })) : []);
+      } catch { setRateHistory([]); }
     });
     fetch('/api/municipalities').then((r) => r.json()).then(setMunicipalities);
     fetch('/api/templates').then((r) => r.json()).then(setTemplates);
@@ -237,7 +242,16 @@ export default function InstallningarPage() {
     await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...settings, departments: JSON.stringify(departments), autoBreakRules: JSON.stringify(autoBreakRules) }),
+      body: JSON.stringify({
+        ...settings,
+        departments: JSON.stringify(departments),
+        autoBreakRules: JSON.stringify(autoBreakRules),
+        hourlyRateHistory: JSON.stringify(
+          rateHistory
+            .filter((r) => r.effectiveFrom && typeof r.hourlyRate === 'number')
+            .map((r) => ({ effectiveFrom: r.effectiveFrom, hourlyRate: r.hourlyRate as number, note: r.note?.trim() || undefined })),
+        ),
+      }),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -252,6 +266,18 @@ export default function InstallningarPage() {
 
   function removeDepartment(name: string) {
     setDepartments(departments.filter((d) => d !== name));
+  }
+
+  function addRatePeriod() {
+    setRateHistory([...rateHistory, { effectiveFrom: '', hourlyRate: null, note: '' }]);
+  }
+
+  function updateRatePeriod(index: number, patch: Partial<{ effectiveFrom: string; hourlyRate: number | null; note: string }>) {
+    setRateHistory(rateHistory.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+
+  function removeRatePeriod(index: number) {
+    setRateHistory(rateHistory.filter((_, i) => i !== index));
   }
 
   async function addTemplate() {
@@ -410,6 +436,75 @@ export default function InstallningarPage() {
                 placeholder="T.ex. 175.50"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Används om ingen datumstyrd lönehistorik finns nedan.
+              </p>
+
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Lönehistorik (datumstyrd)</label>
+                  <button
+                    type="button"
+                    onClick={addRatePeriod}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    + Lägg till period
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                  Ange timlönen som gäller från ett visst datum. Varje arbetspass beräknas med den lön som gällde just det datumet — perfekt för avtalshöjningar och höjd branschvana mitt i en period. Den senaste perioden vars datum är passerat används.
+                </p>
+
+                {rateHistory.length === 0 && (
+                  <p className="text-xs text-gray-400 italic">Ingen lönehistorik — den fasta timlönen ovan används.</p>
+                )}
+
+                <div className="space-y-2">
+                  {rateHistory.map((row, i) => (
+                    <div key={i} className="flex flex-wrap items-end gap-2 bg-gray-50 rounded-md p-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-0.5">Gäller från</label>
+                        <input
+                          type="date"
+                          value={row.effectiveFrom}
+                          onChange={(e) => updateRatePeriod(i, { effectiveFrom: e.target.value })}
+                          className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="w-28">
+                        <label className="block text-xs text-gray-500 mb-0.5">Timlön (kr/h)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={row.hourlyRate ?? ''}
+                          onChange={(e) => updateRatePeriod(i, { hourlyRate: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                          placeholder="t.ex. 175.64"
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-[8rem]">
+                        <label className="block text-xs text-gray-500 mb-0.5">Notering (valfri)</label>
+                        <input
+                          type="text"
+                          value={row.note}
+                          onChange={(e) => updateRatePeriod(i, { note: e.target.value })}
+                          placeholder="t.ex. avtalshöjning"
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeRatePeriod(i)}
+                        className="px-2 py-1.5 text-sm text-red-600 hover:text-red-700"
+                        aria-label="Ta bort period"
+                      >
+                        Ta bort
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

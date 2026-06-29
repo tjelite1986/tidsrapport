@@ -66,6 +66,9 @@ export const userSettings = sqliteTable('user_settings', {
   municipality: text('municipality'),
   salaryMode: text('salary_mode').notNull().default('contract'), // 'contract' | 'hourly' | 'fixed_plus'
   customHourlyRate: real('custom_hourly_rate'),
+  // JSON array of date-effective hourly rates: [{ effectiveFrom: 'YYYY-MM-DD', hourlyRate: number, note?: string }]
+  // When non-empty, overrides customHourlyRate per entry date (used in 'hourly' and 'contract' modes).
+  hourlyRateHistory: text('hourly_rate_history').notNull().default('[]'),
   fixedMonthlySalary: real('fixed_monthly_salary'),
   departments: text('departments').notNull().default('[]'),
   autoBreakRules: text('auto_break_rules'),

@@ -15,8 +15,8 @@ Se `.claude/architecture.md` för fullständig filstruktur och API-referens.
 - Admin kan EJ se andra användares löne- eller rapportdata
 
 ## Migrations-ordning
-v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12 → v13 (senaste)
-Nästa: **v14**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v2 → … → v13 → v14 (projekt per-user) → v15 (hourly_rate_history, senaste)
+Nästa: **v16**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
 
 ## Deploy
 ```bash

@@ -35,6 +35,7 @@ export async function GET() {
       salaryMode: 'contract',
       customHourlyRate: null,
       fixedMonthlySalary: null,
+      hourlyRateHistory: '[]',
       departments: '[]',
       autoBreakRules: '[]',
     });
@@ -64,6 +65,36 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'vacationPayRate måste vara mellan 0 och 100' }, { status: 400 });
   }
 
+  // Validate + normalize date-effective hourly-rate history (stored as JSON string)
+  let hourlyRateHistory: string | undefined;
+  if (body.hourlyRateHistory !== undefined) {
+    let parsed: unknown;
+    try {
+      parsed = typeof body.hourlyRateHistory === 'string'
+        ? JSON.parse(body.hourlyRateHistory)
+        : body.hourlyRateHistory;
+    } catch {
+      return NextResponse.json({ error: 'hourlyRateHistory must be valid JSON' }, { status: 400 });
+    }
+    if (!Array.isArray(parsed)) {
+      return NextResponse.json({ error: 'hourlyRateHistory must be an array' }, { status: 400 });
+    }
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    const clean: { effectiveFrom: string; hourlyRate: number; note?: string }[] = [];
+    for (const row of parsed as any[]) {
+      if (!row || !dateRe.test(row.effectiveFrom) || typeof row.hourlyRate !== 'number' || row.hourlyRate < 0 || row.hourlyRate > 100000) {
+        return NextResponse.json({ error: 'Invalid hourlyRateHistory row' }, { status: 400 });
+      }
+      clean.push({
+        effectiveFrom: row.effectiveFrom,
+        hourlyRate: row.hourlyRate,
+        ...(typeof row.note === 'string' && row.note.trim() ? { note: row.note.trim() } : {}),
+      });
+    }
+    clean.sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+    hourlyRateHistory = JSON.stringify(clean);
+  }
+
   const existing = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
 
   const data = {
@@ -85,6 +116,7 @@ export async function PUT(req: NextRequest) {
     salaryMode: body.salaryMode ?? 'contract',
     customHourlyRate: body.customHourlyRate ?? null,
     fixedMonthlySalary: body.fixedMonthlySalary ?? null,
+    hourlyRateHistory: hourlyRateHistory ?? existing?.hourlyRateHistory ?? '[]',
     departments: body.departments ?? '[]',
     autoBreakRules: body.autoBreakRules ?? '[]',
     vacationDaysPerYear: body.vacationDaysPerYear ?? 25,

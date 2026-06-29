@@ -22,6 +22,18 @@ export async function GET(req: NextRequest) {
 
   const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
 
+  // Parse personal date-effective hourly-rate history (JSON in user_settings)
+  const rateHistory: { effectiveFrom: string; hourlyRate: number }[] = (() => {
+    try {
+      const arr = JSON.parse(settings?.hourlyRateHistory ?? '[]');
+      return Array.isArray(arr)
+        ? arr.filter((r) => r && typeof r.effectiveFrom === 'string' && typeof r.hourlyRate === 'number')
+        : [];
+    } catch {
+      return [];
+    }
+  })();
+
   // Get entries for the month
   let conditions = [eq(timeEntries.userId, userId)];
   if (month) {
@@ -144,6 +156,7 @@ export async function GET(req: NextRequest) {
           hourlyRate: salaryMode === 'hourly'
             ? (settings?.customHourlyRate ?? user.hourlyRate ?? undefined)
             : (user.hourlyRate ?? undefined),
+          rateHistory,
           taxYear: prevYear,
           salaryMode,
           fixedMonthlySalary: settings?.fixedMonthlySalary ?? undefined,
@@ -169,6 +182,7 @@ export async function GET(req: NextRequest) {
     hourlyRate: salaryMode === 'hourly'
       ? (settings?.customHourlyRate ?? user.hourlyRate ?? undefined)
       : (user.hourlyRate ?? undefined),
+    rateHistory,
     taxMode: (settings?.taxMode as any) ?? 'percentage',
     taxTable: settings?.taxTable ?? null,
     taxYear: month ? parseInt(month.split('-')[0]) : new Date().getFullYear(),

@@ -26,6 +26,9 @@ export interface PaySettings {
   vacationPayRate: number;
   vacationPayMode: 'included' | 'separate';
   hourlyRate?: number; // Override from user.hourlyRate (used in 'contract' and 'hourly' modes)
+  // Date-effective personal hourly rates. When non-empty, the rate whose effectiveFrom
+  // is the latest date <= the entry date wins, overriding hourlyRate/contract table.
+  rateHistory?: { effectiveFrom: string; hourlyRate: number }[];
   taxMode?: 'percentage' | 'table';
   taxTable?: number | null;
   taxYear?: number;
@@ -94,10 +97,21 @@ export function calculateMonthlyPay(
       })()
     : 0;
 
+  // Personlig datumstyrd lönehistorik, sorterad fallande på effectiveFrom (senaste först)
+  const sortedRateHistory = (settings.rateHistory ?? [])
+    .filter((r) => r && typeof r.hourlyRate === 'number' && typeof r.effectiveFrom === 'string')
+    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+
   // Hjälpfunktion: returnerar rätt timlön för ett givet datum
   function getEntryHourlyRate(date: string): number {
     if (isFixedPlus) return fixedHourlyRate;
-    // Manuell timlön (admin-satt) överstyr alltid avtalstabellen
+    // Datumstyrd personlig lönehistorik överstyr allt annat
+    if (sortedRateHistory.length > 0) {
+      const applicable = sortedRateHistory.find((r) => r.effectiveFrom <= date);
+      // Före tidigaste raden: använd den tidigaste som golv
+      return (applicable ?? sortedRateHistory[sortedRateHistory.length - 1]).hourlyRate;
+    }
+    // Manuell timlön (admin-satt) överstyr avtalstabellen
     if (settings.hourlyRate != null) return settings.hourlyRate;
     return getHourlyRateForDate(settings.contractLevel, date);
   }
