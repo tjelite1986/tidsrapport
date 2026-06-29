@@ -56,7 +56,11 @@ function getAllaSaints(year: number): Date {
   return new Date(year, 10, 1);
 }
 
+const holidaysCache = new Map<number, Holiday[]>();
+
 export function getHolidays(year: number): Holiday[] {
+  const cached = holidaysCache.get(year);
+  if (cached) return cached;
   const easter = getEasterSunday(year);
   const midsommarEve = getMidsommarEve(year);
   const midsommarDay = addDays(midsommarEve, 1);
@@ -91,7 +95,9 @@ export function getHolidays(year: number): Holiday[] {
     { date: `${year}-12-31`, name: 'Nyårsafton', halfDay: true },
   ];
 
-  return holidays.sort((a, b) => a.date.localeCompare(b.date));
+  holidays.sort((a, b) => a.date.localeCompare(b.date));
+  holidaysCache.set(year, holidays);
+  return holidays;
 }
 
 export function isRedDay(date: string, holidays?: Holiday[]): boolean {
@@ -114,6 +120,6 @@ export function isDayBeforeRedDay(date: string, holidays?: Holiday[]): boolean {
   const d = new Date(date + 'T12:00:00');
   const next = new Date(d);
   next.setDate(next.getDate() + 1);
-  const nextStr = next.toISOString().split('T')[0];
+  const nextStr = formatDate(next);
   return isRedDay(nextStr, holidays);
 }
