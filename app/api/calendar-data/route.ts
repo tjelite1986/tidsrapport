@@ -6,7 +6,7 @@ import { timeEntries, projects, userSettings, users, vacationDays } from '@/lib/
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateOB, type WorkplaceType } from '@/lib/calculations/ob';
 import { calculateMonthlyPay, type TimeEntryForPay } from '@/lib/calculations';
-import { getHourlyRateForDate } from '@/lib/calculations/contracts';
+import { resolveHourlyRate } from '@/lib/calculations/contracts';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 
 export const dynamic = 'force-dynamic';
@@ -32,8 +32,22 @@ export async function GET(req: NextRequest) {
   const taxRate = settings?.taxRate ?? 30;
   const vacationPayRate = settings?.vacationPayRate ?? 12;
   const vacationPayMode = (settings?.vacationPayMode as 'included' | 'separate') ?? 'included';
-  const customHourlyRate = user?.hourlyRate ?? null;
   const salaryMode = (settings?.salaryMode ?? 'contract') as 'contract' | 'hourly' | 'fixed_plus';
+  // Flat rate fallback, matching the salary route: hourly mode prefers the per-user custom rate.
+  const flatRate = salaryMode === 'hourly'
+    ? (settings?.customHourlyRate ?? user?.hourlyRate ?? null)
+    : (user?.hourlyRate ?? null);
+  // Personal date-effective rate history (overrides flatRate per entry date)
+  const rateHistory: { effectiveFrom: string; hourlyRate: number }[] = (() => {
+    try {
+      const arr = JSON.parse(settings?.hourlyRateHistory ?? '[]');
+      return Array.isArray(arr)
+        ? arr.filter((r) => r && typeof r.effectiveFrom === 'string' && typeof r.hourlyRate === 'number')
+        : [];
+    } catch {
+      return [];
+    }
+  })();
 
   const entries = db
     .select({
@@ -102,7 +116,7 @@ export async function GET(req: NextRequest) {
   const enrichedMap = new Map<number, Omit<(typeof entries)[0], 'breakPeriods'> & { breakPeriods: import('@/lib/types/break-periods').BreakPeriod[] | null; pay: object }>();
 
   for (const entry of sortedEntries) {
-    const hourlyRate = customHourlyRate ?? getHourlyRateForDate(contractLevel, entry.date);
+    const hourlyRate = resolveHourlyRate(entry.date, { rateHistory, flatRate, contractLevel });
     let basePay = 0;
     let obAmount = 0;
     let obSegments: { hours: number; obPercent: number; obAmount: number }[] = [];
@@ -226,7 +240,8 @@ export async function GET(req: NextRequest) {
           taxRate,
           vacationPayRate,
           vacationPayMode: 'separate',
-          hourlyRate: customHourlyRate ?? undefined,
+          hourlyRate: flatRate ?? undefined,
+          rateHistory,
           taxYear: prevYear,
           salaryMode,
           fixedMonthlySalary: settings?.fixedMonthlySalary ?? undefined,

@@ -1,5 +1,5 @@
 import { calculateOB, type OBResult, type WorkplaceType } from './ob';
-import { getHourlyRate, getHourlyRateForDate } from './contracts';
+import { resolveHourlyRate } from './contracts';
 import { calculateWorkHours } from './time-utils';
 import { lookupMonthlyTax } from '../tax-tables/tax-lookup';
 
@@ -97,23 +97,14 @@ export function calculateMonthlyPay(
       })()
     : 0;
 
-  // Personlig datumstyrd lönehistorik, sorterad fallande på effectiveFrom (senaste först)
-  const sortedRateHistory = (settings.rateHistory ?? [])
-    .filter((r) => r && typeof r.hourlyRate === 'number' && typeof r.effectiveFrom === 'string')
-    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
-
-  // Hjälpfunktion: returnerar rätt timlön för ett givet datum
+  // Hjälpfunktion: returnerar rätt timlön för ett givet datum (delad logik med calendar-data)
   function getEntryHourlyRate(date: string): number {
     if (isFixedPlus) return fixedHourlyRate;
-    // Datumstyrd personlig lönehistorik överstyr allt annat
-    if (sortedRateHistory.length > 0) {
-      const applicable = sortedRateHistory.find((r) => r.effectiveFrom <= date);
-      // Före tidigaste raden: använd den tidigaste som golv
-      return (applicable ?? sortedRateHistory[sortedRateHistory.length - 1]).hourlyRate;
-    }
-    // Manuell timlön (admin-satt) överstyr avtalstabellen
-    if (settings.hourlyRate != null) return settings.hourlyRate;
-    return getHourlyRateForDate(settings.contractLevel, date);
+    return resolveHourlyRate(date, {
+      rateHistory: settings.rateHistory,
+      flatRate: settings.hourlyRate ?? null,
+      contractLevel: settings.contractLevel,
+    });
   }
 
   // hourlyRate för MonthlyPayResult.hourlyRate — använd första entryns datum som referens för visning

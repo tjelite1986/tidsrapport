@@ -67,3 +67,25 @@ export function getHourlyRateForDate(level: string, date: string): number {
 export function getHourlyRate(level: string): number {
   return currentRates[level as ContractLevel] ?? currentRates['3plus'];
 }
+
+// Single source of truth for the hourly rate that applies to a given entry date.
+// Precedence: personal date-effective rate history → flat rate → generic contract table.
+// Used by both pay.ts and the calendar-data route so they never drift apart.
+export function resolveHourlyRate(
+  date: string,
+  opts: {
+    rateHistory?: { effectiveFrom: string; hourlyRate: number }[];
+    flatRate?: number | null;
+    contractLevel: string;
+  }
+): number {
+  const hist = (opts.rateHistory ?? [])
+    .filter((r) => r && typeof r.hourlyRate === 'number' && typeof r.effectiveFrom === 'string')
+    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+  if (hist.length > 0) {
+    const applicable = hist.find((r) => r.effectiveFrom <= date);
+    return (applicable ?? hist[hist.length - 1]).hourlyRate;
+  }
+  if (opts.flatRate != null) return opts.flatRate;
+  return getHourlyRateForDate(opts.contractLevel, date);
+}
