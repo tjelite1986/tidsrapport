@@ -124,6 +124,7 @@ export default function TidPage() {
   const [autoBreakEnabled, setAutoBreakEnabled] = useState(true);
   const [autoBreakRules, setAutoBreakRules] = useState<BreakRule[]>([]);
   const [entryType, setEntryType] = useState('work');
+  const [manualHours, setManualHours] = useState('');
   const [overtimeType, setOvertimeType] = useState('none');
   const [description, setDescription] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -296,11 +297,21 @@ export default function TidPage() {
 
   const totalBreakMinutes = sumBreakMinutes(breakPeriods);
   const previewHours = calcHoursPreview(startTime, endTime, totalBreakMinutes);
+  const isAbsence = entryType === 'sick' || entryType === 'vab';
+
+  // Fyll i timmar för en heldags frånvaro: använd schemat för dagen, annars 8h
+  function fillFullDayHours() {
+    const sched = getScheduleForDate(date);
+    const h = sched ? calcHoursPreview(sched.startTime, sched.endTime, sched.breakMinutes) : '';
+    setManualHours(h || '8');
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError('');
     const validPeriods = breakPeriods.filter((bp) => bp.start && bp.end);
+    // For absence (sick/VAB) without start/end times, send hours directly (full-day entry)
+    const useManualHours = isAbsence && (!startTime || !endTime) && manualHours;
     const res = await fetch('/api/time-entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -312,6 +323,7 @@ export default function TidPage() {
         ...(validPeriods.length > 0
           ? { breakPeriods: validPeriods }
           : { breakMinutes: startTime && endTime ? 0 : undefined }),
+        ...(useManualHours ? { hours: parseFloat(manualHours) } : {}),
         entryType,
         overtimeType,
         description,
@@ -330,6 +342,7 @@ export default function TidPage() {
     setSelectedTemplate('');
     setOvertimeType('none');
     setEntryType('work');
+    setManualHours('');
     setTaskSegments([]);
     setRefillTrigger((t) => t + 1); // Triggar om schema-auto-fill för nästa post
     refreshAll();
@@ -403,7 +416,7 @@ export default function TidPage() {
             <TimePicker
               value={startTime}
               onChange={setStartTime}
-              required
+              required={!isAbsence}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -412,7 +425,7 @@ export default function TidPage() {
             <TimePicker
               value={endTime}
               onChange={setEndTime}
-              required
+              required={!isAbsence}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -504,6 +517,32 @@ export default function TidPage() {
               <option value="vab">VAB (vård av sjukt barn)</option>
             </select>
           </div>
+          {isAbsence && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Timmar (heldag utan tider)</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.25"
+                  value={manualHours}
+                  onChange={(e) => setManualHours(e.target.value)}
+                  placeholder="t.ex. 8"
+                  className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={fillFullDayHours}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Heldag
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Lämna start/sluttid tomma och ange antal timmar — eller fyll i tider som vanligt.
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Övertid</label>
             <select

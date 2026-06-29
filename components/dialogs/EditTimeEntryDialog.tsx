@@ -56,6 +56,7 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
   const [endTime, setEndTime] = useState('');
   const [breakPeriods, setBreakPeriods] = useState<BreakPeriod[]>([]);
   const [entryType, setEntryType] = useState('work');
+  const [manualHours, setManualHours] = useState('');
   const [overtimeType, setOvertimeType] = useState('none');
   const [description, setDescription] = useState('');
   const [taskSegments, setTaskSegments] = useState<TaskSegment[]>([]);
@@ -77,6 +78,8 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
       setBreakPeriods([]);
     }
     setEntryType(entry.entryType);
+    // Full-day absence entries have no start/end — seed the manual-hours field from the stored hours
+    setManualHours(entry.startTime && entry.endTime ? '' : String(entry.hours ?? ''));
     setOvertimeType(entry.overtimeType);
     setDescription(entry.description || '');
     setTaskSegments(parseTaskSegments(entry.taskSegments));
@@ -86,6 +89,7 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
 
   const totalBreakMinutes = sumBreakMinutes(breakPeriods);
   const previewHours = calcHoursPreview(startTime, endTime, totalBreakMinutes);
+  const isAbsence = entryType === 'sick' || entryType === 'vab';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -106,6 +110,9 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
           ...(validPeriods.length > 0
             ? { breakPeriods: validPeriods }
             : { breakMinutes: startTime && endTime ? 0 : undefined }),
+          ...(isAbsence && (!startTime || !endTime) && manualHours
+            ? { hours: parseFloat(manualHours) }
+            : {}),
           entryType,
           overtimeType,
           description: description || undefined,
@@ -251,6 +258,24 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
               <option value="vab">VAB (vård av sjukt barn)</option>
             </select>
           </div>
+
+          {isAbsence && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Timmar (heldag utan tider)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.25"
+                value={manualHours}
+                onChange={(e) => setManualHours(e.target.value)}
+                placeholder="t.ex. 8"
+                className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Lämna start/sluttid tomma och ange antal timmar — eller fyll i tider som vanligt.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Övertid</label>
