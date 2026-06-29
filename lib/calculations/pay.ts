@@ -15,7 +15,7 @@ export interface TimeEntryForPay {
   endTime: string | null;
   breakMinutes: number | null;
   breakPeriods?: { start: string; end: string }[] | null;
-  entryType: string; // 'work' | 'sick'
+  entryType: string; // 'work' | 'sick' | 'vab'
   overtimeType: string; // 'none' | 'mertid' | 'enkel' | 'kvalificerad'
 }
 
@@ -146,6 +146,22 @@ export function calculateMonthlyPay(
     const hours = entry.hours;
     totalHours += hours;
     const entryRate = getEntryHourlyRate(entry.date);
+
+    if (entry.entryType === 'vab') {
+      // VAB (vård av sjukt barn): Försäkringskassan betalar ersättningen, arbetsgivaren 0 kr.
+      // Neutral mot sjukdagskedjan (varken bryter eller förlänger karens).
+      days.push({
+        date: entry.date,
+        hours,
+        basePay: 0,
+        obResult: null,
+        overtimePay: 0,
+        overtimeType: 'none',
+        sickPay: 0,
+        entryType: 'vab',
+      });
+      continue;
+    }
 
     if (entry.entryType === 'sick') {
       // Check if consecutive

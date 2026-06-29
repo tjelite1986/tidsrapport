@@ -123,6 +123,8 @@ export async function GET(req: NextRequest) {
       lastSickDate = entry.date;
       // Dag 1 = karensdag = 0 kr, dag 2+ = 80%
       sickPay = consecutiveSickDays === 1 ? 0 : hourlyRate * entry.hours * 0.8;
+    } else if (entry.entryType === 'vab') {
+      // VAB: Försäkringskassan betalar, arbetsgivaren 0 kr. Neutral mot sjukdagskedjan.
     } else {
       // Arbetsdag bryter sjukdagskedjan
       consecutiveSickDays = 0;

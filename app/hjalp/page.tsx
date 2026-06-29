@@ -113,6 +113,7 @@ export default function HjalpPage() {
         <Dl items={[
           { term: 'Arbete', desc: 'Normalt arbetad tid. Grundlön, OB och övertid beräknas.' },
           { term: 'Sjuk',   desc: 'Sjukfrånvaro. Karensdag ger 0 kr, dag 2+ ger 80% av timlönen.' },
+          { term: 'VAB',    desc: 'Vård av sjukt barn. Ger 0 kr i lön från arbetsgivaren — Försäkringskassan betalar ersättningen separat.' },
         ]} />
 
         <h3 className="font-semibold text-gray-800 mt-4 mb-1">Övertidstyp</h3>

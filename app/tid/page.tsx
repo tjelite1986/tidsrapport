@@ -501,6 +501,7 @@ export default function TidPage() {
             >
               <option value="work">Arbete</option>
               <option value="sick">Sjukdag</option>
+              <option value="vab">VAB (vård av sjukt barn)</option>
             </select>
           </div>
           <div>
@@ -642,9 +643,11 @@ export default function TidPage() {
                   <td className="px-4 py-2">{entry.hours.toFixed(2)}</td>
                   <td className="px-4 py-2">
                     <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      entry.entryType === 'sick' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                      entry.entryType === 'sick' ? 'bg-red-100 text-red-700'
+                      : entry.entryType === 'vab' ? 'bg-amber-100 text-amber-700'
+                      : 'bg-green-100 text-green-700'
                     }`}>
-                      {entry.entryType === 'sick' ? 'Sjuk' : 'Arbete'}
+                      {entry.entryType === 'sick' ? 'Sjuk' : entry.entryType === 'vab' ? 'VAB' : 'Arbete'}
                     </span>
                     {entry.overtimeType !== 'none' && (
                       <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">

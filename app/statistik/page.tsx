@@ -383,9 +383,9 @@ export default function StatistikPage() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                   <PieChart
                     data={(stats.entryTypes ?? []).map((e) => ({
-                      label: e.entryType === 'sick' ? 'Sjukdagar' : 'Arbete',
+                      label: e.entryType === 'sick' ? 'Sjukdagar' : e.entryType === 'vab' ? 'VAB' : 'Arbete',
                       value: e.totalHours,
-                      color: e.entryType === 'sick' ? '#ef4444' : '#3b82f6',
+                      color: e.entryType === 'sick' ? '#ef4444' : e.entryType === 'vab' ? '#f59e0b' : '#3b82f6',
                     }))}
                     title="Arbete vs Sjukdagar"
                     size={180}

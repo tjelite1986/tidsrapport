@@ -32,7 +32,7 @@ export const timeEntries = sqliteTable('time_entries', {
   endTime: text('end_time'), // HH:MM format
   breakMinutes: integer('break_minutes').default(0),
   breakPeriods: text('break_periods'),
-  entryType: text('entry_type', { enum: ['work', 'sick'] }).notNull().default('work'),
+  entryType: text('entry_type', { enum: ['work', 'sick', 'vab'] }).notNull().default('work'),
   overtimeType: text('overtime_type', { enum: ['none', 'mertid', 'enkel', 'kvalificerad'] }).notNull().default('none'),
   description: text('description'),
   taskSegments: text('task_segments'),

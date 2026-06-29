@@ -123,7 +123,7 @@ export default function RapporterPage() {
         doc.text(e.startTime || '-', 100, y);
         doc.text(e.endTime || '-', 115, y);
         doc.text(e.hours.toFixed(1), 130, y);
-        doc.text(e.entryType === 'sick' ? 'Sjuk' : 'Arb', 148, y);
+        doc.text(e.entryType === 'sick' ? 'Sjuk' : e.entryType === 'vab' ? 'VAB' : 'Arb', 148, y);
         doc.text((e.description || '').substring(0, 25), 165, y);
       });
 
@@ -227,9 +227,11 @@ export default function RapporterPage() {
                   <td className="px-4 py-3">{entry.hours.toFixed(1)}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      entry.entryType === 'sick' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                      entry.entryType === 'sick' ? 'bg-red-100 text-red-700'
+                      : entry.entryType === 'vab' ? 'bg-amber-100 text-amber-700'
+                      : 'bg-green-100 text-green-700'
                     }`}>
-                      {entry.entryType === 'sick' ? 'Sjuk' : 'Arb'}
+                      {entry.entryType === 'sick' ? 'Sjuk' : entry.entryType === 'vab' ? 'VAB' : 'Arb'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs">{overtimeLabels[entry.overtimeType] || '-'}</td>
