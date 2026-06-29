@@ -144,6 +144,8 @@ export default function CalendarMonthView({
                 const dayNum = parseInt(dateStr.slice(8));
                 const schedEntry = getScheduledEntry(dateStr, di);
                 const hasScheduleOnly = dayTotal === 0 && schedEntry !== null;
+                const hasSick = dayEntries.some((e) => e.entryType === 'sick');
+                const hasVab = dayEntries.some((e) => e.entryType === 'vab');
                 const vacDay = vacationDays.find((v) => v.date === dateStr);
 
                 return (
@@ -152,6 +154,8 @@ export default function CalendarMonthView({
                     onClick={() => onDayClick(dateStr, dayEntries)}
                     className={`p-1 min-h-[60px] cursor-pointer border-l transition-colors ${
                       isToday ? 'bg-indigo-50' :
+                      hasSick ? 'bg-red-100' :
+                      hasVab ? 'bg-orange-100' :
                       isSunday ? 'bg-pink-50/50' :
                       isSaturday ? 'bg-purple-50/50' :
                       hasScheduleOnly ? 'hover:bg-gray-100' :

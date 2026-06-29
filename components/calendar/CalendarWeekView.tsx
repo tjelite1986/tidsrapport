@@ -133,10 +133,10 @@ export default function CalendarWeekView({
               onClick={() => onDayClick(d, dayEntries)}
               className={`p-2 rounded-lg border cursor-pointer transition-all min-h-[100px] ${
                 isToday ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200' :
+                hasSick ? 'bg-red-100 border-red-300' :
+                hasVab ? 'bg-orange-100 border-orange-300' :
                 isSunday ? 'bg-pink-50 border-pink-200' :
                 isSaturday ? 'bg-purple-50 border-purple-200' :
-                hasSick ? 'bg-red-50 border-red-200' :
-                hasVab ? 'bg-amber-50 border-amber-200' :
                 dayTotal > 0 ? 'bg-blue-50 border-blue-200' :
                 'bg-gray-50 border-gray-200'
               } hover:shadow-md`}
