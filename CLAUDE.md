@@ -21,7 +21,9 @@ Nästa: **v16**. Kör i container: `docker exec tidsrapport npx tsx scripts/migr
 ## Deploy
 ```bash
 git push origin master   # räcker — CI bygger och Watchtower uppdaterar Pi:n automatiskt
+scripts/deploy.sh        # deploya HEAD direkt: hittar rätt CI-körning, pollar till klar, pull + up -d, verifierar image-byte
 ```
+`scripts/deploy.sh` undviker race: den nycklar på HEAD-sha (ej `gh run list --limit 1`) och bekräftar att container-imagen faktiskt byttes. Efter UI-ändring: hård-refresha PWA:n (cachad JS).
 
 Manuell kontroll om något är fel:
 ```bash
