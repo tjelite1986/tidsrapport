@@ -76,6 +76,7 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit, onDelet
 
   const { dayName, isSaturday, isSunday } = getDayInfo(entry.date);
   const isSick = entry.entryType === 'sick';
+  const isVab = entry.entryType === 'vab';
   const hasOB = payDetail && payDetail.obAmount > 0;
   const hasOvertime = entry.overtimeType !== 'none';
 
@@ -90,6 +91,7 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit, onDelet
         {/* Hero Header */}
         <div className={`p-6 rounded-t-xl text-white ${
           isSick ? 'bg-gradient-to-r from-red-500 to-red-600' :
+          isVab ? 'bg-gradient-to-r from-amber-500 to-orange-600' :
           isSunday ? 'bg-gradient-to-r from-pink-500 to-rose-600' :
           isSaturday ? 'bg-gradient-to-r from-purple-400 to-indigo-500' :
           'bg-gradient-to-r from-indigo-500 to-blue-600'
@@ -123,6 +125,7 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit, onDelet
           {/* Status Chips */}
           <div className="flex flex-wrap gap-2">
             {isSick && <Chip color="red">Sjukdag</Chip>}
+            {isVab && <Chip color="amber">VAB</Chip>}
             {isSunday && <Chip color="pink">Söndag</Chip>}
             {isSaturday && <Chip color="purple">Lördag</Chip>}
             {hasOB && <Chip color="orange">OB-tillägg</Chip>}

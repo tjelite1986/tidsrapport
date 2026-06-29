@@ -123,6 +123,7 @@ export default function CalendarWeekView({
           const isSunday = i === 6 || isHoliday;
           const isSaturday = i === 5 && !isHoliday;
           const hasSick = dayEntries.some((e) => e.entryType === 'sick');
+          const hasVab = dayEntries.some((e) => e.entryType === 'vab');
           const schedEntry = getScheduledEntry(d, i);
           const vacDay = vacationDays.find((v) => v.date === d);
 
@@ -135,6 +136,7 @@ export default function CalendarWeekView({
                 isSunday ? 'bg-pink-50 border-pink-200' :
                 isSaturday ? 'bg-purple-50 border-purple-200' :
                 hasSick ? 'bg-red-50 border-red-200' :
+                hasVab ? 'bg-amber-50 border-amber-200' :
                 dayTotal > 0 ? 'bg-blue-50 border-blue-200' :
                 'bg-gray-50 border-gray-200'
               } hover:shadow-md`}

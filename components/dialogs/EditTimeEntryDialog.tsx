@@ -248,6 +248,7 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
             >
               <option value="work">Arbete</option>
               <option value="sick">Sjukdag</option>
+              <option value="vab">VAB (vård av sjukt barn)</option>
             </select>
           </div>
 
