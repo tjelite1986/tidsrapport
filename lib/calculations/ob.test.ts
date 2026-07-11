@@ -55,3 +55,17 @@ describe('calculateOB — butik', () => {
       .toBeCloseTo(488.94, 2);
   });
 });
+
+describe('butik half-day holidays (helgdagsaftnar)', () => {
+  const RATE = 100;
+  it('pays 100% after 12:00 on julafton', () => {
+    // 2026-12-24 is a Thursday — without the half-day rule this would be plain weekday OB
+    const r = calculateOB('2026-12-24', '09:00', '15:00', 0, RATE, 'butik');
+    expect(r.totalOBAmount).toBeCloseTo(RATE * 1.0 * 3, 5); // 12:00-15:00 = 3h @ 100%
+  });
+
+  it('pays no OB before 12:00 on julafton', () => {
+    const r = calculateOB('2026-12-24', '08:00', '11:00', 0, RATE, 'butik');
+    expect(r.totalOBAmount).toBeCloseTo(0, 5);
+  });
+});

@@ -1,5 +1,5 @@
 import { timeToMinutes, splitTimeRange, type TimeSegment } from './time-utils';
-import { isRedDay, isHalfDay, isDayBeforeRedDay, getHolidays, type Holiday } from './holidays';
+import { isRedDay, isHalfDay, getHolidays, type Holiday } from './holidays';
 
 export type WorkplaceType = 'butik' | 'lager' | 'none';
 
@@ -38,8 +38,8 @@ function getButikOBPercent(
   // Red days and Sundays: 100%
   if (isRed || isSunday) return 100;
 
-  // Saturday after 12:00
-  if (isSaturday) {
+  // Saturday and half-day holidays (helgdagsaftnar): 100% after 12:00
+  if (isSaturday || isHalfDay(date, holidays)) {
     const normalizedMin = segStartMin % 1440;
     if (normalizedMin >= 720) return 100; // 12:00+
     return 0;

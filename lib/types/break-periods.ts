@@ -31,6 +31,9 @@ export function sumBreakMinutes(periods: BreakPeriod[]): number {
     if (!p.start || !p.end) return sum;
     const [sh, sm] = p.start.split(':').map(Number);
     const [eh, em] = p.end.split(':').map(Number);
-    return sum + Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+    let minutes = (eh * 60 + em) - (sh * 60 + sm);
+    if (!Number.isFinite(minutes)) return sum;
+    if (minutes < 0) minutes += 1440; // break spanning midnight (e.g. 23:45-00:15)
+    return sum + minutes;
   }, 0);
 }

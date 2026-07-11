@@ -61,15 +61,72 @@ describe('VAB entry type', () => {
 });
 
 describe('sick day karens', () => {
+  const settings: PaySettings = { ...base, hourlyRate: 100 };
+  const sickPay80 = 100 * 8 * 0.8; // 640
+
   it('pays 0 for the first day (karens) and 80% from day 2', () => {
-    const settings: PaySettings = { ...base, hourlyRate: 100 };
     const r = calculateMonthlyPay(
       [entry('2026-06-01', 'sick'), entry('2026-06-02', 'sick')],
       settings,
     );
     const sick = r.days.filter((d) => d.entryType === 'sick');
     expect(sick[0].sickPay).toBe(0); // karensdag
-    expect(sick[1].sickPay).toBeCloseTo(100 * 8 * 0.8, 5); // 640
+    expect(sick[1].sickPay).toBeCloseTo(sickPay80, 5);
+  });
+
+  it('continues the period over a weekend (återinsjuknande within 5 days)', () => {
+    // Sick Friday, sick again Monday — same period, Monday pays 80%
+    const r = calculateMonthlyPay(
+      [entry('2026-06-05', 'sick'), entry('2026-06-08', 'sick')],
+      settings,
+    );
+    const sick = r.days.filter((d) => d.entryType === 'sick');
+    expect(sick[0].sickPay).toBe(0);
+    expect(sick[1].sickPay).toBeCloseTo(sickPay80, 5);
+  });
+
+  it('is not reset by a work day within the 5-day window', () => {
+    const r = calculateMonthlyPay(
+      [entry('2026-06-01', 'sick'), entry('2026-06-02', 'work'), entry('2026-06-03', 'sick')],
+      settings,
+    );
+    const sick = r.days.filter((d) => d.entryType === 'sick');
+    expect(sick[1].sickPay).toBeCloseTo(sickPay80, 5);
+  });
+
+  it('is not reset by a VAB day (neutral)', () => {
+    const r = calculateMonthlyPay(
+      [entry('2026-06-01', 'sick'), entry('2026-06-02', 'vab'), entry('2026-06-03', 'sick')],
+      settings,
+    );
+    const sick = r.days.filter((d) => d.entryType === 'sick');
+    expect(sick[1].sickPay).toBeCloseTo(sickPay80, 5);
+  });
+
+  it('starts a new period (new karens) after a gap of more than 5 days', () => {
+    const r = calculateMonthlyPay(
+      [entry('2026-06-01', 'sick'), entry('2026-06-08', 'sick')], // gap = 7 days
+      settings,
+    );
+    const sick = r.days.filter((d) => d.entryType === 'sick');
+    expect(sick[0].sickPay).toBe(0);
+    expect(sick[1].sickPay).toBe(0); // new karensdag
+  });
+});
+
+describe('butik OB/overtime exclusivity', () => {
+  it('drops the day\'s OB from the breakdown when overtime wins', () => {
+    // Wed 17:00-21:00 @ 100 kr: OB = 1.75h@50% + 1h@70% = 157.50, kvalificerad = 4h*0.7*100 = 280
+    const settings: PaySettings = { ...base, workplaceType: 'butik', hourlyRate: 100 };
+    const e: TimeEntryForPay = {
+      date: '2026-06-03', hours: 4, startTime: '17:00', endTime: '21:00',
+      breakMinutes: 0, entryType: 'work', overtimeType: 'kvalificerad',
+    };
+    const r = calculateMonthlyPay([e], settings);
+    expect(r.overtidKvalificerad).toBeCloseTo(280, 5);
+    expect(r.totalOB).toBeCloseTo(0, 5);
+    expect(r.obBreakdown).toEqual([]); // payslip rows must sum to gross
+    expect(r.days[0].obResult).toBeNull();
   });
 });
 

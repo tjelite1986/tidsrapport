@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { timeEntries, projects, users, userSettings, vacationPayInclusions } from '@/lib/db/schema';
+import { timeEntries, projects, users, userSettings, vacationPayInclusions, vacationDays } from '@/lib/db/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
-import { calculateMonthlyPay, type TimeEntryForPay, type PaySettings } from '@/lib/calculations';
+import { calculateMonthlyPay, buildPaySettings, type TimeEntryForPay, type PaySettings } from '@/lib/calculations';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
-import { getHourlyRate } from '@/lib/calculations/contracts';
-import type { WorkplaceType } from '@/lib/calculations/ob';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,16 +121,16 @@ export async function GET(req: NextRequest) {
   const user = db.select().from(users).where(eq(users.id, userId)).get();
   const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
 
-  const basePaySettings: PaySettings = {
-    workplaceType: (settings?.workplaceType as WorkplaceType) ?? 'none',
-    contractLevel: settings?.contractLevel ?? '3plus',
-    taxRate: settings?.taxRate ?? 30,
-    vacationPayRate: settings?.vacationPayRate ?? 12,
-    vacationPayMode: (settings?.vacationPayMode as 'included' | 'separate') ?? 'included',
-    hourlyRate: user?.hourlyRate ?? undefined,
-    taxMode: (settings?.taxMode as any) ?? 'percentage',
-    taxTable: settings?.taxTable ?? null,
-  };
+  const basePaySettings: PaySettings = buildPaySettings(user, settings);
+
+  // Semesterdagar ersätter ordinarie tid — filtrera bort poster på semesterdagar
+  // (samma regel som salary-routen) så att inkomstgrafen matchar lönebeskeden
+  const allVacationDays = db
+    .select({ date: vacationDays.date })
+    .from(vacationDays)
+    .where(eq(vacationDays.userId, userId))
+    .all();
+  const vacationDates = new Set(allVacationDays.map((v) => v.date));
 
   // Hämta inkluderingsinställningar för hela året
   const allInclusions = db
@@ -154,7 +152,7 @@ export async function GET(req: NextRequest) {
   const obDistributionMap = new Map<number, { hours: number; amount: number }>();
 
   for (const [month, monthEntries] of entriesByMonth) {
-    const payEntries: TimeEntryForPay[] = monthEntries.map((e) => ({
+    const payEntries: TimeEntryForPay[] = monthEntries.filter((e) => !vacationDates.has(e.date)).map((e) => ({
       date: e.date,
       hours: e.hours,
       startTime: e.startTime,

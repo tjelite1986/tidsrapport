@@ -2,11 +2,9 @@ import { calculateOB, type OBResult, type WorkplaceType } from './ob';
 import { resolveHourlyRate } from './contracts';
 import { calculateWorkHours } from './time-utils';
 import { lookupMonthlyTax } from '../tax-tables/tax-lookup';
+import { advanceSickChain, type SickDayContext } from './sick-chain';
 
-export interface SickDayContext {
-  consecutiveSickDays: number;
-  lastSickDate: string | null;
-}
+export type { SickDayContext };
 
 export interface TimeEntryForPay {
   date: string;
@@ -155,20 +153,11 @@ export function calculateMonthlyPay(
     }
 
     if (entry.entryType === 'sick') {
-      // Check if consecutive
-      if (lastSickDate) {
-        const last = new Date(lastSickDate + 'T12:00:00');
-        const current = new Date(entry.date + 'T12:00:00');
-        const diffDays = Math.round((current.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDays <= 1) {
-          consecutiveSickDays++;
-        } else {
-          consecutiveSickDays = 1;
-        }
-      } else {
-        consecutiveSickDays = 1;
-      }
-      lastSickDate = entry.date;
+      // Återinsjuknanderegeln: a gap of up to 5 calendar days continues the period
+      ({ consecutiveSickDays, lastSickDate } = advanceSickChain(
+        { consecutiveSickDays, lastSickDate },
+        entry.date
+      ));
       sickDayCount++;
 
       // Karensdag = first sick day gets 0
@@ -188,11 +177,8 @@ export function calculateMonthlyPay(
       continue;
     }
 
-    // Reset sick day tracking for work days
-    if (entry.entryType !== 'sick') {
-      consecutiveSickDays = 0;
-      lastSickDate = null;
-    }
+    // Work days do not reset the sick chain — återinsjuknanderegeln keeps the
+    // period alive as long as the next sick day falls within the 5-day window.
 
     workHours += hours;
     // For fixed_plus: base pay is a fixed monthly salary, not per-hour
@@ -233,6 +219,7 @@ export function calculateMonthlyPay(
       if (dayOvertimePay > 0 && obForDay > 0) {
         if (dayOvertimePay > obForDay) {
           totalOB -= obForDay; // remove OB, keep overtime
+          obResult = null; // drop the day's OB so obBreakdown/payslip rows match totalOB
         } else {
           // Remove overtime, keep OB
           if (entry.overtimeType === 'mertid') overtidMertid -= dayOvertimePay;

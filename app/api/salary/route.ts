@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { timeEntries, users, userSettings, vacationPayInclusions, vacationDays } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay, type SickDayContext } from '@/lib/calculations';
+import { calculateMonthlyPay, buildPaySettings, buildSickContext, type PaySettings, type TimeEntryForPay, type SickDayContext } from '@/lib/calculations';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 
 export const dynamic = 'force-dynamic';
@@ -21,18 +21,6 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Användare hittades inte' }, { status: 404 });
 
   const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
-
-  // Parse personal date-effective hourly-rate history (JSON in user_settings)
-  const rateHistory: { effectiveFrom: string; hourlyRate: number }[] = (() => {
-    try {
-      const arr = JSON.parse(settings?.hourlyRateHistory ?? '[]');
-      return Array.isArray(arr)
-        ? arr.filter((r) => r && typeof r.effectiveFrom === 'string' && typeof r.hourlyRate === 'number')
-        : [];
-    } catch {
-      return [];
-    }
-  })();
 
   // Get entries for the month
   let conditions = [eq(timeEntries.userId, userId)];
@@ -76,25 +64,9 @@ export async function GET(req: NextRequest) {
       .from(timeEntries)
       .where(and(eq(timeEntries.userId, userId), gte(timeEntries.date, `${prevMonthStr}-01`), lte(timeEntries.date, `${prevMonthStr}-31`)))
       .all();
-    const prevSick = prevEntries
-      .filter((e) => e.entryType === 'sick')
-      .sort((a, b) => a.date.localeCompare(b.date));
-    if (prevSick.length > 0) {
-      let consecutive = 0;
-      let lastDate: string | null = null;
-      for (const e of prevSick) {
-        if (lastDate) {
-          const diff = Math.round(
-            (new Date(e.date + 'T12:00:00').getTime() - new Date(lastDate + 'T12:00:00').getTime()) /
-              (1000 * 60 * 60 * 24)
-          );
-          consecutive = diff <= 1 ? consecutive + 1 : 1;
-        } else {
-          consecutive = 1;
-        }
-        lastDate = e.date;
-      }
-      prevSickContext = { consecutiveSickDays: consecutive, lastSickDate: lastDate };
+    const prevSickDates = prevEntries.filter((e) => e.entryType === 'sick').map((e) => e.date);
+    if (prevSickDates.length > 0) {
+      prevSickContext = buildSickContext(prevSickDates);
     }
   }
 
@@ -147,21 +119,10 @@ export async function GET(req: NextRequest) {
           entryType: e.entryType,
           overtimeType: e.overtimeType,
         }));
-        const r = calculateMonthlyPay(payEntriesMonth, {
-          workplaceType: (settings?.workplaceType as any) ?? 'none',
-          contractLevel: settings?.contractLevel ?? '3plus',
-          taxRate: settings?.taxRate ?? 30,
-          vacationPayRate: settings?.vacationPayRate ?? 12,
-          vacationPayMode: 'separate',
-          hourlyRate: salaryMode === 'hourly'
-            ? (settings?.customHourlyRate ?? user.hourlyRate ?? undefined)
-            : (user.hourlyRate ?? undefined),
-          rateHistory,
-          taxYear: prevYear,
-          salaryMode,
-          fixedMonthlySalary: settings?.fixedMonthlySalary ?? undefined,
-          workingHoursPerMonth: settings?.workingHoursPerMonth ?? 160,
-        });
+        const r = calculateMonthlyPay(
+          payEntriesMonth,
+          buildPaySettings(user, settings, { vacationPayMode: 'separate', taxYear: prevYear })
+        );
         prevYearPot += r.vacationPay;
       }
 
@@ -173,26 +134,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const paySettings: PaySettings = {
-    workplaceType: (settings?.workplaceType as any) ?? 'none',
-    contractLevel: settings?.contractLevel ?? '3plus',
-    taxRate: settings?.taxRate ?? 30,
-    vacationPayRate: settings?.vacationPayRate ?? 12,
-    vacationPayMode: (settings?.vacationPayMode as any) ?? 'included',
-    hourlyRate: salaryMode === 'hourly'
-      ? (settings?.customHourlyRate ?? user.hourlyRate ?? undefined)
-      : (user.hourlyRate ?? undefined),
-    rateHistory,
-    taxMode: (settings?.taxMode as any) ?? 'percentage',
-    taxTable: settings?.taxTable ?? null,
+  const paySettings: PaySettings = buildPaySettings(user, settings, {
     taxYear: month ? parseInt(month.split('-')[0]) : new Date().getFullYear(),
     includeVacationInSalary: inclusion?.includeInSalary ?? false,
     vacationDaysPay,
     vacationDaysCount,
-    salaryMode,
-    fixedMonthlySalary: settings?.fixedMonthlySalary ?? undefined,
-    workingHoursPerMonth: settings?.workingHoursPerMonth ?? 160,
-  };
+  });
 
   // Filtrera bort tidinlägg på semesterdagar — de ersätts av vacationDaysPay
   const filteredPayEntries = payEntries.filter((e) => !vacationDates.has(e.date));

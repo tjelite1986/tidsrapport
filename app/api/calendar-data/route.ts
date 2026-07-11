@@ -5,7 +5,8 @@ import { db } from '@/lib/db';
 import { timeEntries, projects, userSettings, users, vacationDays } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateOB, type WorkplaceType } from '@/lib/calculations/ob';
-import { calculateMonthlyPay, type TimeEntryForPay } from '@/lib/calculations';
+import { calculateMonthlyPay, buildPaySettings, buildSickContext, advanceSickChain, parseRateHistory } from '@/lib/calculations';
+import type { TimeEntryForPay, SickDayContext } from '@/lib/calculations';
 import { resolveHourlyRate } from '@/lib/calculations/contracts';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 
@@ -38,16 +39,7 @@ export async function GET(req: NextRequest) {
     ? (settings?.customHourlyRate ?? user?.hourlyRate ?? null)
     : (user?.hourlyRate ?? null);
   // Personal date-effective rate history (overrides flatRate per entry date)
-  const rateHistory: { effectiveFrom: string; hourlyRate: number }[] = (() => {
-    try {
-      const arr = JSON.parse(settings?.hourlyRateHistory ?? '[]');
-      return Array.isArray(arr)
-        ? arr.filter((r) => r && typeof r.effectiveFrom === 'string' && typeof r.hourlyRate === 'number')
-        : [];
-    } catch {
-      return [];
-    }
-  })();
+  const rateHistory = parseRateHistory(settings?.hourlyRateHistory);
 
   const entries = db
     .select({
@@ -78,13 +70,14 @@ export async function GET(req: NextRequest) {
     .all();
 
   // Hämta sjukdagsstate från perioden precis före vyfönstret för korrekt karensdag-hantering
+  // (30 dagars fönster så att kedjor med 5-dagarsgap fångas)
   const prevEntries = db
     .select({ date: timeEntries.date, entryType: timeEntries.entryType })
     .from(timeEntries)
     .where(
       and(
         eq(timeEntries.userId, userId),
-        gte(timeEntries.date, new Date(new Date(startDate).getTime() - 14 * 24 * 60 * 60 * 1000)
+        gte(timeEntries.date, new Date(new Date(startDate).getTime() - 30 * 24 * 60 * 60 * 1000)
           .toISOString().slice(0, 10)),
         lte(timeEntries.date, new Date(new Date(startDate).getTime() - 24 * 60 * 60 * 1000)
           .toISOString().slice(0, 10))
@@ -92,24 +85,9 @@ export async function GET(req: NextRequest) {
     )
     .all();
 
-  const prevSick = prevEntries
-    .filter((e) => e.entryType === 'sick')
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  let consecutiveSickDays = 0;
-  let lastSickDate: string | null = null;
-  for (const e of prevSick) {
-    if (lastSickDate) {
-      const diff = Math.round(
-        (new Date(e.date + 'T12:00:00').getTime() - new Date(lastSickDate + 'T12:00:00').getTime()) /
-          (1000 * 60 * 60 * 24)
-      );
-      consecutiveSickDays = diff <= 1 ? consecutiveSickDays + 1 : 1;
-    } else {
-      consecutiveSickDays = 1;
-    }
-    lastSickDate = e.date;
-  }
+  let sickCtx: SickDayContext = buildSickContext(
+    prevEntries.filter((e) => e.entryType === 'sick').map((e) => e.date)
+  );
 
   // Sortera poster efter datum för korrekt sekventiell beräkning
   const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date));
@@ -124,25 +102,14 @@ export async function GET(req: NextRequest) {
     let sickPay = 0;
 
     if (entry.entryType === 'sick') {
-      // Uppdatera sjukdagskedjans state
-      if (lastSickDate) {
-        const diff = Math.round(
-          (new Date(entry.date + 'T12:00:00').getTime() - new Date(lastSickDate + 'T12:00:00').getTime()) /
-            (1000 * 60 * 60 * 24)
-        );
-        consecutiveSickDays = diff <= 1 ? consecutiveSickDays + 1 : 1;
-      } else {
-        consecutiveSickDays = 1;
-      }
-      lastSickDate = entry.date;
+      // Återinsjuknanderegeln: gap på upp till 5 kalenderdagar fortsätter perioden
+      sickCtx = advanceSickChain(sickCtx, entry.date);
       // Dag 1 = karensdag = 0 kr, dag 2+ = 80%
-      sickPay = consecutiveSickDays === 1 ? 0 : hourlyRate * entry.hours * 0.8;
+      sickPay = sickCtx.consecutiveSickDays === 1 ? 0 : hourlyRate * entry.hours * 0.8;
     } else if (entry.entryType === 'vab') {
       // VAB: Försäkringskassan betalar, arbetsgivaren 0 kr. Neutral mot sjukdagskedjan.
     } else {
-      // Arbetsdag bryter sjukdagskedjan
-      consecutiveSickDays = 0;
-      lastSickDate = null;
+      // Arbetsdagar bryter inte sjukdagskedjan (återinsjuknanderegeln)
       basePay = hourlyRate * entry.hours;
 
       if (entry.startTime && entry.endTime && workplaceType !== 'none') {
@@ -169,6 +136,16 @@ export async function GET(req: NextRequest) {
         overtimePay = hourlyRate * entry.hours * 0.35;
       } else if (entry.overtimeType === 'kvalificerad') {
         overtimePay = hourlyRate * entry.hours * 0.70;
+      }
+
+      // Butik: OB och övertid staplas inte — den högre vinner (samma regel som calculateMonthlyPay)
+      if (workplaceType === 'butik' && obAmount > 0 && overtimePay > 0) {
+        if (overtimePay > obAmount) {
+          obAmount = 0;
+          obSegments = [];
+        } else {
+          overtimePay = 0;
+        }
       }
     }
 
@@ -234,19 +211,10 @@ export async function GET(req: NextRequest) {
           breakMinutes: e.breakMinutes, breakPeriods: parseBreakPeriods(e.breakPeriods),
           entryType: e.entryType, overtimeType: e.overtimeType,
         }));
-        const r = calculateMonthlyPay(payEntriesMonth, {
-          workplaceType,
-          contractLevel,
-          taxRate,
-          vacationPayRate,
-          vacationPayMode: 'separate',
-          hourlyRate: flatRate ?? undefined,
-          rateHistory,
-          taxYear: prevYear,
-          salaryMode,
-          fixedMonthlySalary: settings?.fixedMonthlySalary ?? undefined,
-          workingHoursPerMonth: settings?.workingHoursPerMonth ?? 160,
-        });
+        const r = calculateMonthlyPay(
+          payEntriesMonth,
+          buildPaySettings(user, settings, { vacationPayMode: 'separate', taxYear: prevYear })
+        );
         prevYearPot += r.vacationPay;
       }
       const daysPerYear = settings?.vacationDaysPerYear ?? 25;

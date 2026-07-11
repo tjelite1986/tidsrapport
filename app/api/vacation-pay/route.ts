@@ -3,34 +3,28 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { timeEntries, users, userSettings, vacationPayWithdrawals, vacationPayInclusions, vacationDays } from '@/lib/db/schema';
-import { eq, and, gte, lte, desc } from 'drizzle-orm';
-import { calculateMonthlyPay, type PaySettings, type TimeEntryForPay } from '@/lib/calculations';
+import { eq, desc } from 'drizzle-orm';
+import { calculateMonthlyPay, buildPaySettings, type TimeEntryForPay } from '@/lib/calculations';
+import { parseBreakPeriods } from '@/lib/types/break-periods';
 import { lookupMonthlyTax } from '@/lib/tax-tables/tax-lookup';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
+interface MonthBreakdownEntry {
+  month: string;
+  vacationPay: number;
+  grossBeforeVacation: number;
+  includedInSalary: boolean;
+}
 
-  const userId = parseInt(session.user.id);
+// Single source of truth for the vacation-pay pot. GET (display) and POST
+// (withdrawal balance check) must both use this so the checked balance can
+// never drift from the balance the user sees.
+function computeVacationPayState(userId: number) {
   const user = db.select().from(users).where(eq(users.id, userId)).get();
-  if (!user) return NextResponse.json({ error: 'Användare hittades inte' }, { status: 404 });
-
   const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
+  const paySettings = buildPaySettings(user, settings);
 
-  const paySettings: PaySettings = {
-    workplaceType: (settings?.workplaceType as 'butik' | 'lager' | 'none') ?? 'none',
-    contractLevel: settings?.contractLevel ?? '3plus',
-    taxRate: settings?.taxRate ?? 30,
-    vacationPayRate: settings?.vacationPayRate ?? 12,
-    vacationPayMode: (settings?.vacationPayMode as 'included' | 'separate') ?? 'included',
-    hourlyRate: user.hourlyRate ?? undefined,
-    taxMode: (settings?.taxMode as any) ?? 'percentage',
-    taxTable: settings?.taxTable ?? null,
-  };
-
-  // Hämta alla inkluderingsinställningar för användaren
   const allInclusions = db
     .select()
     .from(vacationPayInclusions)
@@ -40,14 +34,12 @@ export async function GET(req: NextRequest) {
     allInclusions.filter((i) => i.includeInSalary).map((i) => i.month)
   );
 
-  // Get all time entries grouped by month
   const allEntries = db
     .select()
     .from(timeEntries)
     .where(eq(timeEntries.userId, userId))
     .all();
 
-  // Group entries by month
   const entriesByMonth: Record<string, typeof allEntries> = {};
   for (const entry of allEntries) {
     const month = entry.date.substring(0, 7);
@@ -55,10 +47,9 @@ export async function GET(req: NextRequest) {
     entriesByMonth[month].push(entry);
   }
 
-  // Calculate vacation pay per month and group by year
-  const monthlyBreakdown: { month: string; vacationPay: number; grossBeforeVacation: number }[] = [];
+  const monthlyBreakdown: MonthBreakdownEntry[] = [];
   let totalAccumulated = 0;
-  const yearlyTotals: Record<number, { earned: number; months: { month: string; vacationPay: number; grossBeforeVacation: number }[] }> = {};
+  const yearlyTotals: Record<number, { earned: number; months: MonthBreakdownEntry[] }> = {};
 
   const sortedMonths = Object.keys(entriesByMonth).sort();
   for (const month of sortedMonths) {
@@ -69,20 +60,20 @@ export async function GET(req: NextRequest) {
       startTime: e.startTime,
       endTime: e.endTime,
       breakMinutes: e.breakMinutes,
+      breakPeriods: parseBreakPeriods(e.breakPeriods),
       entryType: e.entryType,
       overtimeType: e.overtimeType,
     }));
 
     const year = parseInt(month.split('-')[0]);
-    const settingsWithYear = { ...paySettings, taxYear: year };
-    const result = calculateMonthlyPay(payEntries, settingsWithYear);
+    const result = calculateMonthlyPay(payEntries, { ...paySettings, taxYear: year });
 
     // Om semesterersättningen inkluderades i lönen denna månad läggs den INTE till potten.
     // Detsamma gäller för 'included'-läge — semesterersättning ingår alltid i lönen och hamnar aldrig i potten.
     const isIncludedInSalary = inclusionsByMonth.has(month);
     const vacationPayForPot = (isIncludedInSalary || paySettings.vacationPayMode === 'included') ? 0 : result.vacationPay;
 
-    const entry = {
+    const entry: MonthBreakdownEntry = {
       month,
       vacationPay: vacationPayForPot,
       grossBeforeVacation: result.grossBeforeVacation,
@@ -99,17 +90,6 @@ export async function GET(req: NextRequest) {
     yearlyTotals[year].months.push(entry);
   }
 
-  // Build yearly breakdown sorted by year descending
-  const yearlyBreakdown = Object.entries(yearlyTotals)
-    .map(([year, data]) => ({
-      year: parseInt(year),
-      sempiralYear: parseInt(year) + 1, // semester tas ut året efter intjänande
-      earned: data.earned,
-      months: data.months.reverse(),
-    }))
-    .sort((a, b) => b.year - a.year);
-
-  // Get withdrawals
   const withdrawals = db
     .select()
     .from(vacationPayWithdrawals)
@@ -125,7 +105,6 @@ export async function GET(req: NextRequest) {
   let vacationDaysPaidOut = 0;
   if (paySettings.vacationPayMode === 'separate') {
     const allVacDays = db.select().from(vacationDays).where(eq(vacationDays.userId, userId)).all();
-    // Gruppera semesterdagar per år
     const vacDaysByYear: Record<number, number> = {};
     for (const v of allVacDays) {
       const y = parseInt(v.date.slice(0, 4));
@@ -134,8 +113,7 @@ export async function GET(req: NextRequest) {
     const daysPerYear = settings?.vacationDaysPerYear ?? 25;
     for (const [yearStr, daysCount] of Object.entries(vacDaysByYear)) {
       const year = parseInt(yearStr);
-      const prevYear = year - 1;
-      const prevYearPot = yearlyTotals[prevYear]?.earned ?? 0;
+      const prevYearPot = yearlyTotals[year - 1]?.earned ?? 0;
       if (prevYearPot > 0 && daysPerYear > 0) {
         vacationDaysPaidOut += (prevYearPot / daysPerYear) * daysCount;
       }
@@ -144,19 +122,52 @@ export async function GET(req: NextRequest) {
 
   const balance = totalAccumulated - totalWithdrawn - vacationDaysPaidOut;
 
-  return NextResponse.json({
+  return {
+    paySettings,
+    monthlyBreakdown,
+    yearlyTotals,
+    withdrawals,
     totalAccumulated,
     totalWithdrawn,
     totalTax,
     vacationDaysPaidOut,
     balance,
-    vacationPayRate: paySettings.vacationPayRate,
-    taxMode: paySettings.taxMode,
-    taxRate: paySettings.taxRate,
-    taxTable: paySettings.taxTable,
-    monthlyBreakdown: monthlyBreakdown.reverse(),
+  };
+}
+
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
+
+  const userId = parseInt(session.user.id);
+  const user = db.select().from(users).where(eq(users.id, userId)).get();
+  if (!user) return NextResponse.json({ error: 'Användare hittades inte' }, { status: 404 });
+
+  const state = computeVacationPayState(userId);
+
+  // Build yearly breakdown sorted by year descending
+  const yearlyBreakdown = Object.entries(state.yearlyTotals)
+    .map(([year, data]) => ({
+      year: parseInt(year),
+      sempiralYear: parseInt(year) + 1, // semester tas ut året efter intjänande
+      earned: data.earned,
+      months: [...data.months].reverse(),
+    }))
+    .sort((a, b) => b.year - a.year);
+
+  return NextResponse.json({
+    totalAccumulated: state.totalAccumulated,
+    totalWithdrawn: state.totalWithdrawn,
+    totalTax: state.totalTax,
+    vacationDaysPaidOut: state.vacationDaysPaidOut,
+    balance: state.balance,
+    vacationPayRate: state.paySettings.vacationPayRate,
+    taxMode: state.paySettings.taxMode,
+    taxRate: state.paySettings.taxRate,
+    taxTable: state.paySettings.taxTable,
+    monthlyBreakdown: [...state.monthlyBreakdown].reverse(),
     yearlyBreakdown,
-    withdrawals,
+    withdrawals: state.withdrawals,
   });
 }
 
@@ -168,75 +179,20 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   const amount = parseFloat(body.amount);
-  if (!amount || amount <= 0) {
+  if (!Number.isFinite(amount) || amount <= 0) {
     return NextResponse.json({ error: 'Ogiltigt belopp' }, { status: 400 });
   }
 
-  // Kontrollera att uttaget inte överstiger tillgängligt saldo
-  const allWithdrawals = db
-    .select()
-    .from(vacationPayWithdrawals)
-    .where(eq(vacationPayWithdrawals.userId, userId))
-    .all();
-  const totalWithdrawn = allWithdrawals.reduce((sum, w) => sum + w.amount, 0);
-
-  const allEntries = db
-    .select()
-    .from(timeEntries)
-    .where(eq(timeEntries.userId, userId))
-    .all();
-  const allInclusionsForCheck = db
-    .select()
-    .from(vacationPayInclusions)
-    .where(eq(vacationPayInclusions.userId, userId))
-    .all();
-  const inclusionsSetForCheck = new Set(
-    allInclusionsForCheck.filter((i) => i.includeInSalary).map((i) => i.month)
-  );
-  const userSettingsForCheck = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
-  const vacationPayModeForCheck = (userSettingsForCheck?.vacationPayMode as 'included' | 'separate') ?? 'included';
-
-  const entriesByMonthForCheck: Record<string, typeof allEntries> = {};
-  for (const e of allEntries) {
-    const m = e.date.substring(0, 7);
-    if (!entriesByMonthForCheck[m]) entriesByMonthForCheck[m] = [];
-    entriesByMonthForCheck[m].push(e);
-  }
-  let totalAccumulatedForCheck = 0;
-  for (const [m, monthEntries] of Object.entries(entriesByMonthForCheck)) {
-    const payEntriesForCheck = monthEntries.map((e) => ({
-      date: e.date,
-      hours: e.hours,
-      startTime: e.startTime,
-      endTime: e.endTime,
-      breakMinutes: e.breakMinutes,
-      entryType: e.entryType,
-      overtimeType: e.overtimeType,
-    }));
-    const settingsForCheck = {
-      workplaceType: (userSettingsForCheck?.workplaceType as 'butik' | 'lager' | 'none') ?? 'none',
-      contractLevel: userSettingsForCheck?.contractLevel ?? '3plus',
-      taxRate: userSettingsForCheck?.taxRate ?? 30,
-      vacationPayRate: userSettingsForCheck?.vacationPayRate ?? 12,
-      vacationPayMode: vacationPayModeForCheck,
-      taxYear: parseInt(m.split('-')[0]),
-    };
-    const r = calculateMonthlyPay(payEntriesForCheck, settingsForCheck);
-    const isIncluded = inclusionsSetForCheck.has(m);
-    if (!isIncluded && vacationPayModeForCheck !== 'included') {
-      totalAccumulatedForCheck += r.vacationPay;
-    }
-  }
-  const currentBalance = totalAccumulatedForCheck - totalWithdrawn;
-  if (amount > currentBalance) {
+  // Kontrollera mot exakt samma saldo som visas i GET
+  const state = computeVacationPayState(userId);
+  if (amount > state.balance) {
     return NextResponse.json(
-      { error: `Otillräckligt saldo. Tillgängligt: ${currentBalance.toFixed(2)} kr` },
+      { error: `Otillräckligt saldo. Tillgängligt: ${state.balance.toFixed(2)} kr` },
       { status: 400 }
     );
   }
 
   // Calculate tax on the withdrawal using user's tax settings
-  const user = db.select().from(users).where(eq(users.id, userId)).get();
   const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
 
   const taxMode = settings?.taxMode ?? 'percentage';
