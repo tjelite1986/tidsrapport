@@ -12,7 +12,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'Tidsrapport',
   description: 'Tidrapportering och lönehantering',
-  manifest: '/manifest.json',
+  // app/manifest.ts serves the manifest at /manifest.webmanifest — /manifest.json is a 404
+  manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

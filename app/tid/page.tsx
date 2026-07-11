@@ -62,7 +62,8 @@ function getWeekDates(offset: number = 0): { start: string; end: string; dates: 
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    dates.push(d.toISOString().split('T')[0]);
+    // Local date components — toISOString shifts the week around midnight (UTC)
+    dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
 
   return { start: dates[0], end: dates[6], dates };
@@ -142,6 +143,8 @@ export default function TidPage() {
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
   const [scheduleImportOpen, setScheduleImportOpen] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [defaultTimes, setDefaultTimes] = useState<{ start: string; end: string } | null>(null);
 
   const week = getWeekDates(weekOffset);
 
@@ -160,6 +163,12 @@ export default function TidPage() {
       if (s.autoBreakCalc !== undefined) setAutoBreakEnabled(s.autoBreakCalc);
       try { setDepartments(JSON.parse(s.departments || '[]')); } catch { setDepartments([]); }
       try { setAutoBreakRules(JSON.parse(s.autoBreakRules || '[]')); } catch { setAutoBreakRules([]); }
+      if (s.calendarViewDefault === 'week' || s.calendarViewDefault === 'month') {
+        setCalendarView(s.calendarViewDefault);
+      }
+      if (s.defaultStartTime && s.defaultEndTime) {
+        setDefaultTimes({ start: s.defaultStartTime, end: s.defaultEndTime });
+      }
     });
   }, []);
 
@@ -171,7 +180,7 @@ export default function TidPage() {
         .then((data) => setCalendarVacationDays(data.vacationDays || []))
         .catch(() => {});
     }
-  }, [weekOffset]);
+  }, [weekOffset, calendarView]);
 
   async function fetchEntries() {
     const res = await fetch(`/api/time-entries?startDate=${week.start}&endDate=${week.end}`);
@@ -203,30 +212,37 @@ export default function TidPage() {
     }
   }, [calendarView, monthYear]);
 
-  // Auto-fill from schedule when date changes or after form reset
+  // Auto-fill from schedule when date changes or after form reset.
+  // Falls back to the user's default start/end times (Settings) when the day
+  // has no schedule entry.
   useEffect(() => {
-    if (!date || scheduleA.length === 0) return;
-    if (referenceDate && date < referenceDate) return; // Ingen auto-fill före schemat startar
-    const d = new Date(date + 'T12:00:00');
-    const jsDay = d.getDay();
-    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
-    const allSchedules = { A: scheduleA, B: scheduleB, C: scheduleC, D: scheduleD };
-    const wt = referenceDate ? getWeekType(date, referenceDate, weekCount) : 'A';
-    const activeSchedule = allSchedules[wt];
-    const schedEntry = activeSchedule.find((s) => s.dayOfWeek === dayOfWeek);
-    if (schedEntry && schedEntry.startTime && !startTime && !endTime) {
-      setStartTime(schedEntry.startTime);
-      setEndTime(schedEntry.endTime);
+    if (!date) return;
+    let fill: { startTime: string; endTime: string; breakMinutes: number } | null = null;
+    if (scheduleA.length > 0 && !(referenceDate && date < referenceDate)) {
+      const d = new Date(date + 'T12:00:00');
+      const jsDay = d.getDay();
+      const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+      const allSchedules = { A: scheduleA, B: scheduleB, C: scheduleC, D: scheduleD };
+      const wt = referenceDate ? getWeekType(date, referenceDate, weekCount) : 'A';
+      const schedEntry = allSchedules[wt].find((s) => s.dayOfWeek === dayOfWeek);
+      if (schedEntry && schedEntry.startTime) fill = schedEntry;
+    }
+    if (!fill && defaultTimes) {
+      fill = { startTime: defaultTimes.start, endTime: defaultTimes.end, breakMinutes: 0 };
+    }
+    if (fill && !startTime && !endTime) {
+      setStartTime(fill.startTime);
+      setEndTime(fill.endTime);
       // If auto is off, set break from schedule; if auto is on, the auto-break effect handles it
       if (!autoBreakEnabled) {
-        if (schedEntry.breakMinutes > 0) {
-          setBreakPeriods([generateBreakPeriod(schedEntry.startTime, schedEntry.endTime, schedEntry.breakMinutes, date)]);
+        if (fill.breakMinutes > 0) {
+          setBreakPeriods([generateBreakPeriod(fill.startTime, fill.endTime, fill.breakMinutes, date)]);
         } else {
           setBreakPeriods([]);
         }
       }
     }
-  }, [date, scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount, refillTrigger]);
+  }, [date, scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount, refillTrigger, defaultTimes]);
 
   // Auto-calculate break when times change (or when auto mode is toggled on)
   useEffect(() => {
@@ -308,32 +324,49 @@ export default function TidPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting) return; // a double-click must not create duplicate entries
     setSubmitError('');
-    const validPeriods = breakPeriods.filter((bp) => bp.start && bp.end);
-    // For absence (sick/VAB) without start/end times, send hours directly (full-day entry)
-    const useManualHours = isAbsence && (!startTime || !endTime) && manualHours;
-    const res = await fetch('/api/time-entries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        projectId: parseInt(projectId),
-        date,
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
-        ...(validPeriods.length > 0
-          ? { breakPeriods: validPeriods }
-          : { breakMinutes: startTime && endTime ? 0 : undefined }),
-        ...(useManualHours ? { hours: parseFloat(manualHours) } : {}),
-        entryType,
-        overtimeType,
-        description,
-        taskSegments: serializeTaskSegments(taskSegments),
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      setSubmitError(err.error || 'Kunde inte spara tidsregistrering');
+    // end <= start is treated as an overnight shift (+24h) — confirm so a
+    // typo like 18:00-08:00 doesn't silently become a 14-hour entry
+    if (startTime && endTime && endTime <= startTime) {
+      const overnightHours = calcHoursPreview(startTime, endTime, sumBreakMinutes(breakPeriods.filter((bp) => bp.start && bp.end)));
+      if (!window.confirm(`Sluttiden är före starttiden — detta sparas som ett nattpass över midnatt (${overnightHours}h). Fortsätta?`)) {
+        return;
+      }
+    }
+    setSubmitting(true);
+    try {
+      const validPeriods = breakPeriods.filter((bp) => bp.start && bp.end);
+      // For absence (sick/VAB) without start/end times, send hours directly (full-day entry)
+      const useManualHours = isAbsence && (!startTime || !endTime) && manualHours;
+      const res = await fetch('/api/time-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: parseInt(projectId),
+          date,
+          startTime: startTime || undefined,
+          endTime: endTime || undefined,
+          ...(validPeriods.length > 0
+            ? { breakPeriods: validPeriods }
+            : { breakMinutes: startTime && endTime ? 0 : undefined }),
+          ...(useManualHours ? { hours: parseFloat(manualHours) } : {}),
+          entryType,
+          overtimeType,
+          description,
+          taskSegments: serializeTaskSegments(taskSegments),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setSubmitError(err.error || 'Kunde inte spara tidsregistrering');
+        return;
+      }
+    } catch {
+      setSubmitError('Nätverksfel');
       return;
+    } finally {
+      setSubmitting(false);
     }
     setStartTime('');
     setEndTime('');
@@ -576,7 +609,7 @@ export default function TidPage() {
         />
 
         <div className="mt-4 flex items-center gap-4">
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          <button type="submit" disabled={submitting} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50">
             Spara
           </button>
           {previewHours && (

@@ -97,29 +97,31 @@ export async function PUT(req: NextRequest) {
 
   const existing = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
 
+  // Merge: fields omitted from the body keep their stored value — a page that
+  // only edits a subset must not silently reset the rest to defaults
   const data = {
-    workplaceType: body.workplaceType ?? 'none',
-    contractLevel: body.contractLevel ?? '3plus',
-    taxRate: body.taxRate ?? 30,
-    vacationPayRate: body.vacationPayRate ?? 12,
-    vacationPayMode: body.vacationPayMode ?? 'included',
-    workingHoursPerMonth: body.workingHoursPerMonth ?? 160,
-    autoBreakCalc: body.autoBreakCalc ?? true,
-    employeeName: body.employeeName ?? null,
-    employerName: body.employerName ?? null,
-    defaultStartTime: body.defaultStartTime ?? null,
-    defaultEndTime: body.defaultEndTime ?? null,
-    calendarViewDefault: body.calendarViewDefault ?? 'week',
-    taxMode: body.taxMode ?? 'percentage',
-    taxTable: body.taxTable ?? null,
-    municipality: body.municipality ?? null,
-    salaryMode: body.salaryMode ?? 'contract',
-    customHourlyRate: body.customHourlyRate ?? null,
-    fixedMonthlySalary: body.fixedMonthlySalary ?? null,
+    workplaceType: body.workplaceType ?? existing?.workplaceType ?? 'none',
+    contractLevel: body.contractLevel ?? existing?.contractLevel ?? '3plus',
+    taxRate: body.taxRate ?? existing?.taxRate ?? 30,
+    vacationPayRate: body.vacationPayRate ?? existing?.vacationPayRate ?? 12,
+    vacationPayMode: body.vacationPayMode ?? existing?.vacationPayMode ?? 'included',
+    workingHoursPerMonth: body.workingHoursPerMonth ?? existing?.workingHoursPerMonth ?? 160,
+    autoBreakCalc: body.autoBreakCalc ?? existing?.autoBreakCalc ?? true,
+    employeeName: body.employeeName ?? existing?.employeeName ?? null,
+    employerName: body.employerName ?? existing?.employerName ?? null,
+    defaultStartTime: body.defaultStartTime ?? existing?.defaultStartTime ?? null,
+    defaultEndTime: body.defaultEndTime ?? existing?.defaultEndTime ?? null,
+    calendarViewDefault: body.calendarViewDefault ?? existing?.calendarViewDefault ?? 'week',
+    taxMode: body.taxMode ?? existing?.taxMode ?? 'percentage',
+    taxTable: body.taxTable ?? existing?.taxTable ?? null,
+    municipality: body.municipality ?? existing?.municipality ?? null,
+    salaryMode: body.salaryMode ?? existing?.salaryMode ?? 'contract',
+    customHourlyRate: body.customHourlyRate ?? existing?.customHourlyRate ?? null,
+    fixedMonthlySalary: body.fixedMonthlySalary ?? existing?.fixedMonthlySalary ?? null,
     hourlyRateHistory: hourlyRateHistory ?? existing?.hourlyRateHistory ?? '[]',
-    departments: body.departments ?? '[]',
-    autoBreakRules: body.autoBreakRules ?? '[]',
-    vacationDaysPerYear: body.vacationDaysPerYear ?? 25,
+    departments: body.departments ?? existing?.departments ?? '[]',
+    autoBreakRules: body.autoBreakRules ?? existing?.autoBreakRules ?? '[]',
+    vacationDaysPerYear: body.vacationDaysPerYear ?? existing?.vacationDaysPerYear ?? 25,
   };
 
   if (existing) {

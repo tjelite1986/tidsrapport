@@ -178,8 +178,9 @@ export function generatePayslipPDF(data: PayslipData): jsPDF {
   doc.text('-' + formatCurrency(data.tax) + ' kr', margin + contentWidth - 4, y, { align: 'right' });
   y += 5;
 
+  // workHours excludes sick/VAB hours — totalHours would overstate time worked
   doc.text('Arbetade timmar:', margin + 4, y);
-  doc.text(data.totalHours.toFixed(2) + ' tim', margin + contentWidth - 4, y, { align: 'right' });
+  doc.text(data.workHours.toFixed(2) + ' tim', margin + contentWidth - 4, y, { align: 'right' });
   y += 7;
 
   doc.setFont('helvetica', 'bold');

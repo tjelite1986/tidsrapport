@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
 
 interface ReportEntry {
   id: number;
@@ -22,11 +21,6 @@ interface Project {
   name: string;
 }
 
-interface UserOption {
-  id: number;
-  name: string;
-}
-
 const overtimeLabels: Record<string, string> = {
   none: '-',
   mertid: 'Mertid',
@@ -34,39 +28,38 @@ const overtimeLabels: Record<string, string> = {
   kvalificerad: 'Kval ÖT',
 };
 
+function csvField(value: string | number | null | undefined): string {
+  const s = String(value ?? '');
+  // Quote + escape embedded quotes/commas/newlines per RFC 4180
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 export default function RapporterPage() {
-  const { data: session } = useSession();
   const [entries, setEntries] = useState<ReportEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [users, setUsers] = useState<UserOption[]>([]);
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setDate(1);
-    return d.toISOString().split('T')[0];
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
   });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [projectId, setProjectId] = useState('');
-  const [userId, setUserId] = useState('');
-
-  const isAdmin = session?.user?.role === 'admin';
 
   useEffect(() => {
     fetch('/api/projects').then((r) => r.json()).then(setProjects);
-    if (isAdmin) {
-      fetch('/api/users').then((r) => r.json()).then(setUsers);
-    }
-  }, [isAdmin]);
+  }, []);
 
   useEffect(() => {
     fetchReport();
-  }, [startDate, endDate, projectId, userId]);
+  }, [startDate, endDate, projectId]);
 
   async function fetchReport() {
     const params = new URLSearchParams();
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
     if (projectId) params.set('projectId', projectId);
-    if (userId) params.set('userId', userId);
 
     const res = await fetch(`/api/reports?${params}`);
     if (res.ok) setEntries(await res.json());
@@ -77,7 +70,18 @@ export default function RapporterPage() {
   function exportCSV() {
     const header = 'Datum,Användare,Projekt,Start,Slut,Rast(min),Timmar,Typ,Övertid,Beskrivning\n';
     const rows = entries.map((e) =>
-      `${e.date},"${e.userName}","${e.projectName}",${e.startTime || ''},${e.endTime || ''},${e.breakMinutes || 0},${e.hours},${e.entryType},${overtimeLabels[e.overtimeType] || '-'},"${e.description || ''}"`
+      [
+        e.date,
+        csvField(e.userName),
+        csvField(e.projectName),
+        e.startTime || '',
+        e.endTime || '',
+        e.breakMinutes || 0,
+        e.hours,
+        e.entryType,
+        overtimeLabels[e.overtimeType] || '-',
+        csvField(e.description),
+      ].join(',')
     ).join('\n');
 
     const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -168,21 +172,6 @@ export default function RapporterPage() {
               ))}
             </select>
           </div>
-          {isAdmin && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Användare</label>
-              <select
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Alla</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
           <div className="flex gap-2">
             <button onClick={exportCSV} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
               Exportera CSV

@@ -16,6 +16,35 @@ function getUserBreakRules(userId: number): BreakRule[] | undefined {
   try { return JSON.parse(s.autoBreakRules); } catch { return undefined; }
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const ENTRY_TYPES = new Set(['work', 'sick', 'vab']);
+const OVERTIME_TYPES = new Set(['none', 'mertid', 'enkel', 'kvalificerad']);
+
+function isValidDate(value: unknown): value is string {
+  return typeof value === 'string' && DATE_RE.test(value) && !isNaN(new Date(value + 'T12:00:00').getTime());
+}
+
+function isValidTime(value: unknown): value is string {
+  return typeof value === 'string' && TIME_RE.test(value);
+}
+
+// Validate the fields shared by POST and PUT; returns an error message or null.
+function validateEntryInput(body: any, { requireDate }: { requireDate: boolean }): string | null {
+  const { date, hours, startTime, endTime, entryType, overtimeType } = body;
+  if (requireDate ? !isValidDate(date) : date !== undefined && !isValidDate(date)) {
+    return 'Ogiltigt datum (YYYY-MM-DD krävs)';
+  }
+  if (startTime != null && startTime !== '' && !isValidTime(startTime)) return 'Ogiltig starttid (HH:MM)';
+  if (endTime != null && endTime !== '' && !isValidTime(endTime)) return 'Ogiltig sluttid (HH:MM)';
+  if (hours !== undefined && hours !== null && hours !== '' && !Number.isFinite(parseFloat(hours))) {
+    return 'Ogiltigt antal timmar';
+  }
+  if (entryType !== undefined && !ENTRY_TYPES.has(entryType)) return 'Ogiltig posttyp';
+  if (overtimeType !== undefined && !OVERTIME_TYPES.has(overtimeType)) return 'Ogiltig övertidstyp';
+  return null;
+}
+
 function userOwnsProject(userId: number, projectId: number): boolean {
   const row = db
     .select({ id: projects.id })
@@ -79,6 +108,10 @@ export async function POST(req: NextRequest) {
   if (!projectId || !date) {
     return NextResponse.json({ error: 'Projekt och datum krävs' }, { status: 400 });
   }
+  const validationError = validateEntryInput(body, { requireDate: true });
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
 
   const userId = parseInt(session.user.id);
   if (!userOwnsProject(userId, projectId)) {
@@ -108,8 +141,8 @@ export async function POST(req: NextRequest) {
     calculatedHours = calculateWorkHours(startTime, endTime, actualBreak);
   }
 
-  if (calculatedHours <= 0) {
-    return NextResponse.json({ error: 'Timmar måste vara större än 0' }, { status: 400 });
+  if (!Number.isFinite(calculatedHours) || calculatedHours <= 0 || calculatedHours > 24) {
+    return NextResponse.json({ error: 'Timmar måste vara större än 0 (max 24)' }, { status: 400 });
   }
 
   const result = db
@@ -142,6 +175,10 @@ export async function PUT(req: NextRequest) {
   const { id, projectId, date, hours, startTime, endTime, breakMinutes, breakPeriods: breakPeriodsRaw, entryType, overtimeType, description, taskSegments } = body;
 
   if (!id) return NextResponse.json({ error: 'ID krävs' }, { status: 400 });
+  const validationError = validateEntryInput(body, { requireDate: false });
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
 
   const userId = parseInt(session.user.id);
   if (projectId !== undefined && !userOwnsProject(userId, projectId)) {
@@ -174,15 +211,25 @@ export async function PUT(req: NextRequest) {
   const updateData: any = {};
   if (projectId !== undefined) updateData.projectId = projectId;
   if (date !== undefined) updateData.date = date;
-  if (calculatedHours > 0) updateData.hours = calculatedHours;
+  if (Number.isFinite(calculatedHours) && calculatedHours > 0 && calculatedHours <= 24) {
+    updateData.hours = calculatedHours;
+  }
   if (startTime !== undefined) updateData.startTime = startTime || null;
   if (endTime !== undefined) updateData.endTime = endTime || null;
-  updateData.breakMinutes = actualBreak;
-  updateData.breakPeriods = serializedBreakPeriods;
+  // Only touch break data when the request actually carries time/break fields —
+  // a partial update like {id, description} must not wipe stored breaks
+  if (breakPeriodsRaw !== undefined || breakMinutes !== undefined || startTime !== undefined || endTime !== undefined) {
+    updateData.breakMinutes = actualBreak;
+    updateData.breakPeriods = serializedBreakPeriods;
+  }
   if (entryType !== undefined) updateData.entryType = entryType;
   if (overtimeType !== undefined) updateData.overtimeType = overtimeType;
   if (description !== undefined) updateData.description = description;
   if (taskSegments !== undefined) updateData.taskSegments = taskSegments || null;
+
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: 'Inga fält att uppdatera' }, { status: 400 });
+  }
 
   const result = db
     .update(timeEntries)

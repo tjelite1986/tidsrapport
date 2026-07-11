@@ -83,30 +83,45 @@ export async function PUT(req: NextRequest) {
   const referenceDate: string | null = body.referenceDate || null;
   const weekCount: number = body.weekCount === 4 ? 4 : 2;
 
-  sqlite.prepare('DELETE FROM weekly_schedule WHERE user_id = ?').run(userId);
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+  for (const week of schedules) {
+    for (const s of week) {
+      if (!s.startTime && !s.endTime) continue;
+      if (!Number.isInteger(s.dayOfWeek) || s.dayOfWeek < 0 || s.dayOfWeek > 6) {
+        return NextResponse.json({ error: 'Ogiltig veckodag i schemat' }, { status: 400 });
+      }
+      if (!TIME_RE.test(s.startTime) || !TIME_RE.test(s.endTime)) {
+        return NextResponse.json({ error: 'Ogiltig tid i schemat (HH:MM)' }, { status: 400 });
+      }
+    }
+  }
 
   const insertStmt = sqlite.prepare(
     'INSERT INTO weekly_schedule (user_id, day_of_week, start_time, end_time, break_minutes, week_type) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
-  for (let t = 0; t < 4; t++) {
-    for (const s of schedules[t]) {
-      if (s.startTime && s.endTime) {
-        insertStmt.run(userId, s.dayOfWeek, s.startTime, s.endTime, s.breakMinutes ?? 0, t);
+  // Rebuild atomically — a mid-loop failure must not leave the schedule half-deleted
+  const rebuild = sqlite.transaction(() => {
+    sqlite.prepare('DELETE FROM weekly_schedule WHERE user_id = ?').run(userId);
+    for (let t = 0; t < 4; t++) {
+      for (const s of schedules[t]) {
+        if (s.startTime && s.endTime) {
+          insertStmt.run(userId, s.dayOfWeek, s.startTime, s.endTime, s.breakMinutes ?? 0, t);
+        }
       }
     }
-  }
-
-  const existing = sqlite.prepare('SELECT id FROM user_settings WHERE user_id = ?').get(userId);
-  if (existing) {
-    sqlite
-      .prepare('UPDATE user_settings SET schedule_reference_date = ?, schedule_week_count = ? WHERE user_id = ?')
-      .run(referenceDate, weekCount, userId);
-  } else {
-    sqlite
-      .prepare('INSERT INTO user_settings (user_id, schedule_reference_date, schedule_week_count) VALUES (?, ?, ?)')
-      .run(userId, referenceDate, weekCount);
-  }
+    const existing = sqlite.prepare('SELECT id FROM user_settings WHERE user_id = ?').get(userId);
+    if (existing) {
+      sqlite
+        .prepare('UPDATE user_settings SET schedule_reference_date = ?, schedule_week_count = ? WHERE user_id = ?')
+        .run(referenceDate, weekCount, userId);
+    } else {
+      sqlite
+        .prepare('INSERT INTO user_settings (user_id, schedule_reference_date, schedule_week_count) VALUES (?, ?, ?)')
+        .run(userId, referenceDate, weekCount);
+    }
+  });
+  rebuild();
 
   const rows = sqlite
     .prepare('SELECT day_of_week, start_time, end_time, break_minutes, week_type FROM weekly_schedule WHERE user_id = ?')

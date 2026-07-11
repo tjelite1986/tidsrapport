@@ -154,12 +154,18 @@ export default function TimerPage() {
   function stopTimer() {
     const now = Math.floor(Date.now() / 1000);
     const additionalSeconds = timer.startedAt ? now - Math.floor(timer.startedAt / 1000) : 0;
+    // Fold an ongoing pause into pauseElapsed so stop-while-paused keeps the pause time
+    const pauseDuration = timer.pauseStartedAt
+      ? Math.floor((Date.now() - timer.pauseStartedAt) / 1000)
+      : 0;
     setTimer({
       ...timer,
       running: false,
       paused: false,
       startedAt: null,
       elapsed: timer.elapsed + additionalSeconds,
+      pauseElapsed: timer.pauseElapsed + pauseDuration,
+      pauseStartedAt: null,
     });
   }
 
@@ -182,10 +188,17 @@ export default function TimerPage() {
     const totalMinutes = Math.round(displaySeconds / 60);
     const now = new Date();
     const endTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const startDate = new Date(now.getTime() - displaySeconds * 1000);
+    // Tracked pauses ARE the break: the clock span must include them and no
+    // auto-break is added on top. Without tracked pauses, assume the timer ran
+    // through the break and estimate it with the auto-break rules.
+    const pauseSeconds = timer.pauseElapsed;
+    const hasTrackedPause = pauseSeconds >= 60;
+    const breakMin = hasTrackedPause ? Math.round(pauseSeconds / 60) : autoBreakMinutes(totalMinutes);
+    const spanSeconds = hasTrackedPause ? displaySeconds + pauseSeconds : displaySeconds;
+    const startDate = new Date(now.getTime() - spanSeconds * 1000);
     const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
-    const date = now.toISOString().split('T')[0];
-    const breakMin = autoBreakMinutes(totalMinutes);
+    // Local date of the shift start — toISOString would shift the date around midnight
+    const date = toLocalDate(startDate);
 
     const res = await fetch('/api/time-entries', {
       method: 'POST',
@@ -210,11 +223,14 @@ export default function TimerPage() {
   }
 
   const totalMinutes = Math.round(displaySeconds / 60);
-  const breakMin = autoBreakMinutes(totalMinutes);
-  const workHours = Math.max(0, (totalMinutes - breakMin) / 60);
+  const pauseMinutes = Math.round(timer.pauseElapsed / 60);
+  // Mirror saveAsEntry: tracked pauses replace the auto-break estimate
+  const breakMin = pauseMinutes >= 1 ? pauseMinutes : autoBreakMinutes(totalMinutes);
+  const workHours = pauseMinutes >= 1
+    ? totalMinutes / 60 // pauses are already excluded from the worked time
+    : Math.max(0, (totalMinutes - breakMin) / 60);
   const hours = displaySeconds / 3600;
   const colors = getTimerColor(hours);
-  const pauseMinutes = Math.round(timer.pauseElapsed / 60);
 
   return (
     <div>

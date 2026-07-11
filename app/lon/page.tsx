@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
 import TotalSummaryCard from '@/components/salary/TotalSummaryCard';
 import VacationPayTracker from '@/components/salary/VacationPayTracker';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-generator';
@@ -57,36 +56,20 @@ interface SalaryData {
   hourlyRate: number;
 }
 
-interface UserOption {
-  id: number;
-  name: string;
-}
-
 export default function LonPage() {
-  const { data: session } = useSession();
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [salary, setSalary] = useState<SalaryData | null>(null);
-  const [users, setUsers] = useState<UserOption[]>([]);
-  const [selectedUser, setSelectedUser] = useState('');
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [includeVacation, setIncludeVacation] = useState(false);
   const [vacationRefreshKey, setVacationRefreshKey] = useState(0);
 
-  const isAdmin = session?.user?.role === 'admin';
-
-  useEffect(() => {
-    if (isAdmin) {
-      fetch('/api/users').then((r) => r.json()).then(setUsers);
-    }
-  }, [isAdmin]);
-
   useEffect(() => {
     fetchSalary();
     fetchInclusion();
-  }, [month, selectedUser]);
+  }, [month]);
 
   function getWorkMonth(paymentMonth: string): string {
     const [year, mon] = paymentMonth.split('-').map(Number);
@@ -105,9 +88,9 @@ export default function LonPage() {
 
   async function fetchSalary() {
     const workMonth = getWorkMonth(month);
-    const params = new URLSearchParams({ month: workMonth });
-    if (selectedUser) params.set('userId', selectedUser);
-    const res = await fetch(`/api/salary?${params}`);
+    // /api/salary is always scoped to the session user — admins cannot view
+    // other users' pay, so no user selector is offered
+    const res = await fetch(`/api/salary?month=${workMonth}`);
     if (res.ok) setSalary(await res.json());
   }
 
@@ -178,21 +161,6 @@ export default function LonPage() {
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          {isAdmin && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Användare</label>
-              <select
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Mig själv</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
         <div className="flex items-center justify-between mt-3">
           <p className="text-sm text-gray-500">
@@ -266,9 +234,11 @@ export default function LonPage() {
                           <td className="px-3 py-2">{day.date}</td>
                           <td className="px-3 py-2">
                             <span className={`text-xs px-1.5 py-0.5 rounded ${
-                              day.entryType === 'sick' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                              day.entryType === 'sick' ? 'bg-red-100 text-red-700' :
+                              day.entryType === 'vab' ? 'bg-orange-100 text-orange-700' :
+                              'bg-green-100 text-green-700'
                             }`}>
-                              {day.entryType === 'sick' ? 'Sjuk' : 'Arbete'}
+                              {day.entryType === 'sick' ? 'Sjuk' : day.entryType === 'vab' ? 'VAB' : 'Arbete'}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right">{day.hours.toFixed(2)}h</td>

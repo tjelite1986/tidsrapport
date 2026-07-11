@@ -84,6 +84,12 @@ export async function PUT(req: NextRequest) {
   const { id, name, email, role, salaryType, hourlyRate, monthlySalary, overtimeRate, password } = body;
 
   if (!id) return NextResponse.json({ error: 'ID krävs' }, { status: 400 });
+  if (role && !['admin', 'user'].includes(role)) {
+    return NextResponse.json({ error: 'Ogiltig roll' }, { status: 400 });
+  }
+  if (salaryType && !['hourly', 'monthly'].includes(salaryType)) {
+    return NextResponse.json({ error: 'Ogiltig lönetyp' }, { status: 400 });
+  }
 
   const updateData: any = {};
   if (name) updateData.name = name;
@@ -95,8 +101,20 @@ export async function PUT(req: NextRequest) {
   if (overtimeRate !== undefined) updateData.overtimeRate = overtimeRate;
   if (password) updateData.passwordHash = hashSync(password, 10);
 
-  const result = db.update(users).set(updateData).where(eq(users.id, id)).returning().get();
-  return NextResponse.json(result);
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: 'Inga fält att uppdatera' }, { status: 400 });
+  }
+
+  try {
+    const result = db.update(users).set(updateData).where(eq(users.id, id)).returning().get();
+    if (!result) return NextResponse.json({ error: 'Användaren hittades inte' }, { status: 404 });
+    return NextResponse.json(result);
+  } catch (e: any) {
+    if (e.message?.includes('UNIQUE')) {
+      return NextResponse.json({ error: 'E-postadressen används redan' }, { status: 409 });
+    }
+    throw e;
+  }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -119,15 +137,21 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Administratörskonton kan inte tas bort' }, { status: 403 });
   }
 
-  // Kaskadradera all användardata
-  sqlite.prepare('DELETE FROM vacation_pay_inclusions WHERE user_id = ?').run(id);
-  sqlite.prepare('DELETE FROM vacation_pay_withdrawals WHERE user_id = ?').run(id);
-  sqlite.prepare('DELETE FROM weekly_schedule WHERE user_id = ?').run(id);
-  sqlite.prepare('DELETE FROM work_templates WHERE user_id = ?').run(id);
-  sqlite.prepare('DELETE FROM time_entries WHERE user_id = ?').run(id);
-  sqlite.prepare('DELETE FROM salary_settings WHERE user_id = ?').run(id);
-  sqlite.prepare('DELETE FROM user_settings WHERE user_id = ?').run(id);
-  sqlite.prepare('DELETE FROM users WHERE id = ?').run(id);
+  // Kaskadradera all användardata atomiskt — tabeller med FK mot users måste
+  // tömmas före users-raden, annars stoppar foreign_keys=ON raderingen halvvägs
+  const cascadeDelete = sqlite.transaction((userId: number) => {
+    sqlite.prepare('DELETE FROM vacation_pay_inclusions WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM vacation_pay_withdrawals WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM vacation_days WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM weekly_schedule WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM work_templates WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM time_entries WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM projects WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM salary_settings WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM user_settings WHERE user_id = ?').run(userId);
+    sqlite.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  });
+  cascadeDelete(id);
 
   return NextResponse.json({ ok: true });
 }

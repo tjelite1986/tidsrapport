@@ -83,6 +83,7 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
     setOvertimeType(entry.overtimeType);
     setDescription(entry.description || '');
     setTaskSegments(parseTaskSegments(entry.taskSegments));
+    setError(''); // don't show a stale error from a previous entry
   }, [entry]);
 
   if (!entry) return null;
@@ -105,8 +106,10 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
           id: entry!.id,
           projectId: parseInt(projectId),
           date,
-          startTime: startTime || undefined,
-          endTime: endTime || undefined,
+          // null (not undefined) so clearing a time actually persists —
+          // undefined is dropped by JSON.stringify and the server keeps the old value
+          startTime: startTime || null,
+          endTime: endTime || null,
           ...(validPeriods.length > 0
             ? { breakPeriods: validPeriods }
             : { breakMinutes: startTime && endTime ? 0 : undefined }),

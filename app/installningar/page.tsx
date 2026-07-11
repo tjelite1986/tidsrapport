@@ -186,6 +186,7 @@ export default function InstallningarPage() {
   const [municipalities, setMunicipalities] = useState<{ name: string; taxRate: number; tableNumber: number }[]>([]);
   const [municipalitySearch, setMunicipalitySearch] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [newTemplate, setNewTemplate] = useState({ name: '', startTime: '08:00', endTime: '17:00', breakMinutes: 60 });
   const [scheduleA, setScheduleA] = useState<ScheduleEntry[]>(emptyWeek());
@@ -239,7 +240,13 @@ export default function InstallningarPage() {
   }, []);
 
   async function saveSettings() {
-    await fetch('/api/settings', {
+    setSaveError('');
+    const incompleteRateRows = rateHistory.filter((r) => !r.effectiveFrom || typeof r.hourlyRate !== 'number').length;
+    if (incompleteRateRows > 0) {
+      setSaveError(`${incompleteRateRows} rad(er) i lönehistoriken saknar datum eller timlön — fyll i eller ta bort dem innan du sparar.`);
+      return;
+    }
+    const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -253,6 +260,11 @@ export default function InstallningarPage() {
         ),
       }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setSaveError(err.error || 'Kunde inte spara inställningarna');
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -307,11 +319,17 @@ export default function InstallningarPage() {
   }
 
   async function saveSchedule() {
-    await fetch('/api/schedule', {
+    setSaveError('');
+    const res = await fetch('/api/schedule', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scheduleA, scheduleB, scheduleC, scheduleD, referenceDate: referenceDate || null, weekCount }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setSaveError(err.error || 'Kunde inte spara schemat');
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -328,6 +346,9 @@ export default function InstallningarPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Inställningar</h1>
 
+      {saveError && (
+        <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{saveError}</div>
+      )}
       {saved && (
         <div className="bg-green-50 text-green-700 p-3 rounded mb-4 text-sm">Inställningarna sparades!</div>
       )}
@@ -505,6 +526,14 @@ export default function InstallningarPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {settings.salaryMode !== 'hourly' && rateHistory.length > 0 && (
+            <div className="bg-amber-50 text-amber-800 p-3 rounded text-sm">
+              Du har {rateHistory.length} period(er) datumstyrd lönehistorik som fortfarande styr
+              timlönen i beräkningarna, även i detta löneläge. Byt till &quot;Egen timlön&quot; för att se
+              eller ta bort den.
             </div>
           )}
 

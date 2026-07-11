@@ -60,16 +60,23 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit, onDelet
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
+    // Reset per entry — otherwise the previous entry's pay (and a primed
+    // delete-confirm state) leaks into the next entry the user opens
+    setPayDetail(null);
+    setConfirmDelete(false);
     if (!entry) return;
+    let cancelled = false;
     fetch(`/api/calendar-data?startDate=${entry.date}&endDate=${entry.date}`)
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return;
         if (data.entries && data.entries.length > 0) {
           const e = data.entries.find((x: any) => x.id === entry.id);
           if (e?.pay) setPayDetail(e.pay);
         }
       })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [entry]);
 
   if (!entry) return null;
