@@ -1,4 +1,5 @@
-const CACHE = "tidsrapport-v2";
+// v3: new app icon set — bump so the cached copies of the old icons are dropped.
+const CACHE = "tidsrapport-v3";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
