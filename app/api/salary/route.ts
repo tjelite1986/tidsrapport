@@ -4,7 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { timeEntries, users, userSettings, vacationPayInclusions, vacationDays } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { calculateMonthlyPay, buildPaySettings, buildSickContext, type PaySettings, type TimeEntryForPay, type SickDayContext } from '@/lib/calculations';
+import { calculateMonthlyPay, buildPaySettings, buildSickContext, countPaidVacationDays, type PaySettings, type TimeEntryForPay, type SickDayContext } from '@/lib/calculations';
+import { getVacationDailyRate } from '@/lib/vacation-rate';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 
 export const dynamic = 'force-dynamic';
@@ -73,8 +74,9 @@ export async function GET(req: NextRequest) {
   const salaryMode = (settings?.salaryMode ?? 'contract') as 'contract' | 'hourly' | 'fixed_plus';
   const vacationPayMode = (settings?.vacationPayMode ?? 'included') as 'included' | 'separate';
 
-  // Beräkna semesterlön för uttagna semesterdagar denna arbetsperiod
-  // Logik: dagar × (föregående kalenderårs semesterpott ÷ vacationDaysPerYear)
+  // Beräkna semesterlön för uttagna semesterdagar denna arbetsperiod.
+  // Bara vardagar (mån–fre) drar en semesterdag och ger semesterlön — helger
+  // inuti en semesterperiod är arbetsfria, precis som på lönebeskedet.
   // Gäller endast i 'separate'-läge (i 'included' finns ingen pot att ta från)
   let vacationDaysPay = 0;
   let vacationDaysCount = 0;
@@ -86,51 +88,11 @@ export async function GET(req: NextRequest) {
   const vacationDates = new Set(vdays.map((v) => v.date));
 
   if (month && vacationPayMode === 'separate') {
-    vacationDaysCount = vdays.length;
+    vacationDaysCount = countPaidVacationDays(vdays.map((v) => v.date));
 
     if (vacationDaysCount > 0) {
       const workYear = parseInt(month.split('-')[0]);
-      const prevYear = workYear - 1;
-
-      // Hämta alla tidposter för föregående kalenderår
-      const prevYearEntries = db
-        .select()
-        .from(timeEntries)
-        .where(and(eq(timeEntries.userId, userId), gte(timeEntries.date, `${prevYear}-01-01`), lte(timeEntries.date, `${prevYear}-12-31`)))
-        .all();
-
-      // Gruppera per månad och summera intjänad semesterersättning
-      const prevByMonth: Record<string, typeof prevYearEntries> = {};
-      for (const e of prevYearEntries) {
-        const m = e.date.substring(0, 7);
-        if (!prevByMonth[m]) prevByMonth[m] = [];
-        prevByMonth[m].push(e);
-      }
-
-      let prevYearPot = 0;
-      for (const [, monthEntries] of Object.entries(prevByMonth)) {
-        const payEntriesMonth: TimeEntryForPay[] = monthEntries.map((e) => ({
-          date: e.date,
-          hours: e.hours,
-          startTime: e.startTime,
-          endTime: e.endTime,
-          breakMinutes: e.breakMinutes,
-          breakPeriods: parseBreakPeriods(e.breakPeriods),
-          entryType: e.entryType,
-          overtimeType: e.overtimeType,
-        }));
-        const r = calculateMonthlyPay(
-          payEntriesMonth,
-          buildPaySettings(user, settings, { vacationPayMode: 'separate', taxYear: prevYear })
-        );
-        prevYearPot += r.vacationPay;
-      }
-
-      const daysPerYear = settings?.vacationDaysPerYear ?? 25;
-      if (prevYearPot > 0 && daysPerYear > 0) {
-        const dailyRate = prevYearPot / daysPerYear;
-        vacationDaysPay = vacationDaysCount * dailyRate;
-      }
+      vacationDaysPay = vacationDaysCount * getVacationDailyRate(userId, user, settings, workYear);
     }
   }
 

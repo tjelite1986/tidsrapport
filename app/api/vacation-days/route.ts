@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { vacationDays, userSettings } from '@/lib/db/schema';
+import { vacationDays, userSettings, users } from '@/lib/db/schema';
+import { getVacationDailyRate } from '@/lib/vacation-rate';
 import { eq, and } from 'drizzle-orm';
+import { isPaidVacationDay, countPaidVacationDays } from '@/lib/calculations';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +15,7 @@ export async function GET(req: NextRequest) {
 
   const userId = parseInt(session.user.id);
 
+  const user = db.select().from(users).where(eq(users.id, userId)).get();
   const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
   const daysPerYear = settings?.vacationDaysPerYear ?? 25;
 
@@ -32,16 +35,23 @@ export async function GET(req: NextRequest) {
     .all()
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const daysThisYear = allDays.filter((d) => d.date >= yearStart && d.date <= yearEnd);
-  const bookedThisYear = daysThisYear.length;
+  // Helger inuti en semesterperiod registreras för att hela ledigheten ska synas
+  // i kalendern, men de drar ingen semesterdag — därför räknas bara vardagar.
+  const daysThisYear = allDays
+    .filter((d) => d.date >= yearStart && d.date <= yearEnd)
+    .map((d) => ({ ...d, paid: isPaidVacationDay(d.date) }));
+  const bookedThisYear = countPaidVacationDays(daysThisYear.map((d) => d.date));
   const remaining = Math.max(0, daysPerYear - bookedThisYear);
 
   return NextResponse.json({
     days: daysThisYear,
-    allDays,
+    allDays: allDays.map((d) => ({ ...d, paid: isPaidVacationDay(d.date) })),
     daysPerYear,
     bookedThisYear,
+    registeredThisYear: daysThisYear.length,
     remaining,
+    dailyRate: getVacationDailyRate(userId, user, settings, year),
+    manualDailyRate: settings?.vacationDailyRate ?? null,
     year,
     yearStart,
     yearEnd,
@@ -79,7 +89,7 @@ export async function POST(req: NextRequest) {
     .returning()
     .get();
 
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, paid: isPaidVacationDay(result.date) });
 }
 
 export async function DELETE(req: NextRequest) {

@@ -73,6 +73,11 @@ export const userSettings = sqliteTable('user_settings', {
   departments: text('departments').notNull().default('[]'),
   autoBreakRules: text('auto_break_rules'),
   vacationDaysPerYear: integer('vacation_days_per_year').notNull().default(25),
+  // Manual override for the per-day vacation pay ("A-pris" on the payslip line
+  // "611 Semesterlön betald"). When null the rate is derived from the previous
+  // calendar year's vacation-pay pot, which is only correct once a full year of
+  // time entries exists.
+  vacationDailyRate: real('vacation_daily_rate'),
 });
 
 export const workTemplates = sqliteTable('work_templates', {

@@ -5,8 +5,9 @@ import { db } from '@/lib/db';
 import { timeEntries, projects, userSettings, users, vacationDays } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateOB, type WorkplaceType } from '@/lib/calculations/ob';
-import { calculateMonthlyPay, buildPaySettings, buildSickContext, advanceSickChain, parseRateHistory } from '@/lib/calculations';
-import type { TimeEntryForPay, SickDayContext } from '@/lib/calculations';
+import { buildSickContext, advanceSickChain, parseRateHistory, isPaidVacationDay } from '@/lib/calculations';
+import type { SickDayContext } from '@/lib/calculations';
+import { getVacationDailyRate } from '@/lib/vacation-rate';
 import { resolveHourlyRate } from '@/lib/calculations/contracts';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 
@@ -187,42 +188,18 @@ export async function GET(req: NextRequest) {
     .where(and(eq(vacationDays.userId, userId), gte(vacationDays.date, startDate), lte(vacationDays.date, endDate)))
     .all();
 
-  let vacDaysWithPay: { date: string; dailyPay: number; note: string | null }[] = [];
+  let vacDaysWithPay: { date: string; dailyPay: number; paid: boolean; note: string | null }[] = [];
   if (vdays.length > 0) {
-    let dailyRate = 0;
-    if (vacationPayMode === 'separate') {
-      const workYear = parseInt(startDate.slice(0, 4));
-      const prevYear = workYear - 1;
-      const prevYearEntries = db
-        .select()
-        .from(timeEntries)
-        .where(and(eq(timeEntries.userId, userId), gte(timeEntries.date, `${prevYear}-01-01`), lte(timeEntries.date, `${prevYear}-12-31`)))
-        .all();
-      const prevByMonth: Record<string, typeof prevYearEntries> = {};
-      for (const e of prevYearEntries) {
-        const m = e.date.substring(0, 7);
-        if (!prevByMonth[m]) prevByMonth[m] = [];
-        prevByMonth[m].push(e);
-      }
-      let prevYearPot = 0;
-      for (const [, monthEntries] of Object.entries(prevByMonth)) {
-        const payEntriesMonth: TimeEntryForPay[] = monthEntries.map((e) => ({
-          date: e.date, hours: e.hours, startTime: e.startTime, endTime: e.endTime,
-          breakMinutes: e.breakMinutes, breakPeriods: parseBreakPeriods(e.breakPeriods),
-          entryType: e.entryType, overtimeType: e.overtimeType,
-        }));
-        const r = calculateMonthlyPay(
-          payEntriesMonth,
-          buildPaySettings(user, settings, { vacationPayMode: 'separate', taxYear: prevYear })
-        );
-        prevYearPot += r.vacationPay;
-      }
-      const daysPerYear = settings?.vacationDaysPerYear ?? 25;
-      if (prevYearPot > 0 && daysPerYear > 0) {
-        dailyRate = prevYearPot / daysPerYear;
-      }
-    }
-    vacDaysWithPay = vdays.map((v) => ({ date: v.date, dailyPay: dailyRate, note: v.note ?? null }));
+    const dailyRate =
+      vacationPayMode === 'separate'
+        ? getVacationDailyRate(userId, user, settings, parseInt(startDate.slice(0, 4)))
+        : 0;
+    // Helgdatum inuti en semesterperiod drar ingen semesterdag och ger ingen
+    // semesterlön — de visas i kalendern men med 0 kr.
+    vacDaysWithPay = vdays.map((v) => {
+      const paid = isPaidVacationDay(v.date);
+      return { date: v.date, dailyPay: paid ? dailyRate : 0, paid, note: v.note ?? null };
+    });
   }
 
   // Filtrera bort tidinlägg på semesterdagar — semester ersätter ordinarie tid

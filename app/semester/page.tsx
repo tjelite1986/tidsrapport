@@ -7,6 +7,8 @@ interface VacationDay {
   date: string;
   note: string | null;
   createdAt: string;
+  /** False for weekends — registered for the calendar but they cost no vacation day */
+  paid: boolean;
 }
 
 interface VacationData {
@@ -14,10 +16,17 @@ interface VacationData {
   allDays: VacationDay[];
   daysPerYear: number;
   bookedThisYear: number;
+  registeredThisYear: number;
   remaining: number;
+  dailyRate: number;
+  manualDailyRate: number | null;
   year: number;
   yearStart: string;
   yearEnd: string;
+}
+
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 2 }).format(n);
 }
 
 function toLocalDateStr(d: Date) {
@@ -36,6 +45,7 @@ export default function SemesterPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [daysPerYearInput, setDaysPerYearInput] = useState<string>('');
+  const [dailyRateInput, setDailyRateInput] = useState<string>('');
   const [savingSettings, setSavingSettings] = useState(false);
 
   async function load(y: number) {
@@ -45,6 +55,7 @@ export default function SemesterPage() {
       const d = await res.json();
       setData(d);
       setDaysPerYearInput(String(d.daysPerYear));
+      setDailyRateInput(d.manualDailyRate != null ? String(d.manualDailyRate) : '');
     }
     setLoading(false);
   }
@@ -102,10 +113,17 @@ export default function SemesterPage() {
       setSavingSettings(false);
       return;
     }
+    // Empty field clears the override and falls back to the derived rate
+    const trimmedRate = dailyRateInput.trim().replace(',', '.');
+    const rate = trimmedRate === '' ? null : parseFloat(trimmedRate);
+    if (rate !== null && (isNaN(rate) || rate < 0)) {
+      setSavingSettings(false);
+      return;
+    }
     await fetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vacationDaysPerYear: days }),
+      body: JSON.stringify({ vacationDaysPerYear: days, vacationDailyRate: rate }),
     });
     await load(year);
     setSavingSettings(false);
@@ -124,8 +142,11 @@ export default function SemesterPage() {
   if (!data) return null;
 
   const usedPct = data.daysPerYear > 0 ? Math.min(100, (data.bookedThisYear / data.daysPerYear) * 100) : 0;
+  const weekendCount = (data.registeredThisYear ?? data.days.length) - data.bookedThisYear;
   const upcoming = data.days.filter((d) => d.date >= today).sort((a, b) => a.date.localeCompare(b.date));
   const past = data.days.filter((d) => d.date < today).sort((a, b) => b.date.localeCompare(a.date));
+  const upcomingPaid = upcoming.filter((d) => d.paid).length;
+  const pastPaid = past.filter((d) => d.paid).length;
 
   // Hur många dagar totalt i alla år (för översiktsrutan)
   const yearCounts: Record<number, number> = {};
@@ -183,6 +204,19 @@ export default function SemesterPage() {
             <div className="text-emerald-200 text-xs mt-0.5">per år</div>
           </div>
         </div>
+
+        {weekendCount > 0 && (
+          <p className="text-center text-emerald-200/80 text-xs mt-3">
+            + {weekendCount} helgdag{weekendCount !== 1 ? 'ar' : ''} registrerade — de drar ingen semesterdag
+          </p>
+        )}
+
+        {data.dailyRate > 0 && (
+          <p className="text-center text-emerald-200/80 text-xs mt-1">
+            {formatCurrency(data.dailyRate)}/dag
+            {data.manualDailyRate != null ? ' (manuellt satt)' : ' (ur föregående års pott)'}
+          </p>
+        )}
 
         {/* Förloppsindikator */}
         <div className="mt-5">
@@ -260,10 +294,10 @@ export default function SemesterPage() {
 
           {/* Inställningar */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-800 mb-4">Semesterdagar per år</h2>
-            <form onSubmit={handleSaveSettings} className="flex items-end gap-3">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Antal dagar</label>
+            <h2 className="font-semibold text-gray-800 mb-4">Semesterinställningar</h2>
+            <form onSubmit={handleSaveSettings} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Semesterdagar per år</label>
                 <input
                   type="number"
                   min="0"
@@ -272,18 +306,31 @@ export default function SemesterPage() {
                   onChange={(e) => setDaysPerYearInput(e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
+                <p className="text-xs text-gray-400 mt-1">Lagen kräver minst 25 dagar/år. Gäller alla år.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Semesterlön per dag (kr)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={dailyRateInput}
+                  onChange={(e) => setDailyRateInput(e.target.value)}
+                  placeholder="t.ex. 1333.81"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  A-priset på lönebeskedets rad &quot;Semesterlön betald&quot;. Lämna tomt för att räkna
+                  ut det ur föregående års pott.
+                </p>
               </div>
               <button
                 type="submit"
                 disabled={savingSettings}
-                className="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
               >
-                {savingSettings ? '...' : 'Spara'}
+                {savingSettings ? 'Sparar...' : 'Spara'}
               </button>
             </form>
-            <p className="text-xs text-gray-400 mt-2">
-              Lagen kräver minst 25 dagar/år. Gäller alla år.
-            </p>
           </div>
         </div>
 
@@ -300,7 +347,7 @@ export default function SemesterPage() {
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-semibold text-gray-800">Kommande semester {year}</h2>
                 <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
-                  {upcoming.length} dag{upcoming.length !== 1 ? 'ar' : ''}
+                  {upcomingPaid} dag{upcomingPaid !== 1 ? 'ar' : ''}
                 </span>
               </div>
               <div className="divide-y divide-gray-50">
@@ -316,7 +363,7 @@ export default function SemesterPage() {
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-semibold text-gray-800">Tagen semester {year}</h2>
                 <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
-                  {past.length} dag{past.length !== 1 ? 'ar' : ''}
+                  {pastPaid} dag{pastPaid !== 1 ? 'ar' : ''}
                 </span>
               </div>
               <div className="divide-y divide-gray-50">
@@ -373,7 +420,14 @@ function VacationDayRow({
           <span className={`text-base font-bold leading-none ${isUpcoming ? 'text-emerald-700' : 'text-gray-500'}`}>{dayNum}</span>
         </div>
         <div>
-          <p className="text-sm font-medium text-gray-800 capitalize">{month}</p>
+          <p className="text-sm font-medium text-gray-800 capitalize">
+            {month}
+            {!day.paid && (
+              <span className="ml-2 text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full align-middle">
+                helg · ingen dag dras
+              </span>
+            )}
+          </p>
           {day.note && <p className="text-xs text-gray-400 mt-0.5">{day.note}</p>}
         </div>
       </div>

@@ -22,7 +22,7 @@ Demo-databasen återställs automatiskt varje natt kl 03:00.
 - **Löneuträkning** — Automatisk beräkning av bruttolön, OB, övertid och skatt per månad
 - **Skattetabeller** — Stöd för kommunal skattetabell (tabell 29–42) eller fast procentsats
 - **Semesterersättning** — Spårning av intjänandeår, semesterpott och uttag med dagersättning
-- **Semesterdagar** — Registrera semesterdagar i kalendern; semesterlön beräknas automatiskt från föregående års pott
+- **Semesterdagar** — Registrera semesterdagar i kalendern; bara vardagar (mån–fre) drar en semesterdag, så en hel vecka kostar 5 dagar och inte 7. Semesterlönen per dag räknas ur föregående års pott, eller sätts manuellt från lönebeskedets A-pris
 - **Veckoschema** — A/B- eller A/B/C/D-veckosystem med förhandsvisning
 - **Arbetsmallar** — Återanvändbara pass-mallar
 - **Statistik** — Diagram och sammanfattningar per period

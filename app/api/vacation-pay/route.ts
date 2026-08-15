@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { timeEntries, users, userSettings, vacationPayWithdrawals, vacationPayInclusions, vacationDays } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { calculateMonthlyPay, buildPaySettings, type TimeEntryForPay } from '@/lib/calculations';
+import { calculateMonthlyPay, buildPaySettings, isPaidVacationDay, type TimeEntryForPay } from '@/lib/calculations';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 import { lookupMonthlyTax } from '@/lib/tax-tables/tax-lookup';
 
@@ -101,18 +101,27 @@ function computeVacationPayState(userId: number) {
   const totalTax = withdrawals.reduce((sum, w) => sum + (w.tax ?? 0), 0);
 
   // Beräkna hur mycket som betalats ut via semesterdagar (automatisk semesterlön)
-  // Semesterdagar tagna år X dras från år X-1:s pot
+  // Semesterdagar tagna år X dras från år X-1:s pot. Bara vardagar (mån–fre)
+  // räknas — helger inuti en semesterperiod drar ingen dag.
   let vacationDaysPaidOut = 0;
   if (paySettings.vacationPayMode === 'separate') {
     const allVacDays = db.select().from(vacationDays).where(eq(vacationDays.userId, userId)).all();
     const vacDaysByYear: Record<number, number> = {};
     for (const v of allVacDays) {
+      if (!isPaidVacationDay(v.date)) continue;
       const y = parseInt(v.date.slice(0, 4));
       vacDaysByYear[y] = (vacDaysByYear[y] ?? 0) + 1;
     }
     const daysPerYear = settings?.vacationDaysPerYear ?? 25;
+    const manualDailyRate = settings?.vacationDailyRate ?? null;
     for (const [yearStr, daysCount] of Object.entries(vacDaysByYear)) {
       const year = parseInt(yearStr);
+      // A manual per-day rate wins over the derived one, exactly as in /lon —
+      // otherwise the pot would drain at a different rate than the salary pays out.
+      if (manualDailyRate != null && manualDailyRate > 0) {
+        vacationDaysPaidOut += manualDailyRate * daysCount;
+        continue;
+      }
       const prevYearPot = yearlyTotals[year - 1]?.earned ?? 0;
       if (prevYearPot > 0 && daysPerYear > 0) {
         vacationDaysPaidOut += (prevYearPot / daysPerYear) * daysCount;

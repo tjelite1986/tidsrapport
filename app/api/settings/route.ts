@@ -38,6 +38,8 @@ export async function GET() {
       hourlyRateHistory: '[]',
       departments: '[]',
       autoBreakRules: '[]',
+      vacationDaysPerYear: 25,
+      vacationDailyRate: null,
     });
   }
 
@@ -122,6 +124,11 @@ export async function PUT(req: NextRequest) {
     departments: body.departments ?? existing?.departments ?? '[]',
     autoBreakRules: body.autoBreakRules ?? existing?.autoBreakRules ?? '[]',
     vacationDaysPerYear: body.vacationDaysPerYear ?? existing?.vacationDaysPerYear ?? 25,
+    // 'vacationDailyRate' in body means the caller edited the field — an explicit
+    // null then clears it back to the derived rate instead of keeping the old one.
+    vacationDailyRate: 'vacationDailyRate' in body
+      ? (body.vacationDailyRate ?? null)
+      : (existing?.vacationDailyRate ?? null),
   };
 
   if (existing) {
@@ -158,6 +165,19 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Ogiltigt antal semesterdagar' }, { status: 400 });
     }
     patch.vacationDaysPerYear = v;
+  }
+
+  if (body.vacationDailyRate !== undefined) {
+    // Empty string / null clears the override and falls back to the derived rate
+    if (body.vacationDailyRate === null || body.vacationDailyRate === '') {
+      patch.vacationDailyRate = null;
+    } else {
+      const v = parseFloat(body.vacationDailyRate);
+      if (isNaN(v) || v < 0 || v > 100000) {
+        return NextResponse.json({ error: 'Ogiltig semesterlön per dag' }, { status: 400 });
+      }
+      patch.vacationDailyRate = v > 0 ? v : null;
+    }
   }
 
   if (Object.keys(patch).length === 0) {
