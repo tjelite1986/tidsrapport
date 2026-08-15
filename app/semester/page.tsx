@@ -423,7 +423,7 @@ function VacationDayRow({
           <p className="text-sm font-medium text-gray-800 capitalize">
             {month}
             {!day.paid && (
-              <span className="ml-2 text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full align-middle">
+              <span className="ml-2 text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full align-middle normal-case">
                 helg · ingen dag dras
               </span>
             )}
