@@ -4,7 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { timeEntries, projects, users, userSettings, vacationPayInclusions, vacationDays } from '@/lib/db/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
-import { calculateMonthlyPay, buildPaySettings, type TimeEntryForPay, type PaySettings } from '@/lib/calculations';
+import { calculateMonthlyPay, buildPaySettings, isPaidVacationDay, type TimeEntryForPay, type PaySettings } from '@/lib/calculations';
+import { getVacationDailyRate } from '@/lib/vacation-rate';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 
 export const dynamic = 'force-dynamic';
@@ -132,6 +133,16 @@ export async function GET(req: NextRequest) {
     .all();
   const vacationDates = new Set(allVacationDays.map((v) => v.date));
 
+  // …och ersätts av semesterlön, annars dippar inkomstgrafen för varje
+  // semestermånad. Bara vardagar drar en dag, precis som i /lon.
+  const paidVacationDaysByMonth = new Map<string, number>();
+  for (const v of allVacationDays) {
+    if (!isPaidVacationDay(v.date)) continue;
+    const m = v.date.slice(0, 7);
+    paidVacationDaysByMonth.set(m, (paidVacationDaysByMonth.get(m) ?? 0) + 1);
+  }
+  const dailyRateByYear = new Map<number, number>();
+
   // Hämta inkluderingsinställningar för hela året
   const allInclusions = db
     .select()
@@ -164,10 +175,23 @@ export async function GET(req: NextRequest) {
     }));
 
     const taxYear = parseInt(month.split('-')[0]);
+
+    const vacationDaysCount =
+      basePaySettings.vacationPayMode === 'separate' ? (paidVacationDaysByMonth.get(month) ?? 0) : 0;
+    let vacationDaysPay = 0;
+    if (vacationDaysCount > 0) {
+      if (!dailyRateByYear.has(taxYear)) {
+        dailyRateByYear.set(taxYear, getVacationDailyRate(userId, user, settings, taxYear));
+      }
+      vacationDaysPay = vacationDaysCount * dailyRateByYear.get(taxYear)!;
+    }
+
     const paySettings: PaySettings = {
       ...basePaySettings,
       taxYear,
       includeVacationInSalary: inclusionsByMonth.get(month) ?? false,
+      vacationDaysPay,
+      vacationDaysCount,
     };
     const result = calculateMonthlyPay(payEntries, paySettings);
     monthlyIncome.push({
