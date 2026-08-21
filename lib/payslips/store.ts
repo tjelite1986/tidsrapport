@@ -3,6 +3,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import { db, sqlite } from '@/lib/db';
+import { addColumnsIfMissing } from '@/lib/db/add-columns';
 import { payslips, type Payslip } from '@/lib/db/schema';
 import { PAYSLIPS_TABLE_SQL, PAYSLIP_EXTRA_COLUMNS } from './table';
 import { buildStoredName, isSafeStoredName, payslipDir } from './files';
@@ -12,14 +13,10 @@ import type { PayslipNumberField } from './fields';
 // deploy works before anyone has run the migration by hand.
 sqlite.exec(PAYSLIPS_TABLE_SQL);
 
-// Same for the v18 line-item columns: check PRAGMA table_info before every
-// ALTER so this is idempotent on an existing database.
-{
-  const existing = new Set((sqlite.pragma('table_info(payslips)') as { name: string }[]).map((c) => c.name));
-  for (const column of PAYSLIP_EXTRA_COLUMNS) {
-    if (!existing.has(column.name)) sqlite.exec(`ALTER TABLE payslips ADD COLUMN ${column.ddl}`);
-  }
-}
+// Same for the v18 line-item columns: applied through addColumnsIfMissing so
+// this is idempotent on an existing database and survives two build workers
+// reaching the ALTER at the same time.
+addColumnsIfMissing(sqlite, 'payslips', PAYSLIP_EXTRA_COLUMNS);
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 

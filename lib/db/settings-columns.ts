@@ -7,6 +7,8 @@
  * scripts/migrate-v19.ts carries the same list inlined: the runner image ships
  * scripts/ but not lib/, so it cannot import from here. Keep the two in step.
  */
+import { addColumnsIfMissing, type SqliteLike } from './add-columns';
+
 export const USER_SETTINGS_EXTRA_COLUMNS: { name: string; ddl: string }[] = [
   { name: 'employee_number', ddl: 'employee_number TEXT' },
   { name: 'employer_org_number', ddl: 'employer_org_number TEXT' },
@@ -23,21 +25,11 @@ export const USER_SETTINGS_EXTRA_COLUMNS: { name: string; ddl: string }[] = [
   { name: 'employer_fee_rate', ddl: 'employer_fee_rate REAL NOT NULL DEFAULT 31.42' },
 ];
 
-type SqliteLike = {
-  pragma(source: string): unknown;
-  exec(sql: string): unknown;
-};
-
 /**
- * Idempotent: every column is checked against PRAGMA table_info before the
- * ALTER, and a database where user_settings does not exist yet is left alone.
+ * Idempotent, and safe when two Next.js build workers run it at the same time:
+ * a database where user_settings does not exist yet is left alone, and a column
+ * another process added first is not an error.
  */
 export function applyUserSettingsColumns(sqlite: SqliteLike): void {
-  const info = sqlite.pragma('table_info(user_settings)') as { name: string }[];
-  if (!Array.isArray(info) || info.length === 0) return;
-
-  const existing = new Set(info.map((c) => c.name));
-  for (const column of USER_SETTINGS_EXTRA_COLUMNS) {
-    if (!existing.has(column.name)) sqlite.exec(`ALTER TABLE user_settings ADD COLUMN ${column.ddl}`);
-  }
+  addColumnsIfMissing(sqlite, 'user_settings', USER_SETTINGS_EXTRA_COLUMNS);
 }
