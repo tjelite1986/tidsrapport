@@ -78,6 +78,18 @@ export const userSettings = sqliteTable('user_settings', {
   // calendar year's vacation-pay pot, which is only correct once a full year of
   // time entries exists.
   vacationDailyRate: real('vacation_daily_rate'),
+  // Payslip header/footer data (v19). None of it affects the calculation — it
+  // only fills in the printed lönebesked.
+  employeeNumber: text('employee_number'),
+  employerOrgNumber: text('employer_org_number'),
+  employerAddress: text('employer_address'),
+  employerZipCity: text('employer_zip_city'),
+  employeeAddress: text('employee_address'),
+  employeeZipCity: text('employee_zip_city'),
+  bankAccount: text('bank_account'),
+  paydayDay: integer('payday_day').notNull().default(25),
+  payslipMessage: text('payslip_message'),
+  employerFeeRate: real('employer_fee_rate').notNull().default(31.42),
 });
 
 export const workTemplates = sqliteTable('work_templates', {

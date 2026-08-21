@@ -21,6 +21,7 @@
 | `/api/time-entries` | GET, POST, PUT, DELETE | CRUD tidsregistreringar |
 | `/api/projects` | GET, POST, PUT, DELETE | CRUD projekt |
 | `/api/salary` | GET | Löneberäkning per månad (taxYear från arbetsmånad) |
+| `/api/salary/payslip` | GET | Underlaget till det genererade lönebeskedet för en utbetalningsmånad |
 | `/api/payslips` | GET, POST, PUT, DELETE | Uppladdade lönespecar: lista m. jämförelse, uppladdning (multipart), belopp/anteckning, radering |
 | `/api/payslips/[id]/file` | GET | Filen (inline, `?download=1` för nedladdning) — 404 för andras id:n |
 | `/api/payslips/extract` | POST | AI-avläsning av en uppladdad fil (sparar inget) → `{payMonth, obLines[], + alla fält i PAYSLIP_FIELDS}` |
@@ -47,9 +48,14 @@
 
 ## Löneberäkning (lib/salary/)
 - `monthly.ts` — `computeMonthlySalary(userId, month)`, delad av `/api/salary` och `/api/payslips`
+- `payslip-document.ts` — `buildPayslipDocument(userId, payMonth)`: rader, header, semestersaldon, ackumulerat per år, sociala avgifter
+
+## Genererat lönebesked (lib/pdf/)
+- `payslip-lines.ts` — `buildPayslipLines()`: en rad per artikelnummer (Art/Text/Antal/A-pris/Belopp). Beloppen summerar till utbetalt belopp — därav `996 Öresutjämning`
+- `payslip-generator.ts` — `generatePayslipPDF()`: ritar A4-lönebeskedet med jsPDF (header, tabell, meddelande, sammanställningsruta)
 
 ## Beräkningar (lib/calculations/)
-- `pay.ts` — bruttolön, OB, övertid, sjuklön, semesterersättning
+- `pay.ts` — bruttolön, OB, övertid, sjuklön, semesterersättning; `overtimeHours`/`sickHours` ger timmarna bakom beloppen
   - PaySettings: salaryMode (contract/hourly/fixed_plus), fixedMonthlySalary, workingHoursPerMonth
 - `ob.ts` — OB-tillägg (butik/lager), rast fördelas till längsta segmentet
 - `time-utils.ts` — getWeekType(), formatDate() (lokala datumkomponenter!)

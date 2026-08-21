@@ -67,6 +67,10 @@ export interface MonthlyPayResult {
   overtidEnkel: number;
   overtidKvalificerad: number;
   totalOvertimePay: number;
+  // Hours behind each overtime bucket. The payslip lists overtime as its own
+  // line with an "Antal" column, so the amounts alone are not enough.
+  overtimeHours: { mertid: number; enkel: number; kvalificerad: number };
+  sickHours: number;
   sickPay: number;
   grossBeforeVacation: number;
   vacationPay: number;
@@ -122,6 +126,10 @@ export function calculateMonthlyPay(
   let overtidMertid = 0;
   let overtidEnkel = 0;
   let overtidKvalificerad = 0;
+  let mertidHours = 0;
+  let enkelHours = 0;
+  let kvalificeradHours = 0;
+  let sickHours = 0;
   let sickPay = 0;
 
   // Sort entries by date for sick day counting
@@ -159,6 +167,7 @@ export function calculateMonthlyPay(
         entry.date
       ));
       sickDayCount++;
+      sickHours += hours;
 
       // Karensdag = first sick day gets 0
       const daySickPay = consecutiveSickDays === 1 ? 0 : entryRate * hours * 0.8;
@@ -205,12 +214,15 @@ export function calculateMonthlyPay(
     if (entry.overtimeType === 'mertid') {
       dayOvertimePay = entryRate * hours * 0.35;
       overtidMertid += dayOvertimePay;
+      mertidHours += hours;
     } else if (entry.overtimeType === 'enkel') {
       dayOvertimePay = entryRate * hours * 0.35;
       overtidEnkel += dayOvertimePay;
+      enkelHours += hours;
     } else if (entry.overtimeType === 'kvalificerad') {
       dayOvertimePay = entryRate * hours * 0.70;
       overtidKvalificerad += dayOvertimePay;
+      kvalificeradHours += hours;
     }
 
     // For butik: OB and overtime don't stack - take the higher one
@@ -222,9 +234,9 @@ export function calculateMonthlyPay(
           obResult = null; // drop the day's OB so obBreakdown/payslip rows match totalOB
         } else {
           // Remove overtime, keep OB
-          if (entry.overtimeType === 'mertid') overtidMertid -= dayOvertimePay;
-          else if (entry.overtimeType === 'enkel') overtidEnkel -= dayOvertimePay;
-          else if (entry.overtimeType === 'kvalificerad') overtidKvalificerad -= dayOvertimePay;
+          if (entry.overtimeType === 'mertid') { overtidMertid -= dayOvertimePay; mertidHours -= hours; }
+          else if (entry.overtimeType === 'enkel') { overtidEnkel -= dayOvertimePay; enkelHours -= hours; }
+          else if (entry.overtimeType === 'kvalificerad') { overtidKvalificerad -= dayOvertimePay; kvalificeradHours -= hours; }
           dayOvertimePay = 0;
         }
       }
@@ -297,6 +309,8 @@ export function calculateMonthlyPay(
     overtidEnkel,
     overtidKvalificerad,
     totalOvertimePay,
+    overtimeHours: { mertid: mertidHours, enkel: enkelHours, kvalificerad: kvalificeradHours },
+    sickHours,
     sickPay,
     grossBeforeVacation,
     vacationPay,

@@ -15,9 +15,10 @@ Se `.claude/architecture.md` för fullständig filstruktur och API-referens.
 - Admin kan EJ se andra användares löne- eller rapportdata
 
 ## Migrations-ordning
-v2 → … → v14 (projekt per-user) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (lönerader på payslips, senaste)
-Nästa: **v19**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v2 → … → v14 (projekt per-user) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (lönerader på payslips) → v19 (lönebeskedsuppgifter på user_settings, senaste)
+Nästa: **v20**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
 v17 och v18 körs även vid första anropet (`lib/payslips/store.ts`: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` bakom `PRAGMA table_info`) — de behöver alltså inte köras manuellt, men är kvar för fullständighetens skull.
+v19 körs vid modulinit i `lib/db/index.ts` (`applyUserSettingsColumns`), alltså före första queryn mot `user_settings` — annars hade varje läsning av tabellen kraschat tills migrationen kördes för hand.
 
 ## Deploy
 ```bash
@@ -59,6 +60,16 @@ docker logs tidsrapport --tail 20
 - Lönerader (v18): specen kan fyllas i med samma poster som `/lon` räknar fram — arbetad tid, timlön, grundlön, OB per procentsats, mertid/övertid, sjuklön, semesterlön och semesterersättning. Definitionen bor i `lib/payslips/fields.ts` (`PAYSLIP_FIELDS`); lägg till nya poster där, inte i UI:t
 - OB ligger som JSON i `ob_lines` (`[{percent, hours, amount}]`) — läs alltid via `readObLines()`, aldrig `JSON.parse` direkt. Samma procentsats får bara förekomma en gång
 - Jämförelsen byggs serverside av `buildComparison()`: en procentsats som beräkningen saknar räknas som 0 kr (inte "okänt"), och rader som är tomma på båda sidor döljs — utom brutto/skatt/netto
+
+## Genererat lönebesked (PDF)
+- `/lon` → "Exportera lönebesked" hämtar `/api/salary/payslip?month=<utbetalningsmånad>` och ritar PDF:en klientsidan. Månaden är **utbetalningsmånad**; raderna gäller arbetsperioden månaden innan (`workMonthFor`)
+- Underlaget byggs serverside i `lib/salary/payslip-document.ts` — header, semestersaldon, ackumulerade kolumner och sociala avgifter. De ackumulerade kolumnerna räknar om varje tidigare utbetalningsmånad samma år (max tolv `computeMonthlySalary`-anrop)
+- Raderna byggs av `buildPayslipLines()` i `lib/pdf/payslip-lines.ts` (ren funktion, testad i `payslip-lines.test.ts`). **Beloppskolumnen summerar exakt till utbetalt belopp** — det är därför raden `996 Öresutjämning` finns. Nya poster läggs till där, inte i generatorn
+- Övertidstimmar bryts ut ur `10 Timlön`-raden och får en egen rad med full timkostnad som A-pris, annars stämmer inte Antal × A-pris mot Belopp
+- Semesterersättning som går till potten hamnar **inte** bland raderna — den betalas inte ut den månaden
+- `lib/pdf/payslip-generator.ts` ritar bara. jsPDF:s WinAnsi-fonter saknar U+00A0 och U+2212, så `fmt()` byter dem mot ASCII — annars blir tusentalsavgränsare och minustecken rutor
+- Header- och fotdata (anställningsnr, adresser, org.nr, bankkonto, utbetalningsdag, arbetsgivaravgift, meddelande) är v19-kolumner på `user_settings` och redigeras under Inställningar → "Uppgifter på lönebeskedet". Inget av det påverkar löneberäkningen
+- Kolumner appen inte har någon källa till (Sparade/Förskott/Obetalda semesterdagar, Kompsaldo, Förmån) skrivs **tomma**, aldrig som 0
 
 ## Varningar
 - `lib/tax-tables/data-*.json` är 323 KB/st — läs INTE dessa filer, använd `lib/tax-tables/tax-lookup.ts`

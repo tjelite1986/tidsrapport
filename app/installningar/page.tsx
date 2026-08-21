@@ -182,6 +182,16 @@ export default function InstallningarPage() {
     salaryMode: 'contract' as string,
     customHourlyRate: null as number | null,
     fixedMonthlySalary: null as number | null,
+    employeeNumber: '',
+    employerOrgNumber: '',
+    employerAddress: '',
+    employerZipCity: '',
+    employeeAddress: '',
+    employeeZipCity: '',
+    bankAccount: '',
+    paydayDay: 25,
+    payslipMessage: '',
+    employerFeeRate: 31.42,
   });
   const [municipalities, setMunicipalities] = useState<{ name: string; taxRate: number; tableNumber: number }[]>([]);
   const [municipalitySearch, setMunicipalitySearch] = useState('');
@@ -218,6 +228,16 @@ export default function InstallningarPage() {
         salaryMode: data.salaryMode || 'contract',
         customHourlyRate: data.customHourlyRate ?? null,
         fixedMonthlySalary: data.fixedMonthlySalary ?? null,
+        employeeNumber: data.employeeNumber || '',
+        employerOrgNumber: data.employerOrgNumber || '',
+        employerAddress: data.employerAddress || '',
+        employerZipCity: data.employerZipCity || '',
+        employeeAddress: data.employeeAddress || '',
+        employeeZipCity: data.employeeZipCity || '',
+        bankAccount: data.bankAccount || '',
+        paydayDay: data.paydayDay ?? 25,
+        payslipMessage: data.payslipMessage || '',
+        employerFeeRate: data.employerFeeRate ?? 31.42,
       });
       if (data.municipality) setMunicipalitySearch(data.municipality);
       try { setDepartments(JSON.parse(data.departments || '[]')); } catch { setDepartments([]); }
@@ -374,6 +394,121 @@ export default function InstallningarPage() {
               value={settings.employerName}
               onChange={(e) => setSettings({ ...settings, employerName: e.target.value })}
               placeholder="Företagsnamn (visas på lönebesked)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Payslip header/footer data */}
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <h2 className="text-lg font-semibold mb-1">Uppgifter på lönebeskedet</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Fylls i på det lönebesked som exporteras från Lön-sidan. Påverkar inte löneberäkningen.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Anställningsnummer</label>
+            <input
+              type="text"
+              value={settings.employeeNumber}
+              onChange={(e) => setSettings({ ...settings, employeeNumber: e.target.value })}
+              placeholder="t.ex. 62290"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Organisationsnummer</label>
+            <input
+              type="text"
+              value={settings.employerOrgNumber}
+              onChange={(e) => setSettings({ ...settings, employerOrgNumber: e.target.value })}
+              placeholder="t.ex. 556297-3320"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Din adress</label>
+            <input
+              type="text"
+              value={settings.employeeAddress}
+              onChange={(e) => setSettings({ ...settings, employeeAddress: e.target.value })}
+              placeholder="Gatuadress"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ditt postnr och ort</label>
+            <input
+              type="text"
+              value={settings.employeeZipCity}
+              onChange={(e) => setSettings({ ...settings, employeeZipCity: e.target.value })}
+              placeholder="t.ex. 462 50 Vänersborg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Arbetsgivarens adress</label>
+            <input
+              type="text"
+              value={settings.employerAddress}
+              onChange={(e) => setSettings({ ...settings, employerAddress: e.target.value })}
+              placeholder="Gatuadress"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Arbetsgivarens postnr och ort</label>
+            <input
+              type="text"
+              value={settings.employerZipCity}
+              onChange={(e) => setSettings({ ...settings, employerZipCity: e.target.value })}
+              placeholder="t.ex. 433 33 Partille"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Bankkontonummer</label>
+            <input
+              type="text"
+              value={settings.bankAccount}
+              onChange={(e) => setSettings({ ...settings, bankAccount: e.target.value })}
+              placeholder="Clearing-kontonummer"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Utbetalningsdag</label>
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={settings.paydayDay}
+              onChange={(e) => setSettings({ ...settings, paydayDay: parseInt(e.target.value) || 25 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">Dag i utbetalningsmånaden. Kortare månader kapas till sista dagen.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Arbetsgivaravgift (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              min={0}
+              max={100}
+              value={settings.employerFeeRate}
+              onChange={(e) => setSettings({ ...settings, employerFeeRate: parseFloat(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">Visas som &quot;Månadens sociala avgifter&quot;. Standard 31,42 %.</p>
+          </div>
+          <div className="col-span-1 md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Meddelande</label>
+            <textarea
+              rows={3}
+              value={settings.payslipMessage}
+              onChange={(e) => setSettings({ ...settings, payslipMessage: e.target.value })}
+              placeholder="Text som skrivs ut under lönespecifikationens rader"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

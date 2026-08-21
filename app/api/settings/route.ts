@@ -40,6 +40,16 @@ export async function GET() {
       autoBreakRules: '[]',
       vacationDaysPerYear: 25,
       vacationDailyRate: null,
+      employeeNumber: null,
+      employerOrgNumber: null,
+      employerAddress: null,
+      employerZipCity: null,
+      employeeAddress: null,
+      employeeZipCity: null,
+      bankAccount: null,
+      paydayDay: 25,
+      payslipMessage: null,
+      employerFeeRate: 31.42,
     });
   }
 
@@ -65,6 +75,19 @@ export async function PUT(req: NextRequest) {
   }
   if (body.vacationPayRate !== undefined && (typeof body.vacationPayRate !== 'number' || body.vacationPayRate < 0 || body.vacationPayRate > 100)) {
     return NextResponse.json({ error: 'vacationPayRate måste vara mellan 0 och 100' }, { status: 400 });
+  }
+
+  if (body.paydayDay !== undefined && body.paydayDay !== null) {
+    const day = Number(body.paydayDay);
+    if (!Number.isInteger(day) || day < 1 || day > 31) {
+      return NextResponse.json({ error: 'paydayDay måste vara mellan 1 och 31' }, { status: 400 });
+    }
+  }
+  if (body.employerFeeRate !== undefined && body.employerFeeRate !== null) {
+    const rate = Number(body.employerFeeRate);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      return NextResponse.json({ error: 'employerFeeRate måste vara mellan 0 och 100' }, { status: 400 });
+    }
   }
 
   // Validate + normalize date-effective hourly-rate history (stored as JSON string)
@@ -129,6 +152,19 @@ export async function PUT(req: NextRequest) {
     vacationDailyRate: 'vacationDailyRate' in body
       ? (body.vacationDailyRate ?? null)
       : (existing?.vacationDailyRate ?? null),
+    // Payslip header/footer fields. Empty string means the user cleared the
+    // field, so it is stored as null rather than falling back to the old value.
+    employeeNumber: textField(body, 'employeeNumber', existing?.employeeNumber),
+    employerOrgNumber: textField(body, 'employerOrgNumber', existing?.employerOrgNumber),
+    employerAddress: textField(body, 'employerAddress', existing?.employerAddress),
+    employerZipCity: textField(body, 'employerZipCity', existing?.employerZipCity),
+    employeeAddress: textField(body, 'employeeAddress', existing?.employeeAddress),
+    employeeZipCity: textField(body, 'employeeZipCity', existing?.employeeZipCity),
+    bankAccount: textField(body, 'bankAccount', existing?.bankAccount),
+    payslipMessage: textField(body, 'payslipMessage', existing?.payslipMessage, 1000),
+    paydayDay: body.paydayDay != null ? Number(body.paydayDay) : (existing?.paydayDay ?? 25),
+    employerFeeRate:
+      body.employerFeeRate != null ? Number(body.employerFeeRate) : (existing?.employerFeeRate ?? 31.42),
   };
 
   if (existing) {
@@ -147,6 +183,20 @@ export async function PUT(req: NextRequest) {
       .get();
     return NextResponse.json(result);
   }
+}
+
+/** A field the caller sent as '' was cleared; one it omitted keeps its stored value. */
+function textField(
+  body: Record<string, unknown>,
+  key: string,
+  existing: string | null | undefined,
+  maxLength = 200,
+): string | null {
+  if (!(key in body)) return existing ?? null;
+  const value = body[key];
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : null;
 }
 
 export async function PATCH(req: NextRequest) {

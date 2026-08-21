@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import TotalSummaryCard from '@/components/salary/TotalSummaryCard';
 import VacationPayTracker from '@/components/salary/VacationPayTracker';
-import { generatePayslipPDF } from '@/lib/pdf/payslip-generator';
+import { generatePayslipPDF, type PayslipDocumentData } from '@/lib/pdf/payslip-generator';
 
 interface DayDetail {
   date: string;
@@ -65,6 +65,8 @@ export default function LonPage() {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [includeVacation, setIncludeVacation] = useState(false);
   const [vacationRefreshKey, setVacationRefreshKey] = useState(0);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState('');
 
   useEffect(() => {
     fetchSalary();
@@ -112,38 +114,25 @@ export default function LonPage() {
     return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(amount);
   }
 
-  function exportPDF() {
-    if (!salary) return;
-    const doc = generatePayslipPDF({
-      month,
-      employeeName: salary.user.name,
-      employerName: '',
-      hourlyRate: salary.hourlyRate,
-      totalHours: salary.totalHours,
-      workHours: salary.workHours,
-      sickDays: salary.sickDays,
-      basePay: salary.basePay,
-      totalOB: salary.totalOB,
-      obBreakdown: salary.obBreakdown || [],
-      overtidMertid: salary.overtidMertid,
-      overtidEnkel: salary.overtidEnkel,
-      overtidKvalificerad: salary.overtidKvalificerad,
-      totalOvertimePay: salary.totalOvertimePay,
-      sickPay: salary.sickPay,
-      grossBeforeVacation: salary.grossBeforeVacation,
-      vacationPay: salary.vacationPay,
-      vacationPayRate: salary.settings.vacationPayRate,
-      includeVacationInSalary: includeVacation,
-      vacationDaysPay: salary.vacationDaysPay,
-      vacationDaysCount: salary.vacationDaysCount,
-      grossPay: salary.grossPay,
-      tax: salary.tax,
-      taxRate: salary.settings.taxRate,
-      taxMode: salary.settings.taxMode,
-      taxTable: salary.settings.taxTable,
-      netPay: salary.netPay,
-    });
-    doc.save(`lonebesked-${month}.pdf`);
+  async function exportPDF() {
+    // The slip's header, vacation balances and accumulated columns need more
+    // than the month's own calculation, so it is assembled server side.
+    setPdfError('');
+    setPdfBusy(true);
+    try {
+      const res = await fetch(`/api/salary/payslip?month=${month}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setPdfError(body.error || 'Kunde inte hämta lönebeskedet');
+        return;
+      }
+      const payslip: PayslipDocumentData = await res.json();
+      generatePayslipPDF(payslip).save(`lonebesked-${month}.pdf`);
+    } catch {
+      setPdfError('Kunde inte hämta lönebeskedet');
+    } finally {
+      setPdfBusy(false);
+    }
   }
 
   return (
@@ -182,14 +171,16 @@ export default function LonPage() {
         <div className="space-y-6">
           {/* PDF Export */}
           <div className="flex justify-end">
+            {pdfError && <p className="text-sm text-red-600 self-center mr-3">{pdfError}</p>}
             <button
               onClick={exportPDF}
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium flex items-center gap-2"
+              disabled={pdfBusy}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-60 text-sm font-medium flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              Exportera lönebesked (PDF)
+              {pdfBusy ? 'Skapar lönebesked…' : 'Exportera lönebesked (PDF)'}
             </button>
           </div>
 
