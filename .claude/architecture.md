@@ -9,6 +9,7 @@
 | `/projekt` | app/projekt/page.tsx | Projekthantering |
 | `/rapporter` | app/rapporter/page.tsx | CSV-export |
 | `/lon` | app/lon/page.tsx | Löneöversikt (väljer utbetalningsmånad → visar föregående månads arbete) |
+| `/lonespecar` | app/lonespecar/page.tsx | Arkiv för arbetsgivarens lönespecar + jämförelse mot beräknad lön |
 | `/statistik` | app/statistik/page.tsx | Diagram och statistik |
 | `/installningar` | app/installningar/page.tsx | Användarinställningar |
 | `/admin` | app/admin/page.tsx | Användarhantering (admin only) |
@@ -20,6 +21,9 @@
 | `/api/time-entries` | GET, POST, PUT, DELETE | CRUD tidsregistreringar |
 | `/api/projects` | GET, POST, PUT, DELETE | CRUD projekt |
 | `/api/salary` | GET | Löneberäkning per månad (taxYear från arbetsmånad) |
+| `/api/payslips` | GET, POST, PUT, DELETE | Uppladdade lönespecar: lista m. jämförelse, uppladdning (multipart), belopp/anteckning, radering |
+| `/api/payslips/[id]/file` | GET | Filen (inline, `?download=1` för nedladdning) — 404 för andras id:n |
+| `/api/payslips/extract` | POST | AI-avläsning av en uppladdad fil (sparar inget) → `{payMonth, grossPay, tax, netPay}` |
 | `/api/stats` | GET | Statistik inkl. weekdayHours/Avg/Count |
 | `/api/settings` | GET, PUT | Användarinställningar |
 | `/api/calendar-data` | GET | Tidsregistreringar + löneberäkning per dag |
@@ -32,6 +36,16 @@
 | `/api/reports` | GET | CSV-export |
 | `/api/users` | GET, POST, DELETE | Admin: användarhantering |
 | `/api/auth/[...nextauth]` | – | NextAuth |
+
+## Lönespecar (lib/payslips/)
+- `files.ts` — `detectPayslipType()` (magic bytes), `isValidPayMonth()`, `workMonthFor()`, `sanitizeOriginalName()`, `buildStoredName()`/`isSafeStoredName()`, `parseAmount()` (svenskt format)
+- `store.ts` — DB + disk: `listPayslips`, `getPayslip` (ägarscopad), `createPayslip` (fil först, rad sedan), `updatePayslipFields`, `deletePayslip` (rad först, fil sedan). Skapar tabellen vid import.
+- `table.ts` — DDL, delad med `scripts/migrate-v17.ts`
+- `extract.ts` — AI-avläsning via OpenRouter (först) eller Anthropic; JSON-schema med nullbara fält
+- Filer: `data/payslips/<userId>/YYYY-MM-<uuid>.<ext>` (max 10 MB, PDF/PNG/JPG/WEBP)
+
+## Löneberäkning (lib/salary/)
+- `monthly.ts` — `computeMonthlySalary(userId, month)`, delad av `/api/salary` och `/api/payslips`
 
 ## Beräkningar (lib/calculations/)
 - `pay.ts` — bruttolön, OB, övertid, sjuklön, semesterersättning
@@ -51,6 +65,17 @@ tax_table            INTEGER -- 29-42
 municipality         TEXT
 schedule_reference_date TEXT
 schedule_week_count  INTEGER -- 2 | 4
+```
+
+## DB-schema (payslips)
+```
+pay_month      TEXT   -- YYYY-MM, utbetalningsmånad enligt specen
+original_name  TEXT   -- användarens filnamn, endast för visning
+stored_name    TEXT   -- appens namn på disk
+mime_type      TEXT
+size_bytes     INTEGER
+gross_pay/tax/net_pay REAL  -- NULL = ej ifyllt
+note           TEXT
 ```
 
 ## Komponenter

@@ -8,6 +8,7 @@ const sections = [
   { id: 'schema-import',     label: 'Importera schema (AI)' },
   { id: 'timer',             label: 'Timer' },
   { id: 'lon',               label: 'Lön' },
+  { id: 'lonespecar',        label: 'Lönespecar' },
   { id: 'installningar',     label: 'Inställningar' },
   { id: 'veckoschema',       label: 'Veckoschema' },
   { id: 'semesterersattning',label: 'Semesterersättning' },
@@ -302,8 +303,48 @@ export default function HjalpPage() {
         </p>
       </Section>
 
-      {/* 8. Inställningar */}
-      <Section id="installningar" title="8. Inställningar">
+      {/* 8. Lönespecar */}
+      <Section id="lonespecar" title="8. Lönespecar">
+        <p>
+          Under <strong>Lönespecar</strong> sparar du arbetsgivarens lönespecar i appen — som PDF
+          eller som foto av pappersspecen. Filen ligger kvar tills du raderar den och kan öppnas
+          eller laddas ner när som helst.
+        </p>
+
+        <h3 className="font-semibold text-gray-800 mt-4 mb-1">Ladda upp</h3>
+        <ol className="list-decimal list-inside pl-2 space-y-1">
+          <li>Välj <strong>utbetalningsmånad</strong> — samma månad som pengarna betalas ut, inte månaden du arbetade.</li>
+          <li>Välj fil (PDF, PNG, JPG eller WEBP, max 10 MB).</li>
+          <li>Fyll gärna i bruttolön, skatt och nettolön från specen — det kan också göras senare med <strong>Redigera</strong>.</li>
+        </ol>
+
+        <h3 className="font-semibold text-gray-800 mt-4 mb-1">Läs av med AI</h3>
+        <p>
+          Är AI-avläsning påslagen på servern visas knappen <strong>Läs av med AI</strong> bredvid
+          uppladdningsknappen. Den läser utbetalningsmånad, bruttolön, skatt och nettolön direkt ur
+          filen och fyller i fälten åt dig. Hittar den inte ett värde lämnas fältet tomt i stället
+          för att gissa — kontrollera alltid siffrorna innan du sparar.
+        </p>
+
+        <h3 className="font-semibold text-gray-800 mt-4 mb-1">Jämförelse</h3>
+        <p>
+          När beloppen är ifyllda visas de bredvid appens egen beräkning för samma period, med
+          differensen i kolumnen <strong>Diff</strong>. Grönt betyder att specen och beräkningen
+          är överens; gult att de skiljer sig och att det är värt att titta närmare på månaden.
+        </p>
+
+        <Note>
+          En lönespec för augusti avser arbetsperioden juli — appen väljer rätt arbetsmånad
+          automatiskt, precis som på Lön-sidan.
+        </Note>
+
+        <Tip>
+          Flera specar kan sparas på samma månad, till exempel om du får en rättelse eller en
+          separat bonusspec i efterhand.
+        </Tip>
+      </Section>
+
+      <Section id="installningar" title="9. Inställningar">
         <h3 className="font-semibold text-gray-800 mb-1">Lönetyp</h3>
         <Dl items={[
           { term: 'Avtalsenlig timlön', desc: 'Timlönen hämtas automatiskt från vald avtalsnivå (Handels 2025).' },
@@ -364,8 +405,8 @@ export default function HjalpPage() {
         </Warn>
       </Section>
 
-      {/* 9. Veckoschema */}
-      <Section id="veckoschema" title="9. Veckoschema">
+      {/* 10. Veckoschema */}
+      <Section id="veckoschema" title="10. Veckoschema">
         <p>
           Under Inställningar kan du ange ett veckoschema med tider per veckodag. Schemat
           används för att automatiskt fylla i start- och sluttid när du registrerar ett pass på
@@ -393,8 +434,8 @@ export default function HjalpPage() {
         </Tip>
       </Section>
 
-      {/* 10. Semesterersättning */}
-      <Section id="semesterersattning" title="10. Semesterersättning">
+      {/* 11. Semesterersättning */}
+      <Section id="semesterersattning" title="11. Semesterersättning">
         <p>
           Om du har valt "Separat ackumulering" samlas semesterersättningen (vanligen 12% av
           bruttolönen) i en pott per <strong>intjänandeår</strong>.
@@ -406,8 +447,8 @@ export default function HjalpPage() {
         ]} />
       </Section>
 
-      {/* 11. Rapporter */}
-      <Section id="rapporter" title="11. Rapporter">
+      {/* 12. Rapporter */}
+      <Section id="rapporter" title="12. Rapporter">
         <p>
           Under <Link href="/rapporter" className="text-blue-600 hover:underline">Rapporter</Link> kan
           du exportera dina tidsregistreringar som en CSV-fil. Välj tidsperiod och klicka
@@ -419,8 +460,8 @@ export default function HjalpPage() {
         </p>
       </Section>
 
-      {/* 12. Statistik */}
-      <Section id="statistik" title="12. Statistik">
+      {/* 13. Statistik */}
+      <Section id="statistik" title="13. Statistik">
         <p>
           Statistiksidan visar diagram över dina arbetstider och löner för ett valfritt år:
         </p>
@@ -441,8 +482,8 @@ export default function HjalpPage() {
         </ul>
       </Section>
 
-      {/* 13. PWA */}
-      <Section id="pwa" title="13. Installera som app">
+      {/* 14. PWA */}
+      <Section id="pwa" title="14. Installera som app">
         <p>
           Tidsrapport är en Progressive Web App (PWA) och kan installeras på din enhet för
           att öppna direkt från hemskärmen — utan webbläsarens gränssnitt.

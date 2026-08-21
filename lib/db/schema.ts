@@ -123,6 +123,25 @@ export const vacationPayInclusions = sqliteTable('vacation_pay_inclusions', {
   includeInSalary: integer('include_in_salary', { mode: 'boolean' }).notNull().default(false),
 });
 
+export const payslips = sqliteTable('payslips', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id),
+  // Payout month as printed on the payslip (YYYY-MM). The work period it pays
+  // for is the month before — see workMonthFor() in lib/payslips/files.ts.
+  payMonth: text('pay_month').notNull(),
+  originalName: text('original_name').notNull(),
+  storedName: text('stored_name').notNull(),
+  mimeType: text('mime_type').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  // Amounts typed off the payslip, for comparison against the app's own
+  // calculation. Null means "not filled in yet".
+  grossPay: real('gross_pay'),
+  tax: real('tax'),
+  netPay: real('net_pay'),
+  note: text('note'),
+  uploadedAt: text('uploaded_at').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type TimeEntry = typeof timeEntries.$inferSelect;
@@ -132,3 +151,4 @@ export type WorkTemplate = typeof workTemplates.$inferSelect;
 export type WeeklyScheduleEntry = typeof weeklySchedule.$inferSelect;
 export type VacationPayWithdrawal = typeof vacationPayWithdrawals.$inferSelect;
 export type VacationPayInclusion = typeof vacationPayInclusions.$inferSelect;
+export type Payslip = typeof payslips.$inferSelect;

@@ -26,6 +26,7 @@ Demo-databasen återställs automatiskt varje natt kl 03:00.
 - **Veckoschema** — A/B- eller A/B/C/D-veckosystem med förhandsvisning
 - **Arbetsmallar** — Återanvändbara pass-mallar
 - **Statistik** — Diagram och sammanfattningar per period
+- **Lönespecar** — Ladda upp arbetsgivarens lönespec (PDF eller foto) per utbetalningsmånad, öppna eller ladda ner den senare, och fyll i brutto/skatt/netto för att jämföra mot appens egen beräkning. Med en API-nyckel kan beloppen läsas av automatiskt från specen
 - **CSV/PDF-export** — Exportera rapporter
 - **PWA** — Installerbar som app på mobil med hårdladdningsknapp för att tvinga uppdatering
 - **AI-bildanalys** — Importera schema från foto via Anthropic API (valfritt)
@@ -95,7 +96,9 @@ Se `.env.example` för alla tillgängliga variabler.
 |----------|:---:|-------------|
 | `NEXTAUTH_SECRET` | Ja | Hemlig nyckel för JWT-signering. Generera med `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | Ja | Appens fullständiga URL, t.ex. `https://tidrapport.example.com` |
-| `ANTHROPIC_API_KEY` | Nej | API-nyckel för Anthropic Claude — krävs bara för AI-schemaigenkänning |
+| `ANTHROPIC_API_KEY` | Nej | API-nyckel för Anthropic Claude — AI-schemaigenkänning och avläsning av lönespecar |
+| `OPENROUTER_API_KEY` | Nej | Alternativ nyckel för lönespec-avläsningen via OpenRouter; används före `ANTHROPIC_API_KEY` när båda är satta |
+| `OPENROUTER_MODEL` | Nej | Modell för lönespec-avläsningen, standard `anthropic/claude-opus-5` |
 
 ---
 
@@ -148,7 +151,7 @@ Databasen uppgraderas med versionerade migreringsscript. Vid uppgradering till e
 docker exec tidsrapport npx tsx scripts/migrate-v13.ts /app/data/tidsrapport.db
 ```
 
-Migreringarna körs i ordning: v2 → v3 → ... → v13. Kör bara de versioner som är nyare än din nuvarande installation.
+Migreringarna körs i ordning: v2 → v3 → ... → v17. Kör bara de versioner som är nyare än din nuvarande installation.
 
 ---
 
@@ -200,6 +203,12 @@ SQLite-databasen lagras i Docker-volymen `tidsrapport_data` på sökvägen `/app
 ```bash
 docker exec tidsrapport sqlite3 /app/data/tidsrapport.db ".backup '/app/data/backup.db'"
 docker cp tidsrapport:/app/data/backup.db ./tidsrapport-backup.db
+```
+
+Uppladdade lönespecar ligger som filer i samma volym (`/app/data/payslips/<användar-id>/`) och ingår **inte** i databasbackupen ovan — ta hela katalogen:
+
+```bash
+docker cp tidsrapport:/app/data/payslips ./payslips-backup
 ```
 
 ---

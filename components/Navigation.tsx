@@ -62,6 +62,15 @@ const navItems = [
     ),
   },
   {
+    href: '/lonespecar',
+    label: 'Lönespecar',
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
+  {
     href: '/semester',
     label: 'Semester',
     icon: (
@@ -132,7 +141,7 @@ export default function Navigation() {
   const allItems = session.user.role === 'admin' ? [...navItems, adminNavItem] : navItems;
 
   const linkClass = (href: string) =>
-    `flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+    `flex items-center gap-1.5 px-2 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
       pathname === href
         ? 'bg-white/15 text-white'
         : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -147,11 +156,11 @@ export default function Navigation() {
 
   return (
     <nav className="bg-slate-900 text-white shadow-md">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-[1800px] mx-auto px-4">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2 font-bold text-base tracking-tight">
+          <div className="flex items-center gap-6 min-w-0">
+            <Link href="/" className="flex items-center gap-2 font-bold text-base tracking-tight shrink-0">
               <div className="w-7 h-7 bg-blue-500 rounded-lg flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -159,10 +168,9 @@ export default function Navigation() {
               </div>
               Tidsrapport
             </Link>
-            <div className="hidden lg:flex items-center gap-0.5">
+            <div className="hidden 2xl:flex items-center gap-0.5 min-w-0 overflow-x-auto scrollbar-none">
               {allItems.map((item) => (
                 <Link key={item.href} href={item.href} className={linkClass(item.href)}>
-                  {item.icon}
                   {item.label}
                 </Link>
               ))}
@@ -170,7 +178,7 @@ export default function Navigation() {
           </div>
 
           {/* User info */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden 2xl:flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-2 text-sm text-slate-300">
               <div className="w-7 h-7 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold text-white">
                 {session.user.name?.charAt(0).toUpperCase()}
@@ -197,7 +205,7 @@ export default function Navigation() {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="lg:hidden p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="2xl:hidden p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               {menuOpen ? (
@@ -212,7 +220,7 @@ export default function Navigation() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="lg:hidden border-t border-slate-800 px-4 py-3 space-y-1">
+        <div className="2xl:hidden border-t border-slate-800 px-4 py-3 space-y-1">
           {allItems.map((item) => (
             <Link
               key={item.href}

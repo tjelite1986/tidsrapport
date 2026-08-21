@@ -15,8 +15,9 @@ Se `.claude/architecture.md` för fullständig filstruktur och API-referens.
 - Admin kan EJ se andra användares löne- eller rapportdata
 
 ## Migrations-ordning
-v2 → … → v14 (projekt per-user) → v15 (hourly_rate_history) → v16 (vacation_daily_rate, senaste)
-Nästa: **v17**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v2 → … → v14 (projekt per-user) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips, senaste)
+Nästa: **v18**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v17 skapar bara `CREATE TABLE IF NOT EXISTS` och görs även vid första anropet (`lib/payslips/store.ts`) — den behöver alltså inte köras manuellt, men är kvar för fullständighetens skull.
 
 ## Deploy
 ```bash
@@ -46,6 +47,15 @@ docker logs tidsrapport --tail 20
 - Runner kopierar bara `better-sqlite3`, `bindings`, `file-uri-to-path` (enda native-modulen)
 - Fullständiga `node_modules` kopieras INTE till runner — minskar imagen från 1.33 GB → 250 MB
 - Lägg ALDRIG till `python3 make g++` i runner-steget igen
+
+## Lönespecar (uppladdade filer)
+- Metadata i tabellen `payslips`, filen på disk i `data/payslips/<userId>/` — samma volym som databasen, så backup måste ta med hela `data/`
+- Filtypen avgörs av magic bytes (`detectPayslipType`), aldrig av filnamn eller `file.type` — en HTML-inloggningssida döpt till `.pdf` avvisas med 415
+- Lagringsnamnet är appens eget (`YYYY-MM-<uuid>.<ext>`); användarens filnamn sparas bara för visning
+- `/api/payslips/[id]/file` är scopad till ägaren och svarar 404 (inte 403) för andras id:n
+- Utbetalningsmånad ≠ arbetsperiod: en spec för `2026-08` jämförs mot löneberäkningen för `2026-07` (`workMonthFor`)
+- AI-avläsning (`lib/payslips/extract.ts`, `/api/payslips/extract`): **OpenRouter först** — `ANTHROPIC_API_KEY` finns men saknar kredit. `OPENROUTER_MODEL` (standard `anthropic/claude-opus-5`), `PAYSLIP_AI_PROVIDER=anthropic` tvingar den andra vägen. PDF skickas som `file`-part med `plugins: [file-parser, engine native]`, bilder som `image_url`. Kostnad ≈ 0,01–0,02 USD per spec.
+- Modellen ska hellre svara `null` än gissa — UI:t listar fälten den inte hittade
 
 ## Varningar
 - `lib/tax-tables/data-*.json` är 323 KB/st — läs INTE dessa filer, använd `lib/tax-tables/tax-lookup.ts`
