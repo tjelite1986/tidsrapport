@@ -1,27 +1,50 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import PayslipFieldsEditor, {
+  EMPTY_FIELDS,
+  type FieldValues,
+  type ObRow,
+} from '@/components/salary/PayslipFieldsEditor';
+import {
+  PAYSLIP_FIELDS,
+  type ComparisonRow,
+  type ObLine,
+  type PayslipNumberField,
+} from '@/lib/payslips/fields';
 
-interface PayslipRow {
+interface CalculatedPay {
+  obBreakdown: { percent: number; hours: number; amount: number }[];
+  [key: string]: unknown;
+}
+
+type PayslipRow = {
   id: number;
   payMonth: string;
   workMonth: string;
   originalName: string;
   mimeType: string;
   sizeBytes: number;
-  grossPay: number | null;
-  tax: number | null;
-  netPay: number | null;
+  obLines: ObLine[];
   note: string | null;
   uploadedAt: string;
-  calculated: { grossPay: number; tax: number; netPay: number } | null;
-  diff: { grossPay: number | null; tax: number | null; netPay: number | null } | null;
-}
+  calculated: CalculatedPay | null;
+  comparison: ComparisonRow[];
+} & Record<PayslipNumberField, number | null>;
 
 const MONTH_SV = [
   '', 'januari', 'februari', 'mars', 'april', 'maj', 'juni',
   'juli', 'augusti', 'september', 'oktober', 'november', 'december',
 ];
+
+/** The amounts a payslip always has — the AI reader flags these when missing. */
+const CORE_FIELDS: PayslipNumberField[] = ['grossPay', 'tax', 'netPay'];
+
+const GROUP_TITLES: Record<ComparisonRow['group'], string> = {
+  time: 'Tid och timlön',
+  earnings: 'Lönerader',
+  summary: 'Summering',
+};
 
 function currentMonth() {
   const now = new Date();
@@ -32,10 +55,25 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(amount);
 }
 
-function formatDiff(amount: number) {
-  const formatted = new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(Math.abs(amount));
-  if (Math.round(amount) === 0) return '0 kr';
-  return `${amount > 0 ? '+' : '−'}${formatted} kr`;
+function formatValue(value: number, unit: ComparisonRow['unit']) {
+  if (unit === 'currency') return formatCurrency(value);
+  if (unit === 'hours') return `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2 }).format(value)} h`;
+  return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2 }).format(value);
+}
+
+function formatDiff(amount: number, unit: ComparisonRow['unit']) {
+  const decimals = unit === 'currency' ? 0 : 2;
+  if (Math.abs(amount) < (unit === 'currency' ? 0.5 : 0.005)) {
+    return unit === 'currency' ? '0 kr' : unit === 'hours' ? '0 h' : '0';
+  }
+  const formatted = new Intl.NumberFormat('sv-SE', { maximumFractionDigits: decimals }).format(Math.abs(amount));
+  const suffix = unit === 'currency' ? ' kr' : unit === 'hours' ? ' h' : '';
+  return `${amount > 0 ? '+' : '−'}${formatted}${suffix}`;
+}
+
+/** How large a diff may be before it is flagged. Money is rounded to whole kronor. */
+function isMatch(diff: number, unit: ComparisonRow['unit']) {
+  return Math.abs(diff) < (unit === 'currency' ? 1 : 0.01);
 }
 
 function formatMonth(month: string) {
@@ -48,6 +86,34 @@ function formatSize(bytes: number) {
   return `${Math.max(1, Math.round(bytes / 1024))} kB`;
 }
 
+function formatNumberForInput(value: number | null | undefined) {
+  if (value === null || value === undefined) return '';
+  return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, useGrouping: false }).format(value);
+}
+
+function fieldsFromRow(row: PayslipRow): FieldValues {
+  const values = { ...EMPTY_FIELDS };
+  for (const field of PAYSLIP_FIELDS) {
+    values[field.key] = formatNumberForInput(row[field.key]);
+  }
+  return values;
+}
+
+function obRowsFromLines(lines: ObLine[]): ObRow[] {
+  return lines.map((line) => ({
+    percent: String(line.percent),
+    hours: formatNumberForInput(line.hours),
+    amount: formatNumberForInput(line.amount),
+  }));
+}
+
+/** Blank rows carry no information — the server drops them, so do we. */
+function obRowsToPayload(rows: ObRow[]) {
+  return rows
+    .filter((row) => row.percent.trim() && (row.hours.trim() || row.amount.trim()))
+    .map((row) => ({ percent: row.percent, hours: row.hours, amount: row.amount }));
+}
+
 export default function LonespecarPage() {
   const [payslips, setPayslips] = useState<PayslipRow[]>([]);
   const [years, setYears] = useState<number[]>([]);
@@ -58,9 +124,8 @@ export default function LonespecarPage() {
   // Upload form
   const [file, setFile] = useState<File | null>(null);
   const [payMonth, setPayMonth] = useState(currentMonth);
-  const [grossPay, setGrossPay] = useState('');
-  const [tax, setTax] = useState('');
-  const [netPay, setNetPay] = useState('');
+  const [fields, setFields] = useState<FieldValues>(EMPTY_FIELDS);
+  const [obRows, setObRows] = useState<ObRow[]>([]);
   const [note, setNote] = useState('');
   const [uploading, setUploading] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -69,7 +134,9 @@ export default function LonespecarPage() {
 
   // Inline edit
   const [editId, setEditId] = useState<number | null>(null);
-  const [editValues, setEditValues] = useState({ grossPay: '', tax: '', netPay: '', note: '' });
+  const [editFields, setEditFields] = useState<FieldValues>(EMPTY_FIELDS);
+  const [editObRows, setEditObRows] = useState<ObRow[]>([]);
+  const [editNote, setEditNote] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +157,21 @@ export default function LonespecarPage() {
     load();
   }, [load]);
 
+  // OB percentages the calculation has seen — offered as shortcuts in the form
+  const knownPercents = [
+    ...new Set(payslips.flatMap((row) => row.calculated?.obBreakdown?.map((ob) => ob.percent) ?? [])),
+  ].sort((a, b) => a - b);
+
+  function resetForm() {
+    setFile(null);
+    setAiInfo(null);
+    setFields(EMPTY_FIELDS);
+    setObRows([]);
+    setNote('');
+    const input = document.getElementById('payslip-file') as HTMLInputElement | null;
+    if (input) input.value = '';
+  }
+
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!file) {
@@ -102,9 +184,8 @@ export default function LonespecarPage() {
     const form = new FormData();
     form.append('file', file);
     form.append('payMonth', payMonth);
-    form.append('grossPay', grossPay);
-    form.append('tax', tax);
-    form.append('netPay', netPay);
+    for (const field of PAYSLIP_FIELDS) form.append(field.key, fields[field.key]);
+    form.append('obLines', JSON.stringify(obRowsToPayload(obRows)));
     form.append('note', note);
 
     const res = await fetch('/api/payslips', { method: 'POST', body: form });
@@ -116,14 +197,7 @@ export default function LonespecarPage() {
       return;
     }
 
-    setFile(null);
-    setAiInfo(null);
-    setGrossPay('');
-    setTax('');
-    setNetPay('');
-    setNote('');
-    const input = document.getElementById('payslip-file') as HTMLInputElement | null;
-    if (input) input.value = '';
+    resetForm();
 
     const uploadedYear = Number(payMonth.slice(0, 4));
     if (year !== 'all' && year !== uploadedYear) setYear(uploadedYear);
@@ -148,43 +222,46 @@ export default function LonespecarPage() {
       return;
     }
 
-    const format = (value: number | null) =>
-      value === null ? '' : new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2 }).format(value);
-
+    const next = { ...EMPTY_FIELDS };
+    let filled = 0;
+    // Only the core amounts are reported as missing — a spec without overtime
+    // has no overtime row, and listing every empty field reads as a failure.
     const missing: string[] = [];
+    for (const field of PAYSLIP_FIELDS) {
+      const value = data[field.key];
+      const found = typeof value === 'number';
+      next[field.key] = found ? formatNumberForInput(value) : '';
+      if (found) filled += 1;
+      else if (CORE_FIELDS.includes(field.key)) missing.push(field.label.toLowerCase());
+    }
+    setFields(next);
+    const lines = Array.isArray(data.obLines) ? obRowsFromLines(data.obLines) : [];
+    setObRows(lines);
+    filled += lines.length;
+
     if (data.payMonth) setPayMonth(data.payMonth);
-    else missing.push('utbetalningsmånad');
-    if (data.grossPay === null) missing.push('bruttolön');
-    if (data.tax === null) missing.push('skatt');
-    if (data.netPay === null) missing.push('nettolön');
+    else missing.unshift('utbetalningsmånad');
 
-    setGrossPay(format(data.grossPay));
-    setTax(format(data.tax));
-    setNetPay(format(data.netPay));
-
-    setAiInfo(
-      missing.length > 0
-        ? `Avläst — kontrollera värdena. Hittade inte: ${missing.join(', ')}.`
-        : 'Avläst — kontrollera värdena innan du sparar.',
-    );
+    const summary = `Avläst ${filled} ${filled === 1 ? 'rad' : 'rader'} — kontrollera värdena innan du sparar.`;
+    setAiInfo(missing.length > 0 ? `${summary} Hittade inte: ${missing.join(', ')}.` : summary);
   }
 
   function startEdit(row: PayslipRow) {
     setEditId(row.id);
-    setEditValues({
-      grossPay: row.grossPay?.toString() ?? '',
-      tax: row.tax?.toString() ?? '',
-      netPay: row.netPay?.toString() ?? '',
-      note: row.note ?? '',
-    });
+    setEditFields(fieldsFromRow(row));
+    setEditObRows(obRowsFromLines(row.obLines));
+    setEditNote(row.note ?? '');
   }
 
   async function saveEdit(id: number) {
     setError(null);
+    const payload: Record<string, unknown> = { id, note: editNote, obLines: obRowsToPayload(editObRows) };
+    for (const field of PAYSLIP_FIELDS) payload[field.key] = editFields[field.key];
+
     const res = await fetch('/api/payslips', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, ...editValues }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -251,40 +328,23 @@ export default function LonespecarPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bruttolön (valfritt)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={grossPay}
-              onChange={(e) => setGrossPay(e.target.value)}
-              placeholder="32 450,00"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Skatt (valfritt)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={tax}
-              onChange={(e) => setTax(e.target.value)}
-              placeholder="8 332,00"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nettolön (valfritt)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={netPay}
-              onChange={(e) => setNetPay(e.target.value)}
-              placeholder="24 118,00"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-sm text-gray-500 mb-3">
+            Beloppen är valfria — fyll i de rader du vill jämföra mot appens beräkning.
+          </p>
+          <PayslipFieldsEditor
+            values={fields}
+            obRows={obRows}
+            suggestedPercents={knownPercents}
+            onChange={(key, value) => setFields((prev) => ({ ...prev, [key]: value }))}
+            onObChange={(index, key, value) =>
+              setObRows((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)))
+            }
+            onObAdd={(percent) =>
+              setObRows((prev) => [...prev, { percent: percent ? String(percent) : '', hours: '', amount: '' }])
+            }
+            onObRemove={(index) => setObRows((prev) => prev.filter((_, i) => i !== index))}
+          />
         </div>
 
         <div>
@@ -393,38 +453,36 @@ export default function LonespecarPage() {
               </div>
 
               {editId === row.id ? (
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  {(['grossPay', 'tax', 'netPay'] as const).map((field) => (
-                    <div key={field}>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        {field === 'grossPay' ? 'Bruttolön' : field === 'tax' ? 'Skatt' : 'Nettolön'}
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={editValues[field]}
-                        onChange={(e) => setEditValues({ ...editValues, [field]: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
-                    </div>
-                  ))}
+                <div className="mt-4 space-y-4">
+                  <PayslipFieldsEditor
+                    compact
+                    values={editFields}
+                    obRows={editObRows}
+                    suggestedPercents={row.calculated?.obBreakdown?.map((ob) => ob.percent) ?? []}
+                    onChange={(key, value) => setEditFields((prev) => ({ ...prev, [key]: value }))}
+                    onObChange={(index, key, value) =>
+                      setEditObRows((prev) => prev.map((r, i) => (i === index ? { ...r, [key]: value } : r)))
+                    }
+                    onObAdd={(percent) =>
+                      setEditObRows((prev) => [...prev, { percent: percent ? String(percent) : '', hours: '', amount: '' }])
+                    }
+                    onObRemove={(index) => setEditObRows((prev) => prev.filter((_, i) => i !== index))}
+                  />
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Anteckning</label>
                     <input
                       type="text"
-                      value={editValues.note}
-                      onChange={(e) => setEditValues({ ...editValues, note: e.target.value })}
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                     />
                   </div>
-                  <div className="sm:col-span-4">
-                    <button
-                      onClick={() => saveEdit(row.id)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
-                    >
-                      Spara
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => saveEdit(row.id)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
+                  >
+                    Spara
+                  </button>
                 </div>
               ) : (
                 <div className="mt-4 overflow-x-auto">
@@ -438,33 +496,42 @@ export default function LonespecarPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {(['grossPay', 'tax', 'netPay'] as const).map((field) => {
-                        const actual = row[field];
-                        const calculated = row.calculated?.[field] ?? null;
-                        const diff = row.diff?.[field] ?? null;
-                        const label = field === 'grossPay' ? 'Bruttolön' : field === 'tax' ? 'Skatt' : 'Nettolön';
-                        return (
-                          <tr key={field}>
-                            <td className="px-3 py-2">{label}</td>
-                            <td className="px-3 py-2 text-right">
-                              {actual === null ? <span className="text-gray-400">–</span> : formatCurrency(actual)}
+                      {(['time', 'earnings', 'summary'] as const).flatMap((group) => {
+                        const groupRows = row.comparison.filter((item) => item.group === group);
+                        if (groupRows.length === 0) return [];
+                        return [
+                          <tr key={`${group}-header`} className="bg-gray-50/70">
+                            <td colSpan={4} className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                              {GROUP_TITLES[group]}
                             </td>
-                            <td className="px-3 py-2 text-right text-gray-600">
-                              {calculated === null ? <span className="text-gray-400">–</span> : formatCurrency(calculated)}
-                            </td>
-                            <td
-                              className={`px-3 py-2 text-right font-medium ${
-                                diff === null
-                                  ? 'text-gray-400'
-                                  : Math.abs(diff) < 1
-                                    ? 'text-green-600'
-                                    : 'text-amber-600'
-                              }`}
-                            >
-                              {diff === null ? '–' : formatDiff(diff)}
-                            </td>
-                          </tr>
-                        );
+                          </tr>,
+                          ...groupRows.map((item) => (
+                            <tr key={item.key}>
+                              <td className="px-3 py-2">{item.label}</td>
+                              <td className="px-3 py-2 text-right">
+                                {item.actual === null
+                                  ? <span className="text-gray-400">–</span>
+                                  : formatValue(item.actual, item.unit)}
+                              </td>
+                              <td className="px-3 py-2 text-right text-gray-600">
+                                {item.calculated === null
+                                  ? <span className="text-gray-400">–</span>
+                                  : formatValue(item.calculated, item.unit)}
+                              </td>
+                              <td
+                                className={`px-3 py-2 text-right font-medium ${
+                                  item.diff === null
+                                    ? 'text-gray-400'
+                                    : isMatch(item.diff, item.unit)
+                                      ? 'text-green-600'
+                                      : 'text-amber-600'
+                                }`}
+                              >
+                                {item.diff === null ? '–' : formatDiff(item.diff, item.unit)}
+                              </td>
+                            </tr>
+                          )),
+                        ];
                       })}
                     </tbody>
                   </table>

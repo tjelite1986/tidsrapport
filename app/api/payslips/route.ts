@@ -16,43 +16,92 @@ import {
   sanitizeOriginalName,
   workMonthFor,
 } from '@/lib/payslips/files';
+import {
+  PAYSLIP_NUMBER_FIELDS,
+  buildComparison,
+  parseObLines,
+  readObLines,
+  serializeObLines,
+} from '@/lib/payslips/fields';
+import type { PayslipAmountInput } from '@/lib/payslips/store';
 import { computeMonthlySalary } from '@/lib/salary/monthly';
 import { isExtractionConfigured } from '@/lib/payslips/extract';
 import type { Payslip } from '@/lib/db/schema';
 
 export const dynamic = 'force-dynamic';
 
-type CalculatedPay = { grossPay: number; tax: number; netPay: number };
+type MonthlySalary = ReturnType<typeof computeMonthlySalary>;
 
 function withCalculation(rows: Payslip[], userId: number) {
   // One calculation per distinct work month, not one per payslip — a month can
   // hold several documents (a correction, a bonus spec).
-  const cache = new Map<string, CalculatedPay | null>();
+  const cache = new Map<string, MonthlySalary>();
 
   return rows.map((row) => {
     const workMonth = workMonthFor(row.payMonth);
     if (!cache.has(workMonth)) {
-      const salary = computeMonthlySalary(userId, workMonth);
-      cache.set(
-        workMonth,
-        salary ? { grossPay: salary.grossPay, tax: salary.tax, netPay: salary.netPay } : null,
-      );
+      cache.set(workMonth, computeMonthlySalary(userId, workMonth));
     }
-    const calculated = cache.get(workMonth) ?? null;
+    const salary = cache.get(workMonth) ?? null;
 
     return {
       ...row,
       workMonth,
-      calculated,
-      diff: calculated
+      // The OB lines travel as parsed objects; the column itself is JSON text
+      obLines: readObLines(row.obLines),
+      calculated: salary
         ? {
-            grossPay: row.grossPay === null ? null : row.grossPay - calculated.grossPay,
-            tax: row.tax === null ? null : row.tax - calculated.tax,
-            netPay: row.netPay === null ? null : row.netPay - calculated.netPay,
+            workHours: salary.workHours,
+            hourlyRate: salary.hourlyRate,
+            basePay: salary.basePay,
+            obBreakdown: salary.obBreakdown,
+            totalOB: salary.totalOB,
+            overtimeMertid: salary.overtidMertid,
+            overtimeEnkel: salary.overtidEnkel,
+            overtimeKvalificerad: salary.overtidKvalificerad,
+            sickPay: salary.sickPay,
+            vacationPay: salary.vacationPay,
+            vacationDaysPay: salary.vacationDaysPay,
+            vacationDaysCount: salary.vacationDaysCount,
+            grossPay: salary.grossPay,
+            tax: salary.tax,
+            netPay: salary.netPay,
           }
         : null,
+      comparison: buildComparison(row, salary),
     };
   });
+}
+
+/**
+ * Read every amount field off a form or a JSON body.
+ *
+ * Returns the field name that failed to parse instead of the values, so the
+ * caller can name it in the 400 — a silently dropped amount would show up as
+ * a diff against the app's calculation.
+ */
+function readAmounts(
+  get: (key: string) => unknown,
+  { onlyPresent }: { onlyPresent: boolean },
+): { amounts: PayslipAmountInput } | { invalid: string } {
+  const amounts: PayslipAmountInput = {};
+
+  for (const key of PAYSLIP_NUMBER_FIELDS) {
+    const raw = get(key);
+    if (onlyPresent && raw === undefined) continue;
+    const parsed = parseAmount(raw);
+    if (parsed === undefined) return { invalid: key };
+    amounts[key] = parsed;
+  }
+
+  const rawObLines = get('obLines');
+  if (!onlyPresent || rawObLines !== undefined) {
+    const lines = parseObLines(rawObLines);
+    if (lines === undefined) return { invalid: 'obLines' };
+    amounts.obLines = serializeObLines(lines);
+  }
+
+  return { amounts };
 }
 
 export async function GET(req: NextRequest) {
@@ -124,15 +173,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const amounts = {
-    grossPay: parseAmount(form.get('grossPay')),
-    tax: parseAmount(form.get('tax')),
-    netPay: parseAmount(form.get('netPay')),
-  };
-  for (const [key, value] of Object.entries(amounts)) {
-    if (value === undefined) {
-      return NextResponse.json({ error: `Ogiltigt belopp: ${key}` }, { status: 400 });
-    }
+  const parsedAmounts = readAmounts((key) => form.get(key), { onlyPresent: false });
+  if ('invalid' in parsedAmounts) {
+    return NextResponse.json({ error: `Ogiltigt värde: ${parsedAmounts.invalid}` }, { status: 400 });
   }
 
   const noteRaw = form.get('note');
@@ -145,9 +188,7 @@ export async function POST(req: NextRequest) {
     mimeType: detected.mimeType,
     extension: detected.extension,
     data,
-    grossPay: amounts.grossPay as number | null,
-    tax: amounts.tax as number | null,
-    netPay: amounts.netPay as number | null,
+    amounts: parsedAmounts.amounts,
     note,
   });
 
@@ -173,15 +214,11 @@ export async function PUT(req: NextRequest) {
     fields.payMonth = body.payMonth;
   }
 
-  for (const key of ['grossPay', 'tax', 'netPay'] as const) {
-    if (body[key] !== undefined) {
-      const parsed = parseAmount(body[key]);
-      if (parsed === undefined) {
-        return NextResponse.json({ error: `Ogiltigt belopp: ${key}` }, { status: 400 });
-      }
-      fields[key] = parsed;
-    }
+  const parsedAmounts = readAmounts((key) => body[key], { onlyPresent: true });
+  if ('invalid' in parsedAmounts) {
+    return NextResponse.json({ error: `Ogiltigt värde: ${parsedAmounts.invalid}` }, { status: 400 });
   }
+  Object.assign(fields, parsedAmounts.amounts);
 
   if (body.note !== undefined) {
     fields.note = typeof body.note === 'string' && body.note.trim() ? body.note.trim().slice(0, 500) : null;

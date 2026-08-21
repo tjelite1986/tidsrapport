@@ -15,9 +15,9 @@ Se `.claude/architecture.md` för fullständig filstruktur och API-referens.
 - Admin kan EJ se andra användares löne- eller rapportdata
 
 ## Migrations-ordning
-v2 → … → v14 (projekt per-user) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips, senaste)
-Nästa: **v18**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
-v17 skapar bara `CREATE TABLE IF NOT EXISTS` och görs även vid första anropet (`lib/payslips/store.ts`) — den behöver alltså inte köras manuellt, men är kvar för fullständighetens skull.
+v2 → … → v14 (projekt per-user) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (lönerader på payslips, senaste)
+Nästa: **v19**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v17 och v18 körs även vid första anropet (`lib/payslips/store.ts`: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` bakom `PRAGMA table_info`) — de behöver alltså inte köras manuellt, men är kvar för fullständighetens skull.
 
 ## Deploy
 ```bash
@@ -55,7 +55,10 @@ docker logs tidsrapport --tail 20
 - `/api/payslips/[id]/file` är scopad till ägaren och svarar 404 (inte 403) för andras id:n
 - Utbetalningsmånad ≠ arbetsperiod: en spec för `2026-08` jämförs mot löneberäkningen för `2026-07` (`workMonthFor`)
 - AI-avläsning (`lib/payslips/extract.ts`, `/api/payslips/extract`): **OpenRouter först** — `ANTHROPIC_API_KEY` finns men saknar kredit. `OPENROUTER_MODEL` (standard `anthropic/claude-opus-5`), `PAYSLIP_AI_PROVIDER=anthropic` tvingar den andra vägen. PDF skickas som `file`-part med `plugins: [file-parser, engine native]`, bilder som `image_url`. Kostnad ≈ 0,01–0,02 USD per spec.
-- Modellen ska hellre svara `null` än gissa — UI:t listar fälten den inte hittade
+- Modellen ska hellre svara `null` än gissa — UI:t listar bara de saknade kärnfälten (brutto/skatt/netto), inte varje tom rad
+- Lönerader (v18): specen kan fyllas i med samma poster som `/lon` räknar fram — arbetad tid, timlön, grundlön, OB per procentsats, mertid/övertid, sjuklön, semesterlön och semesterersättning. Definitionen bor i `lib/payslips/fields.ts` (`PAYSLIP_FIELDS`); lägg till nya poster där, inte i UI:t
+- OB ligger som JSON i `ob_lines` (`[{percent, hours, amount}]`) — läs alltid via `readObLines()`, aldrig `JSON.parse` direkt. Samma procentsats får bara förekomma en gång
+- Jämförelsen byggs serverside av `buildComparison()`: en procentsats som beräkningen saknar räknas som 0 kr (inte "okänt"), och rader som är tomma på båda sidor döljs — utom brutto/skatt/netto
 
 ## Varningar
 - `lib/tax-tables/data-*.json` är 323 KB/st — läs INTE dessa filer, använd `lib/tax-tables/tax-lookup.ts`

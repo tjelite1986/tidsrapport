@@ -138,6 +138,22 @@ export const payslips = sqliteTable('payslips', {
   grossPay: real('gross_pay'),
   tax: real('tax'),
   netPay: real('net_pay'),
+  // Line items typed off the payslip, mirroring what the salary page computes.
+  // All nullable: a spec that only has gross/tax/net still works.
+  workHours: real('work_hours'),
+  hourlyRate: real('hourly_rate'),
+  basePay: real('base_pay'),
+  // JSON array of {percent, hours, amount}, one entry per OB percentage —
+  // parse with parseObLines() in lib/payslips/fields.ts, never JSON.parse raw.
+  obLines: text('ob_lines'),
+  totalOB: real('total_ob'),
+  overtimeMertid: real('overtime_mertid'),
+  overtimeEnkel: real('overtime_enkel'),
+  overtimeKvalificerad: real('overtime_kvalificerad'),
+  sickPay: real('sick_pay'),
+  vacationPay: real('vacation_pay'),
+  vacationDaysPay: real('vacation_days_pay'),
+  vacationDaysCount: real('vacation_days_count'),
   note: text('note'),
   uploadedAt: text('uploaded_at').notNull().$defaultFn(() => new Date().toISOString()),
 });

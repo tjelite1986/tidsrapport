@@ -4,12 +4,22 @@ import { randomUUID } from 'crypto';
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import { db, sqlite } from '@/lib/db';
 import { payslips, type Payslip } from '@/lib/db/schema';
-import { PAYSLIPS_TABLE_SQL } from './table';
+import { PAYSLIPS_TABLE_SQL, PAYSLIP_EXTRA_COLUMNS } from './table';
 import { buildStoredName, isSafeStoredName, payslipDir } from './files';
+import type { PayslipNumberField } from './fields';
 
 // The table is created here as well as in scripts/migrate-v17.ts so a fresh
 // deploy works before anyone has run the migration by hand.
 sqlite.exec(PAYSLIPS_TABLE_SQL);
+
+// Same for the v18 line-item columns: check PRAGMA table_info before every
+// ALTER so this is idempotent on an existing database.
+{
+  const existing = new Set((sqlite.pragma('table_info(payslips)') as { name: string }[]).map((c) => c.name));
+  for (const column of PAYSLIP_EXTRA_COLUMNS) {
+    if (!existing.has(column.name)) sqlite.exec(`ALTER TABLE payslips ADD COLUMN ${column.ddl}`);
+  }
+}
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 
@@ -54,6 +64,11 @@ export function readPayslipFile(row: Payslip): Buffer | null {
   return fs.readFileSync(filePath);
 }
 
+/** The amounts typed off a spec — every one of them optional. */
+export type PayslipAmountInput = Partial<Record<PayslipNumberField, number | null>> & {
+  obLines?: string | null;
+};
+
 export function createPayslip(input: {
   userId: number;
   payMonth: string;
@@ -61,9 +76,7 @@ export function createPayslip(input: {
   mimeType: string;
   extension: string;
   data: Buffer;
-  grossPay: number | null;
-  tax: number | null;
-  netPay: number | null;
+  amounts: PayslipAmountInput;
   note: string | null;
 }): Payslip {
   const dir = payslipDir(DATA_DIR, input.userId);
@@ -86,9 +99,7 @@ export function createPayslip(input: {
         storedName,
         mimeType: input.mimeType,
         sizeBytes: input.data.length,
-        grossPay: input.grossPay,
-        tax: input.tax,
-        netPay: input.netPay,
+        ...input.amounts,
         note: input.note,
       })
       .returning()
@@ -102,7 +113,7 @@ export function createPayslip(input: {
 export function updatePayslipFields(
   id: number,
   userId: number,
-  fields: { payMonth?: string; grossPay?: number | null; tax?: number | null; netPay?: number | null; note?: string | null },
+  fields: PayslipAmountInput & { payMonth?: string; note?: string | null },
 ): Payslip | undefined {
   const existing = getPayslip(id, userId);
   if (!existing) return undefined;

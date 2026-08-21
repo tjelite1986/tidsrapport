@@ -9,7 +9,7 @@
 | `/projekt` | app/projekt/page.tsx | Projekthantering |
 | `/rapporter` | app/rapporter/page.tsx | CSV-export |
 | `/lon` | app/lon/page.tsx | Löneöversikt (väljer utbetalningsmånad → visar föregående månads arbete) |
-| `/lonespecar` | app/lonespecar/page.tsx | Arkiv för arbetsgivarens lönespecar + jämförelse mot beräknad lön |
+| `/lonespecar` | app/lonespecar/page.tsx | Arkiv för arbetsgivarens lönespecar + rad-för-rad-jämförelse mot beräknad lön (formulär: components/salary/PayslipFieldsEditor.tsx) |
 | `/statistik` | app/statistik/page.tsx | Diagram och statistik |
 | `/installningar` | app/installningar/page.tsx | Användarinställningar |
 | `/admin` | app/admin/page.tsx | Användarhantering (admin only) |
@@ -23,7 +23,7 @@
 | `/api/salary` | GET | Löneberäkning per månad (taxYear från arbetsmånad) |
 | `/api/payslips` | GET, POST, PUT, DELETE | Uppladdade lönespecar: lista m. jämförelse, uppladdning (multipart), belopp/anteckning, radering |
 | `/api/payslips/[id]/file` | GET | Filen (inline, `?download=1` för nedladdning) — 404 för andras id:n |
-| `/api/payslips/extract` | POST | AI-avläsning av en uppladdad fil (sparar inget) → `{payMonth, grossPay, tax, netPay}` |
+| `/api/payslips/extract` | POST | AI-avläsning av en uppladdad fil (sparar inget) → `{payMonth, obLines[], + alla fält i PAYSLIP_FIELDS}` |
 | `/api/stats` | GET | Statistik inkl. weekdayHours/Avg/Count |
 | `/api/settings` | GET, PUT | Användarinställningar |
 | `/api/calendar-data` | GET | Tidsregistreringar + löneberäkning per dag |
@@ -40,8 +40,9 @@
 ## Lönespecar (lib/payslips/)
 - `files.ts` — `detectPayslipType()` (magic bytes), `isValidPayMonth()`, `workMonthFor()`, `sanitizeOriginalName()`, `buildStoredName()`/`isSafeStoredName()`, `parseAmount()` (svenskt format)
 - `store.ts` — DB + disk: `listPayslips`, `getPayslip` (ägarscopad), `createPayslip` (fil först, rad sedan), `updatePayslipFields`, `deletePayslip` (rad först, fil sedan). Skapar tabellen vid import.
-- `table.ts` — DDL, delad med `scripts/migrate-v17.ts`
-- `extract.ts` — AI-avläsning via OpenRouter (först) eller Anthropic; JSON-schema med nullbara fält
+- `table.ts` — DDL (delad med `scripts/migrate-v17.ts`) + `PAYSLIP_EXTRA_COLUMNS` (v18-kolumnerna, delade med `scripts/migrate-v18.ts`)
+- `fields.ts` — `PAYSLIP_FIELDS` (alla lönerader m. etikett/enhet/grupp), `parseObLines()`/`readObLines()`/`serializeObLines()`, `buildComparison()` (rad-för-rad-jämförelse, OB uppdelat per procentsats)
+- `extract.ts` — AI-avläsning via OpenRouter (först) eller Anthropic; JSON-schema med nullbara fält för samtliga lönerader
 - Filer: `data/payslips/<userId>/YYYY-MM-<uuid>.<ext>` (max 10 MB, PDF/PNG/JPG/WEBP)
 
 ## Löneberäkning (lib/salary/)
@@ -75,6 +76,15 @@ stored_name    TEXT   -- appens namn på disk
 mime_type      TEXT
 size_bytes     INTEGER
 gross_pay/tax/net_pay REAL  -- NULL = ej ifyllt
+work_hours     REAL   -- v18: lönerader från specen, alla NULL = ej ifyllt
+hourly_rate    REAL
+base_pay       REAL
+ob_lines       TEXT   -- JSON [{percent, hours, amount}] — läs via readObLines()
+total_ob       REAL
+overtime_mertid/overtime_enkel/overtime_kvalificerad REAL
+sick_pay       REAL
+vacation_pay   REAL
+vacation_days_pay/vacation_days_count REAL
 note           TEXT
 ```
 

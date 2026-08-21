@@ -1,7 +1,20 @@
 import type { PayslipFileType } from './files';
+import { parseObLines, type ObLine } from './fields';
 
 export type ExtractedPayslip = {
   payMonth: string | null;
+  workHours: number | null;
+  hourlyRate: number | null;
+  basePay: number | null;
+  obLines: ObLine[] | null;
+  totalOB: number | null;
+  overtimeMertid: number | null;
+  overtimeEnkel: number | null;
+  overtimeKvalificerad: number | null;
+  sickPay: number | null;
+  vacationPay: number | null;
+  vacationDaysPay: number | null;
+  vacationDaysCount: number | null;
   grossPay: number | null;
   tax: number | null;
   netPay: number | null;
@@ -11,6 +24,8 @@ export type ExtractionResult = ExtractedPayslip & {
   provider: 'openrouter' | 'anthropic';
   model: string;
 };
+
+const amount = (description: string) => ({ type: ['number', 'null'], description });
 
 /**
  * JSON schema the model must answer with. Every field is nullable so the model
@@ -25,17 +40,64 @@ const PAYSLIP_SCHEMA = {
       type: ['string', 'null'],
       description: 'Utbetalningsmånad som YYYY-MM, hämtad från utbetalningsdatumet',
     },
-    grossPay: { type: ['number', 'null'], description: 'Bruttolön i kronor' },
-    tax: { type: ['number', 'null'], description: 'Preliminärskatt i kronor, alltid positivt tal' },
-    netPay: { type: ['number', 'null'], description: 'Nettolön/utbetalt belopp i kronor' },
+    workHours: amount('Antal arbetade timmar som grundlönen räknats på'),
+    hourlyRate: amount('Timlön (a-pris) i kronor'),
+    basePay: amount('Grundlön/tidlön i kronor, utan OB, övertid och tillägg'),
+    obLines: {
+      type: ['array', 'null'],
+      description: 'En rad per OB-procentsats som finns på specen',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          percent: { type: 'number', description: 'OB-procent, t.ex. 50, 70 eller 100' },
+          hours: amount('Antal OB-timmar på raden'),
+          amount: amount('OB-belopp på raden i kronor'),
+        },
+        required: ['percent', 'hours', 'amount'],
+      },
+    },
+    totalOB: amount('Summa OB-tillägg i kronor'),
+    overtimeMertid: amount('Mertid i kronor'),
+    overtimeEnkel: amount('Enkel övertid i kronor'),
+    overtimeKvalificerad: amount('Kvalificerad övertid i kronor'),
+    sickPay: amount('Sjuklön i kronor (positivt tal), inte sjukavdraget'),
+    vacationPay: amount('Semesterersättning i kronor'),
+    vacationDaysPay: amount('Semesterlön för uttagna semesterdagar i kronor'),
+    vacationDaysCount: amount('Antal uttagna semesterdagar'),
+    grossPay: amount('Bruttolön i kronor'),
+    tax: amount('Preliminärskatt i kronor, alltid positivt tal'),
+    netPay: amount('Nettolön/utbetalt belopp i kronor'),
   },
-  required: ['payMonth', 'grossPay', 'tax', 'netPay'],
+  required: [
+    'payMonth',
+    'workHours',
+    'hourlyRate',
+    'basePay',
+    'obLines',
+    'totalOB',
+    'overtimeMertid',
+    'overtimeEnkel',
+    'overtimeKvalificerad',
+    'sickPay',
+    'vacationPay',
+    'vacationDaysPay',
+    'vacationDaysCount',
+    'grossPay',
+    'tax',
+    'netPay',
+  ],
 } as const;
 
 const SYSTEM_PROMPT = `Du läser svenska lönespecifikationer och returnerar strukturerad JSON.
 
 Regler:
 - payMonth är UTBETALNINGSmånaden (YYYY-MM), tagen från utbetalningsdatumet — inte löneperioden/arbetsmånaden. Saknas utbetalningsdatum: använd månaden efter löneperiodens slut.
+- basePay är grundlönen/tidlönen (kan heta "Tidlön", "Månadslön", "Timlön"), utan OB, övertid och tillägg. workHours är timmarna den raden räknats på och hourlyRate dess a-pris.
+- obLines är en rad per OB-procentsats som står på specen ("OB 50%", "Storhelgstillägg 100%"). Ta med både timmar och belopp när båda står. totalOB är summan av OB-raderna.
+- Övertid delas upp i mertid, enkel övertid och kvalificerad övertid. Står bara en klumpsumma: lägg den i den rad som texten anger, annars null.
+- sickPay är sjuklön som POSITIVT tal — sjukavdraget är en annan rad och ska inte med.
+- vacationPay är semesterersättning (ofta en procentsats av bruttolönen). vacationDaysPay och vacationDaysCount avser uttagna semesterdagar.
 - grossPay är bruttolönen (kan heta "Bruttolön", "Summa lön", "Skattepliktig bruttolön").
 - tax är den preliminära skatten som ett POSITIVT tal, även om den står med minustecken.
 - netPay är beloppet som betalas ut ("Nettolön", "Att utbetala", "Utbetalt belopp").
@@ -43,7 +105,7 @@ Regler:
 - Hittar du inte ett värde med säkerhet: returnera null för det fältet. Gissa aldrig.`;
 
 const USER_PROMPT =
-  'Läs av denna lönespecifikation och returnera utbetalningsmånad, bruttolön, preliminärskatt och nettolön.';
+  'Läs av denna lönespecifikation och returnera alla lönerader du hittar: arbetade timmar, timlön, grundlön, OB per procentsats, övertid, sjuklön, semester, bruttolön, preliminärskatt och nettolön.';
 
 export class PayslipExtractionError extends Error {}
 
@@ -66,15 +128,33 @@ function parseModelJson(content: string): ExtractedPayslip {
     }
     return null;
   };
+  // A model that returns a negative deduction still means "this much sick pay"
+  const positive = (value: unknown): number | null => {
+    const n = num(value);
+    return n === null ? null : Math.abs(n);
+  };
 
   const payMonth = typeof obj.payMonth === 'string' && /^\d{4}-\d{2}$/.test(obj.payMonth) ? obj.payMonth : null;
-  const tax = num(obj.tax);
+  // Malformed OB lines read as "found none" — the rest of the spec is still useful
+  const obLines = parseObLines(obj.obLines) ?? null;
 
   return {
     payMonth,
+    workHours: num(obj.workHours),
+    hourlyRate: num(obj.hourlyRate),
+    basePay: num(obj.basePay),
+    obLines,
+    totalOB: num(obj.totalOB),
+    overtimeMertid: num(obj.overtimeMertid),
+    overtimeEnkel: num(obj.overtimeEnkel),
+    overtimeKvalificerad: num(obj.overtimeKvalificerad),
+    sickPay: positive(obj.sickPay),
+    vacationPay: num(obj.vacationPay),
+    vacationDaysPay: num(obj.vacationDaysPay),
+    vacationDaysCount: num(obj.vacationDaysCount),
     grossPay: num(obj.grossPay),
     // The tax line is printed with a minus sign on most payslips; the app stores it positive.
-    tax: tax === null ? null : Math.abs(tax),
+    tax: positive(obj.tax),
     netPay: num(obj.netPay),
   };
 }
@@ -98,7 +178,7 @@ async function extractViaOpenRouter(
 
   const body: Record<string, unknown> = {
     model,
-    max_tokens: 2000,
+    max_tokens: 4000,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: [filePart, { type: 'text', text: USER_PROMPT }] },
@@ -162,7 +242,7 @@ async function extractViaAnthropic(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 2000,
+      max_tokens: 4000,
       system: SYSTEM_PROMPT,
       output_config: { format: { type: 'json_schema', schema: PAYSLIP_SCHEMA } },
       messages: [{ role: 'user', content: [filePart, { type: 'text', text: USER_PROMPT }] }],
