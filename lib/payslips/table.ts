@@ -1,6 +1,7 @@
 /**
- * DDL for the payslips table, shared by scripts/migrate-v17.ts and the runtime
- * bootstrap in lib/payslips/store.ts so the schema is defined in one place.
+ * DDL for the payslips table, used by the runtime bootstrap in
+ * lib/payslips/store.ts. scripts/migrate-v17.ts carries the same statements
+ * inlined — the runner image has no lib/, so it cannot import them from here.
  */
 export const PAYSLIPS_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS payslips (
