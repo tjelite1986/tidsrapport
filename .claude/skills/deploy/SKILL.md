@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: Deployar tidsrapport till Pi:n via CI-flödet (push → GitHub Actions bygger imagen → scripts/deploy.sh drar och startar om containern). Hanterar även databasmigrering.
-argument-hint: "[migration-version, t.ex. v16]"
+argument-hint: "[migration-version, t.ex. v20]"
 allowed-tools: Bash(npm run build:*), Bash(npm test:*), Bash(git -C /home/thomas/code/tidsrapport:*), Bash(bash /home/thomas/code/tidsrapport/scripts/deploy.sh:*), Bash(gh run:*), Bash(docker exec:*), Bash(docker ps:*), Bash(docker logs:*)
 ---
 
@@ -64,7 +64,7 @@ cd /home/thomas/docker2/tidsrapport && docker compose pull && docker compose up 
 
 ## Steg 4 – Databasmigrering (om angiven)
 
-Om användaren angav ett migrations-argument (t.ex. "v16"), kör i containern —
+Om användaren angav ett migrations-argument (t.ex. "v20"), kör i containern —
 DB:n ligger i en volym, inte i repot:
 
 ```bash
@@ -75,7 +75,10 @@ Om inget argument angavs: fråga bara om ändringen faktiskt rörde schemat
 (`lib/db/schema.ts` eller ett nytt `scripts/migrate-v*.ts`). En ren UI- eller
 assetändring behöver ingen migration.
 
-Senast körda migration: **v15** (hourly_rate_history) — nästa lediga är v16.
+Senaste migrationen: **v19** (lönebeskedsuppgifter på user_settings) — nästa
+lediga är v20. Observera att v17–v19 kör sig själva: v17/v18 vid första anropet
+mot `lib/payslips/store.ts` och v19 vid modulinit i `lib/db/index.ts`, så de
+behöver inte köras för hand efter ett deploy.
 DB-sökväg i container: `/app/data/tidsrapport.db`
 
 ## Steg 5 – Kontrollera loggarna
