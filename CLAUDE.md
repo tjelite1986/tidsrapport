@@ -2,124 +2,124 @@
 
 ## Stack
 Next.js 14 (App Router), SQLite via better-sqlite3 + Drizzle ORM, NextAuth JWT, Tailwind CSS.
-DB: `data/tidsrapport.db` | Container-DB: `/app/data/tidsrapport.db`
+DB: `data/tidsrapport.db` | Container DB: `/app/data/tidsrapport.db`
 
-## Arkitektur
-Se `.claude/architecture.md` för fullständig filstruktur och API-referens.
+## Architecture
+See `.claude/architecture.md` for the full file structure and API reference.
 
-## Konventioner
-- Datumhantering: använd ALLTID lokala datumkomponenter — ALDRIG `toISOString()` (ger UTC-shift)
-- API-auth: `getServerSession(authOptions)` i varje route — aldrig userId från query utan session
-- Pengar: SEK, `sv-SE` locale
-- Migrationer: `scripts/migrate-vN.ts`, kontrollera alltid `PRAGMA table_info` innan ALTER TABLE
-- Admin kan EJ se andra användares löne- eller rapportdata
+## Conventions
+- Dates: ALWAYS use local date components — NEVER `toISOString()` (it shifts to UTC)
+- API auth: `getServerSession(authOptions)` in every route — never take userId from the query without a session
+- Money: SEK, `sv-SE` locale
+- Migrations: `scripts/migrate-vN.ts`, always check `PRAGMA table_info` before ALTER TABLE
+- An admin can NOT see other users' salary or report data
 
-## Migrations-ordning
-v2 → … → v14 (projekt per-user) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (lönerader på payslips) → v19 (lönebeskedsuppgifter på user_settings, senaste)
-Nästa: **v20**. Kör i container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
-v17 och v18 körs även vid första anropet (`lib/payslips/store.ts`: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` bakom `PRAGMA table_info`) — de behöver alltså inte köras manuellt, men är kvar för fullständighetens skull.
-v19 körs vid modulinit i `lib/db/index.ts` (`applyUserSettingsColumns`), alltså före första queryn mot `user_settings` — annars hade varje läsning av tabellen kraschat tills migrationen kördes för hand.
+## Migration order
+v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings, latest)
+Next: **v20**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v17 and v18 also run on the first call (`lib/payslips/store.ts`: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` behind `PRAGMA table_info`) — so they need no manual run, but are kept for completeness.
+v19 runs at module init in `lib/db/index.ts` (`applyUserSettingsColumns`), i.e. before the first query against `user_settings` — otherwise every read of the table would have crashed until the migration was run by hand.
 
 ## Deploy
 ```bash
-git push origin master   # räcker — CI bygger och Watchtower uppdaterar Pi:n automatiskt
-scripts/deploy.sh        # deploya HEAD direkt: hittar rätt CI-körning, pollar till klar, pull + up -d, verifierar image-byte
+git push origin master   # enough — CI builds and Watchtower updates the Pi automatically
+scripts/deploy.sh        # deploy HEAD right away: finds the matching CI run, polls to completion, pull + up -d, verifies the image changed
 ```
-`scripts/deploy.sh` undviker race: den nycklar på HEAD-sha (ej `gh run list --limit 1`) och bekräftar att container-imagen faktiskt byttes. Efter UI-ändring: hård-refresha PWA:n (cachad JS).
+`scripts/deploy.sh` avoids a race: it keys on the HEAD sha (not `gh run list --limit 1`) and confirms that the container image actually changed. After a UI change: hard-refresh the PWA (cached JS).
 
-Manuell kontroll om något är fel:
+Manual check if something is wrong:
 ```bash
 unset DOCKER_HOST
 cd /home/thomas/docker2/tidsrapport && docker compose pull && docker compose up -d
 docker logs tidsrapport --tail 20
 ```
 
-## CI/CD-flöde (apr 2026)
-1. `git push origin master` → GitHub Actions bygger multi-arch image (arm64 + amd64)
-2. Image pushas till `ghcr.io/tjelite1986/tidsrapport:latest` (publikt paket)
-3. Watchtower på Pi:n kollar varje timme → drar ny image → startar om containern
-- Compose-filen använder `image: ghcr.io/tjelite1986/tidsrapport:latest`, INTE lokal `build:`
+## CI/CD flow (Apr 2026)
+1. `git push origin master` → GitHub Actions builds a multi-arch image (arm64 + amd64)
+2. The image is pushed to `ghcr.io/tjelite1986/tidsrapport:latest` (public package)
+3. Watchtower on the Pi checks hourly → pulls the new image → restarts the container
+- The compose file uses `image: ghcr.io/tjelite1986/tidsrapport:latest`, NOT a local `build:`
 - Watchtower: `/home/thomas/docker2/watchtower/docker-compose.yml`
-- Kör ALDRIG `docker compose build` för tidsrapport — imagen byggs av CI
+- NEVER run `docker compose build` for tidsrapport — the image is built by CI
 
-## Dockerfile — multi-stage build (optimerad apr 2026)
-- **builder**: `node:20-alpine` + `python3 make g++` — kompilerar better-sqlite3, kör `npm run build`
-- **runner**: `node:20-alpine` utan byggsverktyg — Next.js `standalone`-output buntar JS-beroenden
-- Runner kopierar bara `better-sqlite3`, `bindings`, `file-uri-to-path` (enda native-modulen)
-- Fullständiga `node_modules` kopieras INTE till runner — minskar imagen från 1.33 GB → 250 MB
-- Lägg ALDRIG till `python3 make g++` i runner-steget igen
+## Dockerfile — multi-stage build (optimized Apr 2026)
+- **builder**: `node:20-alpine` + `python3 make g++` — compiles better-sqlite3, runs `npm run build`
+- **runner**: `node:20-alpine` without build tools — Next.js `standalone` output bundles the JS dependencies
+- The runner copies only `better-sqlite3`, `bindings`, `file-uri-to-path` (the only native module)
+- Full `node_modules` is NOT copied to the runner — it cuts the image from 1.33 GB → 250 MB
+- NEVER add `python3 make g++` back to the runner stage
 
-## Lönespecar (uppladdade filer)
-- Metadata i tabellen `payslips`, filen på disk i `data/payslips/<userId>/` — samma volym som databasen, så backup måste ta med hela `data/`
-- Filtypen avgörs av magic bytes (`detectPayslipType`), aldrig av filnamn eller `file.type` — en HTML-inloggningssida döpt till `.pdf` avvisas med 415
-- Lagringsnamnet är appens eget (`YYYY-MM-<uuid>.<ext>`); användarens filnamn sparas bara för visning
-- `/api/payslips/[id]/file` är scopad till ägaren och svarar 404 (inte 403) för andras id:n
-- Utbetalningsmånad ≠ arbetsperiod: en spec för `2026-08` jämförs mot löneberäkningen för `2026-07` (`workMonthFor`)
-- AI-avläsning (`lib/payslips/extract.ts`, `/api/payslips/extract`): **OpenRouter först** — `ANTHROPIC_API_KEY` finns men saknar kredit. `OPENROUTER_MODEL` (standard `anthropic/claude-opus-5`), `PAYSLIP_AI_PROVIDER=anthropic` tvingar den andra vägen. PDF skickas som `file`-part med `plugins: [file-parser, engine native]`, bilder som `image_url`. Kostnad ≈ 0,01–0,02 USD per spec.
-- Modellen ska hellre svara `null` än gissa — UI:t listar bara de saknade kärnfälten (brutto/skatt/netto), inte varje tom rad
-- Lönerader (v18): specen kan fyllas i med samma poster som `/lon` räknar fram — arbetad tid, timlön, grundlön, OB per procentsats, mertid/övertid, sjuklön, semesterlön och semesterersättning. Definitionen bor i `lib/payslips/fields.ts` (`PAYSLIP_FIELDS`); lägg till nya poster där, inte i UI:t
-- OB ligger som JSON i `ob_lines` (`[{percent, hours, amount}]`) — läs alltid via `readObLines()`, aldrig `JSON.parse` direkt. Samma procentsats får bara förekomma en gång
-- Jämförelsen byggs serverside av `buildComparison()`: en procentsats som beräkningen saknar räknas som 0 kr (inte "okänt"), och rader som är tomma på båda sidor döljs — utom brutto/skatt/netto
+## Payslips (uploaded files)
+- Metadata in the `payslips` table, the file on disk in `data/payslips/<userId>/` — same volume as the database, so a backup must include all of `data/`
+- The file type is decided by magic bytes (`detectPayslipType`), never by filename or `file.type` — an HTML login page named `.pdf` is rejected with 415
+- The stored name is the app's own (`YYYY-MM-<uuid>.<ext>`); the user's filename is kept for display only
+- `/api/payslips/[id]/file` is scoped to the owner and answers 404 (not 403) for someone else's id
+- Payout month ≠ work period: a payslip for `2026-08` is compared against the salary calculation for `2026-07` (`workMonthFor`)
+- AI extraction (`lib/payslips/extract.ts`, `/api/payslips/extract`): **OpenRouter first** — `ANTHROPIC_API_KEY` exists but has no credit. `OPENROUTER_MODEL` (default `anthropic/claude-opus-5`), `PAYSLIP_AI_PROVIDER=anthropic` forces the other path. A PDF is sent as a `file` part with `plugins: [file-parser, engine native]`, images as `image_url`. Cost ≈ 0.01–0.02 USD per payslip.
+- The model should answer `null` rather than guess — the UI lists only the missing core fields (gross/tax/net), not every empty row
+- Salary lines (v18): a payslip can be filled in with the same entries `/lon` computes — hours worked, hourly rate, base pay, OB per percentage rate, extra/overtime hours, sick pay, holiday pay and holiday compensation. The definition lives in `lib/payslips/fields.ts` (`PAYSLIP_FIELDS`); add new entries there, not in the UI
+- OB is stored as JSON in `ob_lines` (`[{percent, hours, amount}]`) — always read it via `readObLines()`, never `JSON.parse` directly. The same percentage rate may appear only once
+- The comparison is built server-side by `buildComparison()`: a percentage rate the calculation lacks counts as 0 kr (not "unknown"), and rows that are empty on both sides are hidden — except gross/tax/net
 
-## Genererat lönebesked (PDF)
-- `/lon` → "Exportera lönebesked" hämtar `/api/salary/payslip?month=<utbetalningsmånad>` och ritar PDF:en klientsidan. Månaden är **utbetalningsmånad**; raderna gäller arbetsperioden månaden innan (`workMonthFor`)
-- Underlaget byggs serverside i `lib/salary/payslip-document.ts` — header, semestersaldon, ackumulerade kolumner och sociala avgifter. De ackumulerade kolumnerna räknar om varje tidigare utbetalningsmånad samma år (max tolv `computeMonthlySalary`-anrop)
-- Raderna byggs av `buildPayslipLines()` i `lib/pdf/payslip-lines.ts` (ren funktion, testad i `payslip-lines.test.ts`). **Beloppskolumnen summerar exakt till utbetalt belopp** — det är därför raden `996 Öresutjämning` finns. Nya poster läggs till där, inte i generatorn
-- Övertidstimmar bryts ut ur `10 Timlön`-raden och får en egen rad med full timkostnad som A-pris, annars stämmer inte Antal × A-pris mot Belopp
-- Semesterersättning som går till potten hamnar **inte** bland raderna — den betalas inte ut den månaden
-- `lib/pdf/payslip-generator.ts` ritar bara. jsPDF:s WinAnsi-fonter saknar U+00A0 och U+2212, så `fmt()` byter dem mot ASCII — annars blir tusentalsavgränsare och minustecken rutor
-- Header- och fotdata (anställningsnr, adresser, org.nr, bankkonto, utbetalningsdag, arbetsgivaravgift, meddelande) är v19-kolumner på `user_settings` och redigeras under Inställningar → "Uppgifter på lönebeskedet". Inget av det påverkar löneberäkningen
-- Kolumner appen inte har någon källa till (Sparade/Förskott/Obetalda semesterdagar, Kompsaldo, Förmån) skrivs **tomma**, aldrig som 0
+## Generated payslip document (PDF)
+- `/lon` → "Exportera lönebesked" fetches `/api/salary/payslip?month=<payout month>` and draws the PDF client-side. The month is the **payout month**; the rows cover the work period of the month before (`workMonthFor`)
+- The source data is built server-side in `lib/salary/payslip-document.ts` — header, holiday balances, accumulated columns and employer contributions. The accumulated columns recompute every earlier payout month in the same year (at most twelve `computeMonthlySalary` calls)
+- The rows are built by `buildPayslipLines()` in `lib/pdf/payslip-lines.ts` (pure function, tested in `payslip-lines.test.ts`). **The amount column sums exactly to the paid-out amount** — that is why the row `996 Öresutjämning` exists. New entries go there, not in the generator
+- Overtime hours are split out of the `10 Timlön` row and get a row of their own with the full hourly cost as unit price, otherwise quantity × unit price does not match the amount
+- Holiday compensation that goes into the reserve does **not** appear among the rows — it is not paid out that month
+- `lib/pdf/payslip-generator.ts` only draws. jsPDF's WinAnsi fonts lack U+00A0 and U+2212, so `fmt()` swaps them for ASCII — otherwise thousands separators and minus signs turn into boxes
+- Header and footer data (employee number, addresses, org. number, bank account, payout day, employer contribution, message) are v19 columns on `user_settings` and are edited under Inställningar → "Uppgifter på lönebeskedet". None of it affects the salary calculation
+- Columns the app has no source for (saved/advance/unpaid holiday days, comp-time balance, benefits) are written **empty**, never as 0
 
-## Varningar
-- `lib/tax-tables/data-*.json` är 323 KB/st — läs INTE dessa filer, använd `lib/tax-tables/tax-lookup.ts`
-- `node_modules/`, `.next/` — läs aldrig
-- Timer-state sparas i localStorage med nyckeln `tidsrapport-timer`
+## Warnings
+- `lib/tax-tables/data-*.json` are 323 KB each — do NOT read these files, use `lib/tax-tables/tax-lookup.ts`
+- `node_modules/`, `.next/` — never read
+- Timer state is kept in localStorage under the key `tidsrapport-timer`
 
 ---
 
 # SQL Database Assistant
 
-Aktiveras vid: SQL-queries, query-optimering, Drizzle ORM, migrations, schema-utforskning.
+Applies to: SQL queries, query optimization, Drizzle ORM, migrations, schema exploration.
 
-## SQLite-specifikt (detta projekt)
+## SQLite-specific (this project)
 
 ```sql
--- Schema-dump
+-- Schema dump
 SELECT name, sql FROM sqlite_master WHERE type = 'table' ORDER BY name;
--- Kolumninfo
-PRAGMA table_info(tabellnamn);
+-- Column info
+PRAGMA table_info(table_name);
 ```
 
-- Migrations: kontrollera alltid `PRAGMA table_info` innan `ALTER TABLE`
+- Migrations: always check `PRAGMA table_info` before `ALTER TABLE`
 - Backup: `sqlite3 data/tidsrapport.db ".backup backup.db"`
 - ORM: Drizzle — `db.select().from(table).where(eq(table.col, val))`
-- Migrations genereras med: `npx drizzle-kit generate` sedan `npx drizzle-kit push`
+- Migrations are generated with: `npx drizzle-kit generate` then `npx drizzle-kit push`
 
-## Query-optimering
+## Query optimization
 
-| Anti-mönster | Problem | Fix |
+| Anti-pattern | Problem | Fix |
 |---|---|---|
-| `SELECT *` | Onödig data | Explicit kolumnlista |
-| N+1 queries | En fråga per rad | Eager loading / batch med `WHERE id IN (...)` |
-| Utan LIMIT | Kan returnera hela tabellen | Paginera alltid |
-| Implicit typkonvertering | Hindrar indexanvändning | Matcha typer i predicate |
-| Pengar som FLOAT | Avrundningsfel | `INTEGER` (ören) eller `NUMERIC` |
+| `SELECT *` | Unnecessary data | Explicit column list |
+| N+1 queries | One query per row | Eager loading / batch with `WHERE id IN (...)` |
+| No LIMIT | May return the whole table | Always paginate |
+| Implicit type conversion | Prevents index use | Match types in the predicate |
+| Money as FLOAT | Rounding errors | `INTEGER` (minor units) or `NUMERIC` |
 
 ## Zero-downtime migrations (SQLite)
 
 ```sql
--- Lägg till kolumn (säkert)
+-- Add a column (safe)
 ALTER TABLE users ADD COLUMN phone TEXT;
 
--- Byt namn (expand-contract):
--- 1. Lägg till ny kolumn
+-- Rename (expand-contract):
+-- 1. Add the new column
 -- 2. Backfill
--- 3. Uppdatera kod att skriva till ny
--- 4. Ta bort gammal kolumn
+-- 3. Update the code to write to the new one
+-- 4. Drop the old column
 ```
 
-## Drizzle ORM-mönster
+## Drizzle ORM patterns
 
 ```typescript
 // Schema
@@ -140,20 +140,20 @@ db.insert(users).values(data).onConflictDoUpdate({ target: users.email, set: dat
 
 # Next.js App Router Patterns
 
-Aktiveras vid: routes, layouts, API-routes, Server Actions, formulär, datahämtning.
+Applies to: routes, layouts, API routes, Server Actions, forms, data fetching.
 
 ## Server vs Client Components
 
-Default är Server Component — lägg till `'use client'` bara när det behövs:
+The default is a Server Component — add `'use client'` only when needed:
 
 ```tsx
-// Server Component (default) — async/await direkt
+// Server Component (default) — async/await directly
 export default async function Page() {
   const data = await db.select().from(users);
   return <div>{data[0].name}</div>;
 }
 
-// Client Component — krävs för events, hooks, browser-API
+// Client Component — required for events, hooks, browser APIs
 'use client';
 import { useState } from 'react';
 export default function Counter() {
@@ -168,15 +168,15 @@ export default function Counter() {
 app/
   layout.tsx        # Root layout
   page.tsx          # /
-  loading.tsx       # Suspense-boundary (automatisk)
-  error.tsx         # Error boundary (måste vara 'use client')
+  loading.tsx       # Suspense boundary (automatic)
+  error.tsx         # Error boundary (must be 'use client')
   api/
-    route.ts        # API-route
+    route.ts        # API route
   [id]/
     page.tsx        # /[id]
 ```
 
-## Server Actions (formulär utan API-route)
+## Server Actions (forms without an API route)
 
 ```tsx
 // lib/actions.ts
@@ -185,16 +185,16 @@ import { revalidatePath } from 'next/cache';
 
 export async function saveReport(formData: FormData) {
   const date = formData.get('date') as string;
-  // Spara till DB...
+  // Save to the DB...
   revalidatePath('/rapporter');
 }
 
-// Användning i komponent
+// Usage in a component
 export function ReportForm() {
   return (
     <form action={saveReport}>
       <input name="date" type="date" required />
-      <button type="submit">Spara</button>
+      <button type="submit">Save</button>
     </form>
   );
 }
@@ -230,7 +230,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 const schema = z.object({
-  date: z.string().min(1, 'Datum krävs'),
+  date: z.string().min(1, 'Date is required'),
   hours: z.number().min(0).max(24),
 });
 type FormData = z.infer<typeof schema>;
@@ -247,22 +247,22 @@ export function TimeForm() {
     <form onSubmit={form.handleSubmit(onSubmit)}>
       <input {...form.register('date')} type="date" />
       {form.formState.errors.date && <p>{form.formState.errors.date.message}</p>}
-      <button type="submit" disabled={form.formState.isSubmitting}>Spara</button>
+      <button type="submit" disabled={form.formState.isSubmitting}>Save</button>
     </form>
   );
 }
 ```
 
-## Tailwind — vanliga mönster
+## Tailwind — common patterns
 
 ```tsx
-// Responsiv grid
+// Responsive grid
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-// Flexbox centrering
+// Flexbox centering
 <div className="flex items-center justify-between gap-2">
 
-// Konditionella klasser (kräver clsx eller cn())
+// Conditional classes (requires clsx or cn())
 import { cn } from '@/lib/utils';
 <div className={cn('base', isActive && 'bg-blue-500', className)}>
 
@@ -270,19 +270,19 @@ import { cn } from '@/lib/utils';
 <button className="hover:bg-blue-600 transition-colors duration-200">
 ```
 
-## Anti-mönster att undvika
+## Anti-patterns to avoid
 
 ```tsx
-// Fel: params utan await (Next.js 15 — gäller ej Next.js 14)
-// I Next.js 14 är params fortfarande synkrona
+// Wrong: params without await (Next.js 15 — does not apply to Next.js 14)
+// In Next.js 14 params are still synchronous
 
-// Fel: fetch i Client Component när Server Component fungerar
+// Wrong: fetch in a Client Component when a Server Component works
 'use client';
-useEffect(() => { fetch('/api/data')... }, []); // Onödig
+useEffect(() => { fetch('/api/data')... }, []); // Unnecessary
 
-// Fel: 'use client' på hela sidor utan anledning
-// Håll sidor som Server Components, extrahera interaktiva delar
+// Wrong: 'use client' on whole pages for no reason
+// Keep pages as Server Components, extract the interactive parts
 
-// Fel: userId från query-params istället för session
-// Alltid: const session = await getServerSession(authOptions)
+// Wrong: userId from query params instead of the session
+// Always: const session = await getServerSession(authOptions)
 ```

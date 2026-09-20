@@ -5,6 +5,9 @@ on:
     branches:
       - master
       - main
+    paths-ignore:
+      - 'CLAUDE.md'
+      - '.claude/**'
   release:
     types: [published]
 
