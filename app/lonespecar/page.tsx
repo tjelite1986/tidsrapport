@@ -57,6 +57,7 @@ function formatCurrency(amount: number) {
 
 function formatValue(value: number, unit: ComparisonRow['unit']) {
   if (unit === 'currency') return formatCurrency(value);
+  if (unit === 'rate') return `${new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} kr/h`;
   if (unit === 'hours') return `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2 }).format(value)} h`;
   return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2 }).format(value);
 }
@@ -64,10 +65,10 @@ function formatValue(value: number, unit: ComparisonRow['unit']) {
 function formatDiff(amount: number, unit: ComparisonRow['unit']) {
   const decimals = unit === 'currency' ? 0 : 2;
   if (Math.abs(amount) < (unit === 'currency' ? 0.5 : 0.005)) {
-    return unit === 'currency' ? '0 kr' : unit === 'hours' ? '0 h' : '0';
+    return unit === 'currency' ? '0 kr' : unit === 'rate' ? '0 kr/h' : unit === 'hours' ? '0 h' : '0';
   }
   const formatted = new Intl.NumberFormat('sv-SE', { maximumFractionDigits: decimals }).format(Math.abs(amount));
-  const suffix = unit === 'currency' ? ' kr' : unit === 'hours' ? ' h' : '';
+  const suffix = unit === 'currency' ? ' kr' : unit === 'rate' ? ' kr/h' : unit === 'hours' ? ' h' : '';
   return `${amount > 0 ? '+' : '−'}${formatted}${suffix}`;
 }
 

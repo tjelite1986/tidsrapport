@@ -32,7 +32,8 @@ export const PAYSLIP_NUMBER_FIELDS = [
 
 export type PayslipNumberField = (typeof PAYSLIP_NUMBER_FIELDS)[number];
 
-export type PayslipUnit = 'currency' | 'hours' | 'count';
+/** `rate` is kr/h: shown and compared to the öre, unlike whole-krona amounts. */
+export type PayslipUnit = 'currency' | 'rate' | 'hours' | 'count';
 
 export type PayslipFieldDef = {
   key: PayslipNumberField;
@@ -46,7 +47,7 @@ export type PayslipFieldDef = {
 
 export const PAYSLIP_FIELDS: PayslipFieldDef[] = [
   { key: 'workHours', label: 'Arbetad tid', unit: 'hours', group: 'time', placeholder: '162,50' },
-  { key: 'hourlyRate', label: 'Timlön', unit: 'currency', group: 'time', placeholder: '175,64' },
+  { key: 'hourlyRate', label: 'Timlön', unit: 'rate', group: 'time', placeholder: '175,64' },
   { key: 'basePay', label: 'Grundlön', unit: 'currency', group: 'earnings', placeholder: '28 541,00' },
   { key: 'totalOB', label: 'Totalt OB', unit: 'currency', group: 'earnings', placeholder: '2 145,00' },
   { key: 'overtimeMertid', label: 'Mertid', unit: 'currency', group: 'earnings', calcKey: 'overtidMertid' },
