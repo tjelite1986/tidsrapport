@@ -73,9 +73,9 @@ function formatDiff(amount: number, unit: ComparisonRow['unit']) {
   return `${amount > 0 ? '+' : '−'}${formatted}${suffix}`;
 }
 
-/** How large a diff may be before it is flagged. Money is rounded to whole kronor. */
+/** How large a diff may be before it is flagged: any öre counts. */
 function isMatch(diff: number, unit: ComparisonRow['unit']) {
-  return Math.abs(diff) < (unit === 'currency' ? 1 : 0.01);
+  return Math.abs(diff) < 0.005;
 }
 
 function formatMonth(month: string) {

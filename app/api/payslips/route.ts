@@ -60,7 +60,7 @@ function withCalculation(rows: Payslip[], userId: number) {
             overtimeEnkel: salary.overtidEnkel,
             overtimeKvalificerad: salary.overtidKvalificerad,
             sickPay: salary.sickPay,
-            vacationPay: salary.vacationPay,
+            vacationPay: salary.vacationPayPaid,
             vacationDaysPay: salary.vacationDaysPay,
             vacationDaysCount: salary.vacationDaysCount,
             grossPay: salary.grossPay,

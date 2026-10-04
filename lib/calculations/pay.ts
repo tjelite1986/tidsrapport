@@ -74,6 +74,8 @@ export interface MonthlyPayResult {
   sickPay: number;
   grossBeforeVacation: number;
   vacationPay: number;
+  /** The part of vacationPay paid out this month; 0 when it goes to the pot. */
+  vacationPayPaid: number;
   vacationDaysPay: number;
   vacationDaysCount: number;
   grossPay: number;
@@ -314,6 +316,7 @@ export function calculateMonthlyPay(
     sickPay,
     grossBeforeVacation,
     vacationPay,
+    vacationPayPaid: addVacationToGross ? vacationPay : 0,
     vacationDaysPay,
     vacationDaysCount,
     grossPay,

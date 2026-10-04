@@ -62,7 +62,7 @@ export const PAYSLIP_FIELDS: PayslipFieldDef[] = [
   { key: 'sickPay', label: 'Sjuklön', unit: 'currency', group: 'earnings' },
   { key: 'vacationDaysCount', label: 'Semesterdagar', unit: 'count', group: 'earnings' },
   { key: 'vacationDaysPay', label: 'Semesterlön', unit: 'currency', group: 'earnings' },
-  { key: 'vacationPay', label: 'Semesterersättning', unit: 'currency', group: 'earnings' },
+  { key: 'vacationPay', label: 'Semesterersättning', unit: 'currency', group: 'earnings', calcKey: 'vacationPayPaid' },
   { key: 'grossPay', label: 'Bruttolön', unit: 'currency', group: 'summary', placeholder: '32 450,00' },
   { key: 'tax', label: 'Skatt', unit: 'currency', group: 'summary', placeholder: '8 332,00' },
   { key: 'netPay', label: 'Nettolön', unit: 'currency', group: 'summary', placeholder: '24 118,00' },
