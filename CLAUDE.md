@@ -292,6 +292,9 @@ useEffect(() => { fetch('/api/data')... }, []); // Unnecessary
 - **Language:** everything written to a file is English: code comments, UI
   strings, API error messages, log output, README, JSON descriptions, commit
   messages. Chat with the owner in Swedish. No emojis unless asked.
+- **UI language exception (this repo):** the product UI is Swedish (labels like
+  "Lön", "Inställningar"). New UI text matches it; never translate existing UI.
+  Code, comments, logs and API errors stay English.
 - **`docs/` is local-only.** It is a scratch area between the owner and Claude,
   gitignored on purpose. Never commit it and never `git add -f` it. A cloud
   session will not see it; ask the owner to paste what you need.
@@ -311,3 +314,42 @@ useEffect(() => { fetch('/api/data')... }, []); // Unnecessary
   touching. Run `prettier --check` before `prettier --write` on an older file.
 - **Archive, don't delete:** don't delete branches; tag them `archive/<name>`
   first.
+
+## Lessons learned
+
+### Pay math: one source per rule
+- Build `PaySettings` only through `buildPaySettings()` (`lib/calculations/build-pay-settings.ts`). Why: `/lon`, `/statistik` and `/semester` each assembled their own settings once and drifted apart; it was a whole bug class.
+- Resolve an hourly rate only through `resolveHourlyRate()` (`lib/calculations/contracts.ts`): dated history (latest `effectiveFrom <= date`, earliest row as floor), then flat rate, then contract table. Why: the calendar used the contract-table rate while `/lon` used the dated history.
+- `app/api/calendar-data/route.ts` has its own per-entry pay calculation, separate from `lib/calculations/pay.ts`. Any change to rates, OB, sick or VAB pay must be made in both, or grep for other parallel calculations first.
+- Per-day vacation pay goes through `getVacationDailyRate()` (`lib/vacation-rate.ts`); a manual `vacation_daily_rate` override beats the derived value. Why: the derived value (last year's pot / days per year) is wrong when the employer's earning year differs, and the consumers drifted before this existed.
+- Only Mon-Fri consume a vacation day and earn vacation pay (`isPaidVacationDay` / `countPaidVacationDays` in `lib/calculations/vacation.ts`). A vacation period is still stored date by date, weekends included, so the calendar shows the whole absence. Weekday red days are not excluded (no evidence either way).
+- In 'separate' vacation mode the vacation-pay percentage accrues to the pot and is not on the payslip. Compare payslips against `vacationPayPaid` (0 unless added to gross), not the accrued amount.
+
+### Sick, VAB, OB rules not to regress
+- The sick chain follows the return rule: a gap of <= 5 calendar days continues the period (no new waiting day); work and VAB days do not reset it. Logic lives in `lib/calculations/sick-chain.ts` (`SICK_RETURN_WINDOW_DAYS`).
+- The waiting-day model is the old full karensdag, not the 2019 deduction model. Deliberate: it matches the employer's payslips.
+- VAB pays 0 kr from the employer: it counts toward total hours but not `workHours`, and adds nothing to base/OB/overtime/sick pay.
+- Retail OB: 100% after 12:00 on half-day holiday eves. When overtime beats OB for a day, that day's `obResult` is nulled so payslip rows still sum to gross.
+- Absence entries (sick/VAB) may be a full day without start/end: start/end are `required={!isAbsence}` and the client sends `hours` directly. Keep that path when touching the time forms.
+
+### Adding an entry type or field
+- Drizzle's `text(..., { enum: [...] })` is TypeScript-only in SQLite (plain TEXT, no CHECK). A new `entry_type` value needs no migration.
+- `components/dialogs/EditTimeEntryDialog.tsx` is a separate component from the add form; a new entry type or field must be added to both. VAB once existed only in "add new".
+- Entry-type labels and badges are duplicated across `app/tid`, `app/rapporter`, `app/statistik` and `app/hjalp`; grep all of them.
+- Calendar colours: sick = red, VAB = orange, red days = pink/rose. Entry-type colour takes precedence over the weekday tint (below `isToday`).
+
+### Migrations and the database
+- SQLite has no `ADD COLUMN IF NOT EXISTS`, and `next build` collects page data in several worker processes that open the same file. A `PRAGMA table_info` check is not atomic across them. Add runtime columns through `addColumnsIfMissing()` (`lib/db/add-columns.ts`), which treats `duplicate column name` as already applied. Why: a guarded ALTER failed the CI build once a second module imported `lib/db`.
+- Do not add other I/O or queries at module top level in `lib/db` beyond what is already there. Route modules are imported by parallel build workers.
+- Keep `scripts/migrate-vN.ts` self-contained: inline the SQL and import only `better-sqlite3`/`path`. Why: the runner image ships `scripts/` and `.next/standalone` but not `lib/`, so a migration importing from `lib/` works locally and fails where it is meant to run.
+- Columns applied lazily from a route module (for example `lib/payslips/store.ts`) only appear after the first authenticated request that imports that module. Anything every request reads must be applied at `lib/db` init, as v19 is (`applyUserSettingsColumns`).
+
+### Isolation and auth
+- Every `/api/projects` verb filters on the session user, and time-entry POST/PUT verify project ownership. Answer 404, not 403, for another user's id. Why: projects once had no owner column and every user could edit everyone's projects.
+- Do not re-add user pickers to `/lon` or `/rapporter`; admins must not see other users' pay. They were removed on purpose.
+- `middleware.ts` excludes public assets by exact filename. Adding or renaming anything in `public/` (icons, manifest, sw) without updating the matcher makes it require a login. The login page's own favicon then silently redirects to `/login`.
+- Icon URLs carry `?v=N` in `app/manifest.ts` and `app/layout.tsx`. Bump N whenever the icons change. Why: installed Android/iOS home-screen apps only pick up a new icon when the manifest itself changes.
+
+### Tests
+- `npm test` (vitest) locks the pay math with golden values taken from real payslips, and CI's image build `needs: test`. When a rule changes, add a regression test next to it in `lib/calculations/*.test.ts`. Do not loosen a golden value to make a test pass.
+- Test files are excluded from the Next build via `tsconfig.json` (`**/*.test.ts`); keep new tests matching that pattern.
