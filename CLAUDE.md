@@ -30,7 +30,7 @@ scripts/deploy.sh        # deploy HEAD right away: finds the matching CI run, po
 Manual check if something is wrong:
 ```bash
 unset DOCKER_HOST
-cd /home/thomas/docker2/tidsrapport && docker compose pull && docker compose up -d
+cd <compose dir for tidsrapport on the host> && docker compose pull && docker compose up -d
 docker logs tidsrapport --tail 20
 ```
 
@@ -39,7 +39,7 @@ docker logs tidsrapport --tail 20
 2. The image is pushed to `ghcr.io/tjelite1986/tidsrapport:latest` (public package)
 3. Watchtower on the Pi checks hourly → pulls the new image → restarts the container
 - The compose file uses `image: ghcr.io/tjelite1986/tidsrapport:latest`, NOT a local `build:`
-- Watchtower: `/home/thomas/docker2/watchtower/docker-compose.yml`
+- Watchtower runs as its own compose stack on the host
 - NEVER run `docker compose build` for tidsrapport — the image is built by CI
 
 ## Dockerfile — multi-stage build (optimized Apr 2026)
