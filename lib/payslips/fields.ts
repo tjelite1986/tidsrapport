@@ -21,6 +21,8 @@ export const PAYSLIP_NUMBER_FIELDS = [
   'overtimeMertid',
   'overtimeEnkel',
   'overtimeKvalificerad',
+  'sickHours',
+  'karensHours',
   'sickPay',
   'vacationDaysCount',
   'vacationDaysPay',
@@ -59,6 +61,8 @@ export const PAYSLIP_FIELDS: PayslipFieldDef[] = [
     group: 'earnings',
     calcKey: 'overtidKvalificerad',
   },
+  { key: 'sickHours', label: 'Sjuktimmar', unit: 'hours', group: 'time' },
+  { key: 'karensHours', label: 'Karens', unit: 'hours', group: 'time' },
   { key: 'sickPay', label: 'Sjuklön', unit: 'currency', group: 'earnings' },
   { key: 'vacationDaysCount', label: 'Semesterdagar', unit: 'count', group: 'earnings' },
   { key: 'vacationDaysPay', label: 'Semesterlön', unit: 'currency', group: 'earnings' },
@@ -224,12 +228,31 @@ export function buildComparison(row: PayslipAmounts, salary: SalaryLike | null):
       }
     }
 
-    const actual = row[field.key] ?? null;
+    let actual = row[field.key] ?? null;
+    let label = field.label;
+    // Mertid is paid on its own line, outside the hours on the base-pay line,
+    // while the app counts every worked hour. Fold the mertid hours (amount at
+    // the plain hourly rate) into the spec's hours so the two pots compare.
+    if (field.key === 'workHours') {
+      const mertidHours = mertidHoursOf(row);
+      if (actual !== null && mertidHours > 0) {
+        actual = Math.round((actual + mertidHours) * 100) / 100;
+        label = `${field.label} inkl. mertid`;
+      }
+    }
     const calculated = salary ? numberOrNull(salary[field.calcKey ?? field.key]) : null;
-    push(field.key, field.label, field.unit, field.group, actual, calculated, ALWAYS_SHOWN.includes(field.key));
+    push(field.key, label, field.unit, field.group, actual, calculated, ALWAYS_SHOWN.includes(field.key));
   }
 
   return rows;
+}
+
+/** Mertid hours on the spec, derived from the amount at the plain hourly rate. */
+export function mertidHoursOf(row: PayslipAmounts): number {
+  const amount = row.overtimeMertid;
+  const rate = row.hourlyRate;
+  if (!amount || !rate || rate <= 0) return 0;
+  return amount / rate;
 }
 
 function numberOrNull(value: unknown): number | null {

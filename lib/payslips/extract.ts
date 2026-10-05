@@ -11,6 +11,8 @@ export type ExtractedPayslip = {
   overtimeMertid: number | null;
   overtimeEnkel: number | null;
   overtimeKvalificerad: number | null;
+  sickHours: number | null;
+  karensHours: number | null;
   sickPay: number | null;
   vacationPay: number | null;
   vacationDaysPay: number | null;
@@ -61,6 +63,8 @@ const PAYSLIP_SCHEMA = {
     overtimeMertid: amount('Mertid i kronor'),
     overtimeEnkel: amount('Enkel övertid i kronor'),
     overtimeKvalificerad: amount('Kvalificerad övertid i kronor'),
+    sickHours: amount('Antal sjuktimmar som sjuklön betalats för'),
+    karensHours: amount('Antal karenstimmar (karensavdrag i timmar)'),
     sickPay: amount('Sjuklön i kronor (positivt tal), inte sjukavdraget'),
     vacationPay: amount('Semesterersättning i kronor'),
     vacationDaysPay: amount('Semesterlön för uttagna semesterdagar i kronor'),
@@ -79,6 +83,8 @@ const PAYSLIP_SCHEMA = {
     'overtimeMertid',
     'overtimeEnkel',
     'overtimeKvalificerad',
+    'sickHours',
+    'karensHours',
     'sickPay',
     'vacationPay',
     'vacationDaysPay',
@@ -96,7 +102,7 @@ Regler:
 - basePay är grundlönen/tidlönen (kan heta "Tidlön", "Månadslön", "Timlön"), utan OB, övertid och tillägg. workHours är timmarna den raden räknats på och hourlyRate dess a-pris.
 - obLines är en rad per OB-procentsats som står på specen ("OB 50%", "Storhelgstillägg 100%"). Ta med både timmar och belopp när båda står. totalOB är summan av OB-raderna.
 - Övertid delas upp i mertid, enkel övertid och kvalificerad övertid. Står bara en klumpsumma: lägg den i den rad som texten anger, annars null.
-- sickPay är sjuklön som POSITIVT tal — sjukavdraget är en annan rad och ska inte med.
+- sickPay är sjuklön som POSITIVT tal — sjukavdraget är en annan rad och ska inte med. sickHours är timmarna sjuklönen avser, karensHours timmarna på karensraden (t.ex. "Karens 4,75 Tim").
 - vacationPay är semesterersättning (ofta en procentsats av bruttolönen). vacationDaysPay och vacationDaysCount avser uttagna semesterdagar.
 - grossPay är bruttolönen (kan heta "Bruttolön", "Summa lön", "Skattepliktig bruttolön").
 - tax är den preliminära skatten som ett POSITIVT tal, även om den står med minustecken.
@@ -148,6 +154,8 @@ function parseModelJson(content: string): ExtractedPayslip {
     overtimeMertid: num(obj.overtimeMertid),
     overtimeEnkel: num(obj.overtimeEnkel),
     overtimeKvalificerad: num(obj.overtimeKvalificerad),
+    sickHours: positive(obj.sickHours),
+    karensHours: positive(obj.karensHours),
     sickPay: positive(obj.sickPay),
     vacationPay: num(obj.vacationPay),
     vacationDaysPay: num(obj.vacationDaysPay),

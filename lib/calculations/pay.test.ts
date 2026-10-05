@@ -72,6 +72,8 @@ describe('sick day karens', () => {
     const sick = r.days.filter((d) => d.entryType === 'sick');
     expect(sick[0].sickPay).toBe(0); // karensdag
     expect(sick[1].sickPay).toBeCloseTo(sickPay80, 5);
+    expect(r.sickHours).toBe(16);
+    expect(r.karensHours).toBe(8);
   });
 
   it('continues the period over a weekend (återinsjuknande within 5 days)', () => {

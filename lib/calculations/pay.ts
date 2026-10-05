@@ -71,6 +71,8 @@ export interface MonthlyPayResult {
   // line with an "Antal" column, so the amounts alone are not enough.
   overtimeHours: { mertid: number; enkel: number; kvalificerad: number };
   sickHours: number;
+  /** Hours on the first day of a sick period, which carry no sick pay. */
+  karensHours: number;
   sickPay: number;
   grossBeforeVacation: number;
   vacationPay: number;
@@ -132,6 +134,7 @@ export function calculateMonthlyPay(
   let enkelHours = 0;
   let kvalificeradHours = 0;
   let sickHours = 0;
+  let karensHours = 0;
   let sickPay = 0;
 
   // Sort entries by date for sick day counting
@@ -173,6 +176,7 @@ export function calculateMonthlyPay(
 
       // Karensdag = first sick day gets 0
       const daySickPay = consecutiveSickDays === 1 ? 0 : entryRate * hours * 0.8;
+      if (consecutiveSickDays === 1) karensHours += hours;
       sickPay += daySickPay;
 
       days.push({
@@ -313,6 +317,7 @@ export function calculateMonthlyPay(
     totalOvertimePay,
     overtimeHours: { mertid: mertidHours, enkel: enkelHours, kvalificerad: kvalificeradHours },
     sickHours,
+    karensHours,
     sickPay,
     grossBeforeVacation,
     vacationPay,

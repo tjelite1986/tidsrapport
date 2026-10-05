@@ -40,6 +40,8 @@ export const PAYSLIP_EXTRA_COLUMNS: { name: string; ddl: string }[] = [
   { name: 'overtime_enkel', ddl: 'overtime_enkel REAL' },
   { name: 'overtime_kvalificerad', ddl: 'overtime_kvalificerad REAL' },
   { name: 'sick_pay', ddl: 'sick_pay REAL' },
+  { name: 'sick_hours', ddl: 'sick_hours REAL' },
+  { name: 'karens_hours', ddl: 'karens_hours REAL' },
   { name: 'vacation_pay', ddl: 'vacation_pay REAL' },
   { name: 'vacation_days_pay', ddl: 'vacation_days_pay REAL' },
   { name: 'vacation_days_count', ddl: 'vacation_days_count REAL' },

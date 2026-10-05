@@ -115,6 +115,29 @@ describe('buildComparison', () => {
     expect(ob100.calculated).toBeCloseTo(702.56, 2);
   });
 
+  it('folds mertid hours into the spec hours at the plain hourly rate', () => {
+    // Payslip 2026-02: 122.83 h on the base-pay line plus 2 811.41 kr mertid at 162.98 kr/h
+    const withMertid = { ...row, workHours: 122.83, hourlyRate: 162.98, overtimeMertid: 2811.41 };
+    const hours = buildComparison(withMertid, SALARY).find((r) => r.key === 'workHours')!;
+    expect(hours.actual).toBeCloseTo(140.08, 2);
+    expect(hours.label).toBe('Arbetad tid inkl. mertid');
+  });
+
+  it('leaves the hours alone without mertid', () => {
+    const hours = buildComparison(row, SALARY).find((r) => r.key === 'workHours')!;
+    expect(hours.actual).toBe(160);
+    expect(hours.label).toBe('Arbetad tid');
+  });
+
+  it('compares sick and karens hours', () => {
+    const rows = buildComparison(
+      { ...row, sickHours: 8, karensHours: 4.75 },
+      { ...SALARY, sickHours: 8, karensHours: 8 },
+    );
+    expect(rows.find((r) => r.key === 'sickHours')!.diff).toBe(0);
+    expect(rows.find((r) => r.key === 'karensHours')!.diff).toBe(-3.25);
+  });
+
   it('hides rows that are empty on both sides, but keeps gross/tax/net', () => {
     const rows = buildComparison(row, SALARY);
     expect(rows.some((r) => r.key === 'sickPay')).toBe(false);

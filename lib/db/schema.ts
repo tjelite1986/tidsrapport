@@ -163,6 +163,8 @@ export const payslips = sqliteTable('payslips', {
   overtimeEnkel: real('overtime_enkel'),
   overtimeKvalificerad: real('overtime_kvalificerad'),
   sickPay: real('sick_pay'),
+  sickHours: real('sick_hours'),
+  karensHours: real('karens_hours'),
   vacationPay: real('vacation_pay'),
   vacationDaysPay: real('vacation_days_pay'),
   vacationDaysCount: real('vacation_days_count'),
