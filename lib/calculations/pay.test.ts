@@ -74,6 +74,7 @@ describe('sick day karens', () => {
     expect(sick[1].sickPay).toBeCloseTo(sickPay80, 5);
     expect(r.sickHours).toBe(16);
     expect(r.karensHours).toBe(8);
+    expect(r.paidSickHours).toBe(8);
   });
 
   it('continues the period over a weekend (återinsjuknande within 5 days)', () => {

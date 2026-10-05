@@ -132,7 +132,7 @@ describe('buildComparison', () => {
   it('compares sick and karens hours', () => {
     const rows = buildComparison(
       { ...row, sickHours: 8, karensHours: 4.75 },
-      { ...SALARY, sickHours: 8, karensHours: 8 },
+      { ...SALARY, paidSickHours: 8, karensHours: 8 },
     );
     expect(rows.find((r) => r.key === 'sickHours')!.diff).toBe(0);
     expect(rows.find((r) => r.key === 'karensHours')!.diff).toBe(-3.25);

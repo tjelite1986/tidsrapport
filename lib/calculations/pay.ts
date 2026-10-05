@@ -73,6 +73,8 @@ export interface MonthlyPayResult {
   sickHours: number;
   /** Hours on the first day of a sick period, which carry no sick pay. */
   karensHours: number;
+  /** Sick hours that carry sick pay (day 2 onwards), as the payslip's sick-pay line counts them. */
+  paidSickHours: number;
   sickPay: number;
   grossBeforeVacation: number;
   vacationPay: number;
@@ -318,6 +320,7 @@ export function calculateMonthlyPay(
     overtimeHours: { mertid: mertidHours, enkel: enkelHours, kvalificerad: kvalificeradHours },
     sickHours,
     karensHours,
+    paidSickHours: sickHours - karensHours,
     sickPay,
     grossBeforeVacation,
     vacationPay,

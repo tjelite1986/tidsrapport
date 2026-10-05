@@ -63,7 +63,7 @@ const PAYSLIP_SCHEMA = {
     overtimeMertid: amount('Mertid i kronor'),
     overtimeEnkel: amount('Enkel övertid i kronor'),
     overtimeKvalificerad: amount('Kvalificerad övertid i kronor'),
-    sickHours: amount('Antal sjuktimmar som sjuklön betalats för'),
+    sickHours: amount('Antal timmar på sjuklöneraden (dag 2-14), utan karens och utan OB-sjuklöneraderna'),
     karensHours: amount('Antal karenstimmar (karensavdrag i timmar)'),
     sickPay: amount('Sjuklön i kronor (positivt tal), inte sjukavdraget'),
     vacationPay: amount('Semesterersättning i kronor'),

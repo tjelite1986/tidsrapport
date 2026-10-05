@@ -61,7 +61,8 @@ export const PAYSLIP_FIELDS: PayslipFieldDef[] = [
     group: 'earnings',
     calcKey: 'overtidKvalificerad',
   },
-  { key: 'sickHours', label: 'Sjuktimmar', unit: 'hours', group: 'time' },
+  // The payslip's sick-pay line counts day 2 onwards; karens has its own line
+  { key: 'sickHours', label: 'Sjuktimmar', unit: 'hours', group: 'time', calcKey: 'paidSickHours' },
   { key: 'karensHours', label: 'Karens', unit: 'hours', group: 'time' },
   { key: 'sickPay', label: 'Sjuklön', unit: 'currency', group: 'earnings' },
   { key: 'vacationDaysCount', label: 'Semesterdagar', unit: 'count', group: 'earnings' },
