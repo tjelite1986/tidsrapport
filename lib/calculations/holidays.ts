@@ -89,7 +89,6 @@ export function getHolidays(year: number): Holiday[] {
     { date: formatDate(allaSaints), name: 'Alla helgons dag', halfDay: false },
 
     // Half days
-    { date: formatDate(addDays(easter, -3)), name: 'Skärtorsdagen (halvdag)', halfDay: true },
     { date: formatDate(midsommarEve), name: 'Midsommarafton', halfDay: true },
     { date: `${year}-12-24`, name: 'Julafton', halfDay: true },
     { date: `${year}-12-31`, name: 'Nyårsafton', halfDay: true },

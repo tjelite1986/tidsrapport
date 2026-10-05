@@ -42,6 +42,12 @@ describe('isHalfDay', () => {
     expect(isHalfDay('2026-12-31')).toBe(true);
     expect(isHalfDay('2026-02-03')).toBe(false);
   });
+
+  it('treats Maundy Thursday as an ordinary weekday', () => {
+    expect(isHalfDay('2026-04-02')).toBe(false);
+    expect(isRedDay('2026-04-02')).toBe(false);
+    expect(isRedDay('2026-04-03')).toBe(true);
+  });
 });
 
 describe('isDayBeforeRedDay', () => {
