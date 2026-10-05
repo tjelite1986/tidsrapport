@@ -73,9 +73,9 @@ function formatDiff(amount: number, unit: ComparisonRow['unit']) {
   return `${amount > 0 ? '+' : '−'}${formatted}${suffix}`;
 }
 
-/** How large a diff may be before it is flagged: any öre counts. */
+/** How large a diff may be before it is flagged: up to 0.60 kr on amounts, otherwise any difference counts. */
 function isMatch(diff: number, unit: ComparisonRow['unit']) {
-  return Math.abs(diff) < 0.005;
+  return Math.abs(diff) < (unit === 'currency' ? 0.605 : 0.005);
 }
 
 function formatMonth(month: string) {

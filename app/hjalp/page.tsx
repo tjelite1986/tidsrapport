@@ -330,7 +330,7 @@ export default function HjalpPage() {
         <p>
           När beloppen är ifyllda visas de bredvid appens egen beräkning för samma period, med
           differensen i kolumnen <strong>Diff</strong>. Grönt betyder att specen och beräkningen
-          är överens; gult att de skiljer sig och att det är värt att titta närmare på månaden.
+          är överens (belopp får skilja högst 0,60 kr); gult att de skiljer sig och att det är värt att titta närmare på månaden.
         </p>
 
         <Note>
