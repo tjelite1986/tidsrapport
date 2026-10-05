@@ -123,6 +123,20 @@ describe('buildComparison', () => {
     expect(hours.label).toBe('Arbetad tid inkl. mertid');
   });
 
+  it('folds mertid into the spec base pay, and does not diff it twice', () => {
+    // Payslip 2026-02: 20 018.83 kr base pay plus 2 811.41 kr mertid
+    const withMertid = { ...row, basePay: 20018.83, hourlyRate: 162.98, overtimeMertid: 2811.41 };
+    const rows = buildComparison(withMertid, { ...SALARY, basePay: 23415.27 });
+    const base = rows.find((r) => r.key === 'basePay')!;
+    expect(base.actual).toBeCloseTo(22830.24, 2);
+    expect(base.label).toBe('Grundlön inkl. mertid');
+    expect(base.diff).toBeCloseTo(-585.03, 2);
+
+    const mertid = rows.find((r) => r.key === 'overtimeMertid')!;
+    expect(mertid.actual).toBe(2811.41);
+    expect(mertid.diff).toBeNull();
+  });
+
   it('leaves the hours alone without mertid', () => {
     const hours = buildComparison(row, SALARY).find((r) => r.key === 'workHours')!;
     expect(hours.actual).toBe(160);

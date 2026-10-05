@@ -231,17 +231,31 @@ export function buildComparison(row: PayslipAmounts, salary: SalaryLike | null):
 
     let actual = row[field.key] ?? null;
     let label = field.label;
-    // Mertid is paid on its own line, outside the hours on the base-pay line,
-    // while the app counts every worked hour. Fold the mertid hours (amount at
-    // the plain hourly rate) into the spec's hours so the two pots compare.
-    if (field.key === 'workHours') {
-      const mertidHours = mertidHoursOf(row);
-      if (actual !== null && mertidHours > 0) {
-        actual = Math.round((actual + mertidHours) * 100) / 100;
-        label = `${field.label} inkl. mertid`;
+    let calculated = salary ? numberOrNull(salary[field.calcKey ?? field.key]) : null;
+    // Mertid is paid on its own line, outside the hours and the amount on the
+    // base-pay line, while the app counts every worked hour as base pay. Fold
+    // the spec's mertid into both its hours (amount at the plain hourly rate)
+    // and its base pay so the two pots compare.
+    const mertidAmount = row.overtimeMertid ?? 0;
+    if (mertidAmount > 0) {
+      if (field.key === 'workHours') {
+        const mertidHours = mertidHoursOf(row);
+        if (actual !== null && mertidHours > 0) {
+          actual = Math.round((actual + mertidHours) * 100) / 100;
+          label = `${field.label} inkl. mertid`;
+        }
+      } else if (field.key === 'basePay') {
+        if (actual !== null) {
+          actual = Math.round((actual + mertidAmount) * 100) / 100;
+          label = `${field.label} inkl. mertid`;
+          // Mertid the app tagged separately belongs in the same pot
+          if (calculated !== null) calculated += numberOrNull(salary?.overtidMertid) ?? 0;
+        }
+      } else if (field.key === 'overtimeMertid' && row.basePay != null) {
+        // Already counted in the base-pay row; a diff here would count it twice
+        calculated = null;
       }
     }
-    const calculated = salary ? numberOrNull(salary[field.calcKey ?? field.key]) : null;
     push(field.key, label, field.unit, field.group, actual, calculated, ALWAYS_SHOWN.includes(field.key));
   }
 
