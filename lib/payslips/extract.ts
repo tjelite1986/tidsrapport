@@ -27,79 +27,86 @@ export type ExtractionResult = ExtractedPayslip & {
   model: string;
 };
 
-const amount = (description: string) => ({ type: ['number', 'null'], description });
+/** The scalar lines, listed in `values` as `{ field, value }` pairs. */
+const VALUE_FIELDS = {
+  workHours: 'Antal arbetade timmar som grundlönen räknats på',
+  hourlyRate: 'Timlön (a-pris) i kronor',
+  basePay: 'Grundlön/tidlön i kronor, utan OB, övertid och tillägg',
+  totalOB: 'Summa OB-tillägg i kronor',
+  overtimeMertid: 'Mertid i kronor',
+  overtimeEnkel: 'Enkel övertid i kronor',
+  overtimeKvalificerad: 'Kvalificerad övertid i kronor',
+  sickHours: 'Antal timmar på sjuklöneraden (dag 2-14), utan karens och utan OB-sjuklöneraderna',
+  karensHours: 'Antal karenstimmar (karensavdrag i timmar)',
+  sickPay: 'Sjuklön i kronor (positivt tal), inte sjukavdraget',
+  vacationPay: 'Semesterersättning i kronor',
+  vacationDaysPay: 'Semesterlön för uttagna semesterdagar i kronor',
+  vacationDaysCount: 'Antal uttagna semesterdagar',
+  grossPay: 'Bruttolön i kronor',
+  tax: 'Preliminärskatt i kronor, alltid positivt tal',
+  netPay: 'Nettolön/utbetalt belopp i kronor',
+} as const;
+
+type ValueField = keyof typeof VALUE_FIELDS;
 
 /**
- * JSON schema the model must answer with. Every field is nullable so the model
- * can say "stod inte i specen" instead of inventing a number — a guessed amount
- * is worse than an empty field the user fills in by hand.
+ * JSON schema the model must answer with. The scalar lines come back as a list
+ * of `{ field, value }` pairs so the model can leave out what is not on the spec
+ * instead of inventing a number — a guessed amount is worse than an empty field
+ * the user fills in by hand.
+ *
+ * Not one nullable property per line: Anthropic compiles the schema even through
+ * OpenRouter and rejects more than 16 union-typed parameters ("too many
+ * parameters with union types"), and the same fields as optional properties are
+ * rejected as "Schema is too complex".
  */
 const PAYSLIP_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
     payMonth: {
-      type: ['string', 'null'],
-      description: 'Utbetalningsmånad som YYYY-MM, hämtad från utbetalningsdatumet',
+      type: 'string',
+      description: 'Utbetalningsmånad som YYYY-MM, hämtad från utbetalningsdatumet. Tom sträng om den inte går att avgöra.',
     },
-    workHours: amount('Antal arbetade timmar som grundlönen räknats på'),
-    hourlyRate: amount('Timlön (a-pris) i kronor'),
-    basePay: amount('Grundlön/tidlön i kronor, utan OB, övertid och tillägg'),
+    values: {
+      type: 'array',
+      description: `En post per lönerad som står på specen. Fält: ${Object.entries(VALUE_FIELDS)
+        .map(([key, description]) => `${key} = ${description}`)
+        .join('; ')}`,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          field: { type: 'string', enum: Object.keys(VALUE_FIELDS) },
+          value: { type: 'number' },
+        },
+        required: ['field', 'value'],
+      },
+    },
     obLines: {
-      type: ['array', 'null'],
+      type: 'array',
       description: 'En rad per OB-procentsats som finns på specen',
       items: {
         type: 'object',
         additionalProperties: false,
         properties: {
           percent: { type: 'number', description: 'OB-procent, t.ex. 50, 70 eller 100' },
-          hours: amount('Antal OB-timmar på raden'),
-          amount: amount('OB-belopp på raden i kronor'),
+          hours: { type: ['number', 'null'], description: 'Antal OB-timmar på raden' },
+          amount: { type: ['number', 'null'], description: 'OB-belopp på raden i kronor' },
         },
         required: ['percent', 'hours', 'amount'],
       },
     },
-    totalOB: amount('Summa OB-tillägg i kronor'),
-    overtimeMertid: amount('Mertid i kronor'),
-    overtimeEnkel: amount('Enkel övertid i kronor'),
-    overtimeKvalificerad: amount('Kvalificerad övertid i kronor'),
-    sickHours: amount('Antal timmar på sjuklöneraden (dag 2-14), utan karens och utan OB-sjuklöneraderna'),
-    karensHours: amount('Antal karenstimmar (karensavdrag i timmar)'),
-    sickPay: amount('Sjuklön i kronor (positivt tal), inte sjukavdraget'),
-    vacationPay: amount('Semesterersättning i kronor'),
-    vacationDaysPay: amount('Semesterlön för uttagna semesterdagar i kronor'),
-    vacationDaysCount: amount('Antal uttagna semesterdagar'),
-    grossPay: amount('Bruttolön i kronor'),
-    tax: amount('Preliminärskatt i kronor, alltid positivt tal'),
-    netPay: amount('Nettolön/utbetalt belopp i kronor'),
   },
-  required: [
-    'payMonth',
-    'workHours',
-    'hourlyRate',
-    'basePay',
-    'obLines',
-    'totalOB',
-    'overtimeMertid',
-    'overtimeEnkel',
-    'overtimeKvalificerad',
-    'sickHours',
-    'karensHours',
-    'sickPay',
-    'vacationPay',
-    'vacationDaysPay',
-    'vacationDaysCount',
-    'grossPay',
-    'tax',
-    'netPay',
-  ],
-} as const;
+  required: ['payMonth', 'values', 'obLines'],
+};
 
 const SYSTEM_PROMPT = `Du läser svenska lönespecifikationer och returnerar strukturerad JSON.
 
 Regler:
 - payMonth är UTBETALNINGSmånaden (YYYY-MM), tagen från utbetalningsdatumet — inte löneperioden/arbetsmånaden. Saknas utbetalningsdatum: använd månaden efter löneperiodens slut.
 - basePay är grundlönen/tidlönen (kan heta "Tidlön", "Månadslön", "Timlön"), utan OB, övertid och tillägg. workHours är timmarna den raden räknats på och hourlyRate dess a-pris.
+- Lönerader som timmar, belopp, skatt och summor läggs i values som { field, value }.
 - obLines är en rad per OB-procentsats som står på specen ("OB 50%", "Storhelgstillägg 100%"). Ta med både timmar och belopp när båda står. totalOB är summan av OB-raderna.
 - Övertid delas upp i mertid, enkel övertid och kvalificerad övertid. Står bara en klumpsumma: lägg den i den rad som texten anger, annars null.
 - sickPay är sjuklön som POSITIVT tal — sjukavdraget är en annan rad och ska inte med. sickHours är timmarna sjuklönen avser, karensHours timmarna på karensraden (t.ex. "Karens 4,75 Tim").
@@ -108,7 +115,7 @@ Regler:
 - tax är den preliminära skatten som ett POSITIVT tal, även om den står med minustecken.
 - netPay är beloppet som betalas ut ("Nettolön", "Att utbetala", "Utbetalt belopp").
 - Belopp returneras som tal utan tusentalsavgränsare, med decimaler om de finns.
-- Hittar du inte ett värde med säkerhet: returnera null för det fältet. Gissa aldrig.`;
+- Hittar du inte ett värde med säkerhet: utelämna fältet. Gissa aldrig.`;
 
 const USER_PROMPT =
   'Läs av denna lönespecifikation och returnera alla lönerader du hittar: arbetade timmar, timlön, grundlön, OB per procentsats, övertid, sjuklön, semester, bruttolön, preliminärskatt och nettolön.';
@@ -144,26 +151,39 @@ function parseModelJson(content: string): ExtractedPayslip {
   // Malformed OB lines read as "found none" — the rest of the spec is still useful
   const obLines = parseObLines(obj.obLines) ?? null;
 
+  // First entry per field wins; unknown fields are ignored
+  const values = new Map<ValueField, unknown>();
+  if (Array.isArray(obj.values)) {
+    for (const entry of obj.values) {
+      if (!entry || typeof entry !== 'object') continue;
+      const { field, value } = entry as Record<string, unknown>;
+      if (typeof field === 'string' && field in VALUE_FIELDS && !values.has(field as ValueField)) {
+        values.set(field as ValueField, value);
+      }
+    }
+  }
+  const v = (field: ValueField) => values.get(field);
+
   return {
     payMonth,
-    workHours: num(obj.workHours),
-    hourlyRate: num(obj.hourlyRate),
-    basePay: num(obj.basePay),
+    workHours: num(v('workHours')),
+    hourlyRate: num(v('hourlyRate')),
+    basePay: num(v('basePay')),
     obLines,
-    totalOB: num(obj.totalOB),
-    overtimeMertid: num(obj.overtimeMertid),
-    overtimeEnkel: num(obj.overtimeEnkel),
-    overtimeKvalificerad: num(obj.overtimeKvalificerad),
-    sickHours: positive(obj.sickHours),
-    karensHours: positive(obj.karensHours),
-    sickPay: positive(obj.sickPay),
-    vacationPay: num(obj.vacationPay),
-    vacationDaysPay: num(obj.vacationDaysPay),
-    vacationDaysCount: num(obj.vacationDaysCount),
-    grossPay: num(obj.grossPay),
+    totalOB: num(v('totalOB')),
+    overtimeMertid: num(v('overtimeMertid')),
+    overtimeEnkel: num(v('overtimeEnkel')),
+    overtimeKvalificerad: num(v('overtimeKvalificerad')),
+    sickHours: positive(v('sickHours')),
+    karensHours: positive(v('karensHours')),
+    sickPay: positive(v('sickPay')),
+    vacationPay: num(v('vacationPay')),
+    vacationDaysPay: num(v('vacationDaysPay')),
+    vacationDaysCount: num(v('vacationDaysCount')),
+    grossPay: num(v('grossPay')),
     // The tax line is printed with a minus sign on most payslips; the app stores it positive.
-    tax: positive(obj.tax),
-    netPay: num(obj.netPay),
+    tax: positive(v('tax')),
+    netPay: num(v('netPay')),
   };
 }
 
@@ -219,6 +239,10 @@ async function extractViaOpenRouter(
   }
 
   const json = await res.json();
+  // OpenRouter can answer 200 with an error body, e.g. a schema the provider rejects
+  if (json?.error) {
+    throw new PayslipExtractionError(`OpenRouter error: ${String(json.error.message ?? 'unknown error').slice(0, 200)}`);
+  }
   const content: string = json?.choices?.[0]?.message?.content ?? '';
   if (!content) {
     throw new PayslipExtractionError('AI-tjänsten returnerade inget svar');
