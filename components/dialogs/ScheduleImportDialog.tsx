@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { getWeekNumber } from '@/lib/calculations/time-utils';
 
 interface ParsedShift {
   date: string;
@@ -33,6 +34,22 @@ const MONTH_NAMES = [
 function shiftLabel(shift: ParsedShift): string {
   const d = new Date(shift.date + 'T12:00:00');
   return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+}
+
+function weekOf(shift: ParsedShift): number {
+  return getWeekNumber(new Date(shift.date + 'T12:00:00'));
+}
+
+/** Shifts in date order, grouped under their ISO week, keeping each shift's index. */
+function groupByWeek(shifts: ParsedShift[]): { week: number; items: { shift: ParsedShift; idx: number }[] }[] {
+  const groups: { week: number; items: { shift: ParsedShift; idx: number }[] }[] = [];
+  shifts.forEach((shift, idx) => {
+    const week = weekOf(shift);
+    const last = groups[groups.length - 1];
+    if (last && last.week === week) last.items.push({ shift, idx });
+    else groups.push({ week, items: [{ shift, idx }] });
+  });
+  return groups;
 }
 
 /** "2026-03" → "mars 2026" */
@@ -301,45 +318,61 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
                     {selected.size === shifts.length ? 'Avmarkera alla' : 'Markera alla'}
                   </button>
                 </div>
-                <div className="border rounded-lg overflow-hidden divide-y max-h-72 overflow-y-auto">
-                  {shifts.map((shift, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.has(idx)}
-                        onChange={() => toggleOne(idx)}
-                        className="w-4 h-4 text-blue-600 rounded flex-shrink-0"
-                      />
-                      <span className="text-sm flex-1 text-gray-800 min-w-0 truncate">
-                        {shiftLabel(shift)}
-                        {shift.existing && <span className="ml-1 text-xs text-amber-600">finns redan</span>}
-                      </span>
-                      <input
-                        type="time"
-                        value={shift.startTime}
-                        onChange={(e) => updateShift(idx, 'startTime', e.target.value)}
-                        className="text-sm border border-gray-200 rounded px-1.5 py-1 font-mono w-24 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      />
-                      <span className="text-gray-400 text-sm">–</span>
-                      <input
-                        type="time"
-                        value={shift.endTime}
-                        onChange={(e) => updateShift(idx, 'endTime', e.target.value)}
-                        className="text-sm border border-gray-200 rounded px-1.5 py-1 font-mono w-24 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        step="5"
-                        value={shift.breakMinutes || ''}
-                        onChange={(e) => updateShift(idx, 'breakMinutes', parseInt(e.target.value) || 0)}
-                        placeholder="Rast"
-                        title="Rast i minuter"
-                        className="text-sm border border-gray-200 rounded px-1.5 py-1 w-16 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      />
+                <div className="border rounded-lg max-h-80 overflow-y-auto overflow-x-auto">
+                  {groupByWeek(shifts).map((group) => (
+                    <div key={group.week}>
+                      <div className="sticky top-0 bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                        Vecka {group.week}
+                      </div>
+                      {group.items.map(({ shift, idx }) => (
+                        <div
+                          key={idx}
+                          className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2 border-t hover:bg-gray-50"
+                        >
+                          <label className="flex items-center gap-2 min-w-0 basis-full sm:basis-auto sm:flex-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(idx)}
+                              onChange={() => toggleOne(idx)}
+                              className="w-4 h-4 text-blue-600 rounded flex-shrink-0"
+                            />
+                            <span className="text-sm text-gray-800 min-w-0 truncate">
+                              {shiftLabel(shift)}
+                              <span className="ml-1.5 text-xs text-gray-400 font-mono">{shift.date}</span>
+                              {shift.existing && <span className="ml-1.5 text-xs text-amber-600">finns redan</span>}
+                            </span>
+                          </label>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <input
+                              type="time"
+                              value={shift.startTime}
+                              onChange={(e) => updateShift(idx, 'startTime', e.target.value)}
+                              className="text-sm border border-gray-200 rounded px-1.5 py-1 font-mono w-[5.5rem] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            />
+                            <span className="text-gray-400 text-sm">–</span>
+                            <input
+                              type="time"
+                              value={shift.endTime}
+                              onChange={(e) => updateShift(idx, 'endTime', e.target.value)}
+                              className="text-sm border border-gray-200 rounded px-1.5 py-1 font-mono w-[5.5rem] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            />
+                            <label className="flex items-center gap-1 text-xs text-gray-500 ml-1">
+                              Rast
+                              <input
+                                type="number"
+                                min="0"
+                                step="5"
+                                value={shift.breakMinutes || ''}
+                                onChange={(e) => updateShift(idx, 'breakMinutes', parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                                title="Rast i minuter"
+                                className="text-sm text-gray-800 border border-gray-200 rounded px-1.5 py-1 w-14 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                              />
+                              min
+                            </label>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
