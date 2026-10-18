@@ -13,6 +13,7 @@ const DISMISSED_KEY = 'pwa-install-dismissed';
 export default function PwaInstallBanner() {
   const [state, setState] = useState<BannerState>('hidden');
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [showIosSteps, setShowIosSteps] = useState(false);
 
   useEffect(() => {
     // Redan installerad som PWA
@@ -20,8 +21,9 @@ export default function PwaInstallBanner() {
     // Användaren har stängt bannern tidigare
     if (localStorage.getItem(DISMISSED_KEY)) return;
 
+    const isIpadOs = /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
     const isIos =
-      /iphone|ipad|ipod/i.test(navigator.userAgent) &&
+      (/iphone|ipad|ipod/i.test(navigator.userAgent) || isIpadOs) &&
       !(window.navigator as Navigator & { standalone?: boolean }).standalone;
 
     if (isIos) {
@@ -83,13 +85,38 @@ export default function PwaInstallBanner() {
             </>
           )}
           {state === 'ios' && (
-            <p className="text-xs text-slate-400 mt-0.5">
-              Tryck på{' '}
-              <svg className="inline w-3.5 h-3.5 -mt-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l-3 3h2v8h2V5h2l-3-3zM5 13v6a1 1 0 001 1h12a1 1 0 001-1v-6h-2v5H7v-5H5z" />
-              </svg>{' '}
-              och sedan <strong>Lägg till på hemskärmen</strong>.
-            </p>
+            <>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Lägg till på hemskärmen för snabb åtkomst utan webbläsare.
+              </p>
+              {/* iOS has no install API: the browser's own share menu is the
+                  only way, so the box must look tappable and show the steps. */}
+              <button
+                onClick={() => setShowIosSteps((v) => !v)}
+                aria-expanded={showIosSteps}
+                className="mt-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+              >
+                {showIosSteps ? 'Dölj' : 'Visa hur'}
+              </button>
+              {showIosSteps && (
+                <ol className="mt-2 space-y-1.5 text-xs text-slate-200 list-decimal pl-4">
+                  <li>
+                    Öppna sidan i <strong>Safari</strong> (Chrome fungerar också, men inte alla
+                    andra webbläsare).
+                  </li>
+                  <li>
+                    Tryck på <strong>Dela</strong>-knappen{' '}
+                    <ShareIcon /> längst ner på skärmen (uppe till höger på iPad).
+                  </li>
+                  <li>
+                    Bläddra ner i listan och välj <strong>Lägg till på hemskärmen</strong>.
+                  </li>
+                  <li>
+                    Tryck på <strong>Lägg till</strong> uppe till höger.
+                  </li>
+                </ol>
+              )}
+            </>
           )}
         </div>
 
@@ -105,5 +132,18 @@ export default function PwaInstallBanner() {
         </button>
       </div>
     </div>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg
+      className="inline w-3.5 h-3.5 -mt-0.5 align-middle"
+      fill="currentColor"
+      viewBox="0 0 24 24"
+      aria-label="Dela-ikonen"
+    >
+      <path d="M12 2l-3 3h2v8h2V5h2l-3-3zM5 13v6a1 1 0 001 1h12a1 1 0 001-1v-6h-2v5H7v-5H5z" />
+    </svg>
   );
 }
