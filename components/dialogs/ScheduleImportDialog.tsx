@@ -7,6 +7,8 @@ interface ParsedShift {
   startTime: string;
   endTime: string;
   breakMinutes: number;
+  /** The user already has an entry on this date — left unchecked by default. */
+  existing: boolean;
 }
 
 interface Project {
@@ -33,15 +35,21 @@ function shiftLabel(shift: ParsedShift): string {
   return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
 }
 
-const MONTH_LABELS = [
-  'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
-  'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December',
-];
+/** "2026-03" → "mars 2026" */
+function monthLabel(month: string): string {
+  const [year, m] = month.split('-').map(Number);
+  return `${MONTH_NAMES[m - 1]} ${year}`;
+}
 
-function defaultYearMonth() {
-  const d = new Date();
-  d.setMonth(d.getMonth() + 1);
-  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+/** The API answers in English; the dialog speaks the product's Swedish. */
+function describeError(status: number, detail: string | undefined): string {
+  const headline =
+    status === 415 ? 'Filformatet stöds inte. Använd PNG, JPG eller WEBP.'
+    : status === 413 ? 'Bilden är för stor (max 10 MB).'
+    : status === 503 ? 'AI-avläsning är inte konfigurerad på servern.'
+    : status === 502 ? 'Kunde inte läsa av schemat. Försök med en tydligare bild som visar veckonummer och datum.'
+    : 'Kunde inte analysera bilden.';
+  return detail ? `${headline} (${detail})` : headline;
 }
 
 type Step = 'upload' | 'analyzing' | 'confirm' | 'importing' | 'done';
@@ -55,8 +63,8 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
   const [projectId, setProjectId] = useState('');
   const [error, setError] = useState('');
   const [importedCount, setImportedCount] = useState(0);
-  const [scheduleYear, setScheduleYear] = useState(() => defaultYearMonth().year);
-  const [scheduleMonth, setScheduleMonth] = useState(() => defaultYearMonth().month);
+  const [month, setMonth] = useState('');
+  const [outsideMonth, setOutsideMonth] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -83,31 +91,35 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
 
     const formData = new FormData();
     formData.append('image', imageFile);
-    formData.append('year', String(scheduleYear));
-    formData.append('month', String(scheduleMonth));
 
     try {
       const res = await fetch('/api/schedule-import', { method: 'POST', body: formData });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data.error || 'Kunde inte analysera bilden');
+        setError(describeError(res.status, data.error));
         setStep('upload');
         return;
       }
 
-      const parsed: ParsedShift[] = (data.shifts || [])
-        .sort((a: ParsedShift, b: ParsedShift) => a.date.localeCompare(b.date))
-        .map((s: ParsedShift) => ({ ...s, breakMinutes: 0 }));
+      const parsed: ParsedShift[] = (data.shifts || []).map((s: ParsedShift) => ({
+        ...s,
+        breakMinutes: 0,
+        existing: Boolean(s.existing),
+      }));
 
       if (parsed.length === 0) {
-        setError('Inga arbetspass hittades i bilden. Försök med en tydligare bild.');
+        setError(`Schemat tolkades som ${monthLabel(data.month)} men inga arbetspass hittades. Försök med en tydligare bild.`);
         setStep('upload');
         return;
       }
 
+      setMonth(data.month);
+      setOutsideMonth(data.outsideMonth || 0);
       setShifts(parsed);
-      setSelected(new Set(parsed.map((_, i) => i)));
+      // Dates that already have an entry stay unchecked so a second upload
+      // of the same schedule does not double the month
+      setSelected(new Set(parsed.map((s, i) => (s.existing ? -1 : i)).filter((i) => i >= 0)));
 
       if (!projectId) {
         const first = projects.find((p) => p.active);
@@ -156,9 +168,8 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
     setProjectId('');
     setError('');
     setImportedCount(0);
-    const ym = defaultYearMonth();
-    setScheduleYear(ym.year);
-    setScheduleMonth(ym.month);
+    setMonth('');
+    setOutsideMonth(0);
   }
 
   function handleClose() {
@@ -205,35 +216,11 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Ladda upp en skärmdump av ditt arbetsschema. AI:n läser av datum och tider automatiskt.
+                Ladda upp en skärmdump av ditt arbetsschema. Månaden läses av från veckonumren och
+                dagarna i bilden, och passen läggs in på rätt datum.
               </p>
 
               {error && <div className="bg-red-50 text-red-700 p-3 rounded text-sm">{error}</div>}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Schemaperiod (månad/år)</label>
-                <div className="flex gap-2">
-                  <select
-                    value={scheduleMonth}
-                    onChange={(e) => setScheduleMonth(Number(e.target.value))}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    {MONTH_LABELS.map((name, i) => (
-                      <option key={i + 1} value={i + 1}>{name}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={scheduleYear}
-                    onChange={(e) => setScheduleYear(Number(e.target.value))}
-                    className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    {[2025, 2026, 2027].map((y) => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Välj den månad schemat gäller för</p>
-              </div>
 
               <div
                 className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 transition-colors"
@@ -282,8 +269,13 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
           {step === 'confirm' && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                <span className="font-semibold text-gray-800">{shifts.length} arbetspass</span> hittades.
-                Välj vilka som ska importeras.
+                <span className="font-semibold text-gray-800">{monthLabel(month)}</span>:{' '}
+                {shifts.length} arbetspass hittades
+                {shifts.some((s) => s.existing) && (
+                  <>, {shifts.filter((s) => s.existing).length} dagar har redan en post och är avmarkerade</>
+                )}
+                {outsideMonth > 0 && <>. {outsideMonth} pass från en annan månad i bilden hoppades över</>}
+                .
               </p>
 
               {error && <div className="bg-red-50 text-red-700 p-3 rounded text-sm">{error}</div>}
@@ -321,7 +313,10 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
                         onChange={() => toggleOne(idx)}
                         className="w-4 h-4 text-blue-600 rounded flex-shrink-0"
                       />
-                      <span className="text-sm flex-1 text-gray-800 min-w-0 truncate">{shiftLabel(shift)}</span>
+                      <span className="text-sm flex-1 text-gray-800 min-w-0 truncate">
+                        {shiftLabel(shift)}
+                        {shift.existing && <span className="ml-1 text-xs text-amber-600">finns redan</span>}
+                      </span>
                       <input
                         type="time"
                         value={shift.startTime}
@@ -387,7 +382,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
               </div>
               <div>
                 <p className="text-lg font-semibold text-gray-800">{importedCount} pass importerade</p>
-                <p className="text-sm text-gray-500 mt-1">Tidsregistreringarna är sparade</p>
+                <p className="text-sm text-gray-500 mt-1">Tidsregistreringarna för {monthLabel(month)} är sparade</p>
               </div>
               <button
                 onClick={handleClose}

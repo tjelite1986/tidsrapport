@@ -61,6 +61,11 @@ docker logs tidsrapport --tail 20
 - OB is stored as JSON in `ob_lines` (`[{percent, hours, amount}]`) — always read it via `readObLines()`, never `JSON.parse` directly. The same percentage rate may appear only once
 - The comparison is built server-side by `buildComparison()`: a percentage rate the calculation lacks counts as 0 kr (not "unknown"), and rows that are empty on both sides are hidden — except gross/tax/net
 
+## Schedule import (screenshot → time entries)
+- `/tid` → "Importera schema" posts a PNG/JPG/WEBP to `/api/schedule-import`. The month is **not** chosen by the user: the model only transcribes the grid (`lib/schedule-import/extract.ts`: week number per row, per cell column 0–6, day number, greyed flag, start/end), and `resolveSchedule()` in `lib/schedule-import/resolve.ts` dates it — ISO week + column + day number pins the month exactly. Without week numbers it falls back on the day pattern over a window around today, ties go to a visible month heading, then to the month nearest next month
+- The route saves nothing. It answers `{month, shifts[{date,startTime,endTime,existing}], outsideMonth}`; dates that already have a time entry come back `existing: true` and the dialog leaves them unchecked, so a re-upload does not double the month. Shifts on greyed neighbouring-month days are counted in `outsideMonth` and not imported
+- AI calls go through `lib/ai/vision-json.ts` (OpenRouter first, same env variables as the payslip reader). `resolve.test.ts` locks the two sample screenshots; `scripts/try-schedule-import.ts <image>` runs the live path from the host without saving
+
 ## Generated payslip document (PDF)
 - `/lon` → "Exportera lönebesked" fetches `/api/salary/payslip?month=<payout month>` and draws the PDF client-side. The month is the **payout month**; the rows cover the work period of the month before (`workMonthFor`)
 - The source data is built server-side in `lib/salary/payslip-document.ts` — header, holiday balances, accumulated columns and employer contributions. The accumulated columns recompute every earlier payout month in the same year (at most twelve `computeMonthlySalary` calls)

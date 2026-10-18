@@ -1,119 +1,79 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { and, eq, gte, lte } from 'drizzle-orm';
 import { authOptions } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { timeEntries } from '@/lib/db/schema';
+import { detectPayslipType, MAX_PAYSLIP_BYTES } from '@/lib/payslips/files';
+import { isVisionConfigured } from '@/lib/ai/vision-json';
+import { extractScheduleGrid, ScheduleExtractionError } from '@/lib/schedule-import/extract';
+import { resolveSchedule, ScheduleResolveError } from '@/lib/schedule-import/resolve';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Read a schedule screenshot and answer with dated shifts for the month it
+ * shows. Saves nothing — the client confirms and posts the entries itself.
+ */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Ej inloggad' }, { status: 401 });
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY saknas i miljön' }, { status: 500 });
+  if (!isVisionConfigured()) {
+    return NextResponse.json({ error: 'No AI key configured on the server' }, { status: 503 });
+  }
+
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch {
+    return NextResponse.json({ error: 'Expected multipart form data' }, { status: 400 });
+  }
+  const file = formData.get('image');
+  if (!(file instanceof File)) return NextResponse.json({ error: 'No image uploaded' }, { status: 400 });
+  if (file.size > MAX_PAYSLIP_BYTES) return NextResponse.json({ error: 'Image is larger than 10 MB' }, { status: 413 });
+
+  const data = Buffer.from(await file.arrayBuffer());
+  // The bytes decide the type, not the browser's claim
+  const type = detectPayslipType(data);
+  if (!type || type.mimeType === 'application/pdf') {
+    return NextResponse.json({ error: 'Unsupported file type. Use PNG, JPG or WEBP.' }, { status: 415 });
+  }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get('image') as File | null;
-    if (!file) return NextResponse.json({ error: 'Ingen bild angiven' }, { status: 400 });
+    const grid = await extractScheduleGrid({ mimeType: type.mimeType, data });
+    const resolved = resolveSchedule(grid.rows, { hintMonth: grid.hintMonth });
 
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Filformat stöds ej. Använd PNG, JPG eller WEBP.' }, { status: 400 });
+    // Mark dates the user already has entries on, so a re-upload does not
+    // double every shift
+    const userId = parseInt(session.user.id);
+    const existingDates = new Set<string>();
+    if (resolved.shifts.length > 0) {
+      const first = resolved.shifts[0].date;
+      const last = resolved.shifts[resolved.shifts.length - 1].date;
+      const rows = db
+        .select({ date: timeEntries.date })
+        .from(timeEntries)
+        .where(and(eq(timeEntries.userId, userId), gte(timeEntries.date, first), lte(timeEntries.date, last)))
+        .all();
+      for (const row of rows) existingDates.add(row.date);
     }
 
-    const year = parseInt(formData.get('year') as string) || new Date().getFullYear();
-    const month = parseInt(formData.get('month') as string) || new Date().getMonth() + 1;
-
-    const MONTH_SV = [
-      '', 'januari', 'februari', 'mars', 'april', 'maj', 'juni',
-      'juli', 'augusti', 'september', 'oktober', 'november', 'december',
-    ];
-
-    // Compute first day of month for reference
-    const firstDay = new Date(year, month - 1, 1);
-    const firstDayName = ['söndag', 'måndag', 'tisdag', 'onsdag', 'torsdag', 'fredag', 'lördag'][firstDay.getDay()];
-    const daysInMonth = new Date(year, month, 0).getDate();
-
-    const buffer = await file.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
-    const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: mediaType, data: base64 },
-              },
-              {
-                type: 'text',
-                text: `Detta är ett arbetsschema för ${MONTH_SV[month]} ${year}.
-
-Fakta om månaden:
-- Månad: ${month} (${MONTH_SV[month]}) ${year}
-- Månadens första dag (dag 1) är en ${firstDayName}
-- Månaden har ${daysInMonth} dagar
-
-Bilden visar en kalender. Kolumnerna är veckodagar (mån–sön). Varje cell med ett arbetspass innehåller två tider: starttid (överst) och sluttid (underst), t.ex. "07:00" på rad 1 och "12:00" på rad 2.
-Tomma celler = ledig dag, ignorera dessa.
-
-Använd dagsiffrorna som syns i kalenderrutan (t.ex. 1, 2, 3 ... ${daysInMonth}) och matcha dem mot ${MONTH_SV[month]} ${year} för att beräkna exakt datum i formatet YYYY-MM-DD.
-
-Returnera ENBART giltig JSON utan förklaringar, markdown eller kodblock:
-{"shifts":[{"date":"YYYY-MM-DD","startTime":"HH:MM","endTime":"HH:MM"}]}
-
-Inkludera bara dagar med faktiska tider. Sortera på datum.`,
-              },
-            ],
-          },
-        ],
-      }),
+    return NextResponse.json({
+      month: resolved.month,
+      shifts: resolved.shifts.map((s) => ({ ...s, existing: existingDates.has(s.date) })),
+      outsideMonth: resolved.outsideMonth,
+      matchedCells: resolved.matchedCells,
+      totalCells: resolved.totalCells,
+      provider: grid.provider,
+      model: grid.model,
     });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { error: errData?.error?.message || `API-fel: ${response.status}` },
-        { status: 500 }
-      );
+  } catch (err) {
+    if (err instanceof ScheduleExtractionError || err instanceof ScheduleResolveError) {
+      console.error('schedule-import:', err.message);
+      return NextResponse.json({ error: err.message }, { status: 502 });
     }
-
-    const data = await response.json();
-    const rawText = data.content?.[0]?.text?.trim() ?? '';
-
-    // Strip potential markdown code fences
-    const jsonStr = rawText
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```$/, '')
-      .trim();
-
-    let parsed: { shifts: { date: string; startTime: string; endTime: string }[] };
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      return NextResponse.json(
-        { error: 'Kunde inte tolka AI-svaret. Försök igen.', raw: rawText },
-        { status: 500 }
-      );
-    }
-
-    const shifts = (parsed.shifts ?? []).filter(
-      (s) => s.date && s.startTime && s.endTime
-    );
-
-    return NextResponse.json({ shifts });
-  } catch {
-    return NextResponse.json({ error: 'Serverfel vid bildanalys' }, { status: 500 });
+    console.error('schedule-import failed:', err);
+    return NextResponse.json({ error: 'Schedule analysis failed' }, { status: 500 });
   }
 }

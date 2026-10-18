@@ -33,6 +33,7 @@
 | `/api/municipalities` | GET | Kommunlista med skattetabellnummer |
 | `/api/templates` | GET, POST, PUT, DELETE | Arbetsmallar |
 | `/api/schedule` | GET, POST, PUT, DELETE | Veckoschema A/B/C/D |
+| `/api/schedule-import` | POST | AI-avläsning av en schemaskärmdump (multipart `image`, sparar inget) → `{month, shifts[{date,startTime,endTime,existing}], outsideMonth}` — månaden härleds ur veckonummer + kolumn + dagnummer |
 | `/api/holidays` | GET | Svenska helgdagar |
 | `/api/reports` | GET | CSV-export |
 | `/api/users` | GET, POST, DELETE | Admin: användarhantering |
@@ -45,6 +46,11 @@
 - `fields.ts` — `PAYSLIP_FIELDS` (alla lönerader m. etikett/enhet/grupp), `parseObLines()`/`readObLines()`/`serializeObLines()`, `buildComparison()` (rad-för-rad-jämförelse, OB uppdelat per procentsats)
 - `extract.ts` — AI-avläsning via OpenRouter (först) eller Anthropic; JSON-schema med nullbara fält för samtliga lönerader
 - Filer: `data/payslips/<userId>/YYYY-MM-<uuid>.<ext>` (max 10 MB, PDF/PNG/JPG/WEBP)
+
+## Schemaimport (lib/schedule-import/ + lib/ai/)
+- `ai/vision-json.ts` — `requestVisionJson()`: en bild + JSON-schema till OpenRouter (först) eller Anthropic
+- `schedule-import/extract.ts` — `extractScheduleGrid()`: modellen transkriberar rutnätet (veckonummer, kolumn, dagnummer, gråmarkerad, start/slut) — daterar inget
+- `schedule-import/resolve.ts` — `resolveSchedule()`: härleder månaden och datumen ur rutnätet; `resolve.test.ts` låser de två exempelbilderna
 
 ## Löneberäkning (lib/salary/)
 - `monthly.ts` — `computeMonthlySalary(userId, month)`, delad av `/api/salary` och `/api/payslips`
