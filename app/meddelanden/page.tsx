@@ -38,7 +38,7 @@ export default function MeddelandenPage() {
   const { data: session } = useSession();
   const me = session ? parseInt(session.user.id) : null;
 
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
@@ -117,7 +117,7 @@ export default function MeddelandenPage() {
     }
   }
 
-  const selected = contacts.find((c) => c.id === selectedId) ?? null;
+  const selected = contacts?.find((c) => c.id === selectedId) ?? null;
 
   return (
     <div>
@@ -128,10 +128,11 @@ export default function MeddelandenPage() {
         <div
           className={`border-r border-gray-100 overflow-y-auto ${selected ? 'hidden md:block' : 'block'}`}
         >
-          {contacts.length === 0 && (
+          {contacts === null && <p className="p-4 text-sm text-gray-400">Laddar...</p>}
+          {contacts?.length === 0 && (
             <p className="p-4 text-sm text-gray-500">Det finns inga andra användare att skriva till.</p>
           )}
-          {contacts.map((contact) => (
+          {contacts?.map((contact) => (
             <button
               key={contact.id}
               onClick={() => setSelectedId(contact.id)}
