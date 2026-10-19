@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const navItems = [
   {
@@ -25,12 +25,11 @@ const navItems = [
     ),
   },
   {
-    href: '/timer',
-    label: 'Timer',
+    href: '/meddelanden',
+    label: 'Meddelanden',
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
       </svg>
     ),
   },
@@ -135,8 +134,35 @@ export default function Navigation() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const loggedIn = !!session;
+
+  // Unread-message badge: polled, refreshed on navigation, and on the event
+  // the messages page fires after it has marked a conversation as read.
+  useEffect(() => {
+    if (!loggedIn) return;
+    const refresh = () =>
+      fetch('/api/messages?unread=1')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => data && setUnread(data.unread))
+        .catch(() => {});
+    refresh();
+    const timer = setInterval(refresh, 60_000);
+    window.addEventListener('messages-read', refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('messages-read', refresh);
+    };
+  }, [loggedIn, pathname]);
 
   if (!session) return null;
+
+  const badge = (href: string) =>
+    href === '/meddelanden' && unread > 0 ? (
+      <span className="ml-1 min-w-[1.25rem] px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none text-center">
+        {unread}
+      </span>
+    ) : null;
 
   const allItems = session.user.role === 'admin' ? [...navItems, adminNavItem] : navItems;
 
@@ -172,6 +198,7 @@ export default function Navigation() {
               {allItems.map((item) => (
                 <Link key={item.href} href={item.href} className={linkClass(item.href)}>
                   {item.label}
+                  {badge(item.href)}
                 </Link>
               ))}
             </div>
@@ -205,8 +232,11 @@ export default function Navigation() {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="2xl:hidden p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="2xl:hidden relative p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
           >
+            {unread > 0 && !menuOpen && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-slate-900" />
+            )}
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               {menuOpen ? (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -230,6 +260,7 @@ export default function Navigation() {
             >
               {item.icon}
               {item.label}
+              {badge(item.href)}
             </Link>
           ))}
           <div className="border-t border-slate-800 pt-3 mt-3 flex items-center justify-between">

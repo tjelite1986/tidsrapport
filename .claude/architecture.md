@@ -5,7 +5,7 @@
 |------|-----|-------------|
 | `/` | app/page.tsx | Dashboard – senaste poster, summering |
 | `/tid` | app/tid/page.tsx | Tidsregistrering + månadskalender (standard) |
-| `/timer` | app/timer/page.tsx | Löpande tidtagning |
+| `/meddelanden` | app/meddelanden/page.tsx | Meddelanden mellan användare |
 | `/projekt` | app/projekt/page.tsx | Projekthantering |
 | `/rapporter` | app/rapporter/page.tsx | CSV-export |
 | `/lon` | app/lon/page.tsx | Löneöversikt (väljer utbetalningsmånad → visar föregående månads arbete) |
@@ -37,6 +37,7 @@
 | `/api/holidays` | GET | Svenska helgdagar |
 | `/api/reports` | GET | CSV-export |
 | `/api/users` | GET, POST, DELETE | Admin: användarhantering |
+| `/api/messages` | GET, POST | Kontakter + olästa, `?with=<id>` samtal (markerar läst), `?unread=1` antal; POST `{recipientId, body}` |
 | `/api/auth/[...nextauth]` | – | NextAuth |
 
 ## Lönespecar (lib/payslips/)

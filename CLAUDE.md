@@ -15,8 +15,8 @@ See `.claude/architecture.md` for the full file structure and API reference.
 - An admin can NOT see other users' salary or report data
 
 ## Migration order
-v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings) → v20 (sick/karens hours on payslips, latest)
-Next: **v21**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings) → v20 (sick/karens hours on payslips) → v21 (messages, latest)
+Next: **v22**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
 v17 and v18 also run on the first call (`lib/payslips/store.ts`: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` behind `PRAGMA table_info`) — so they need no manual run, but are kept for completeness.
 v19 runs at module init in `lib/db/index.ts` (`applyUserSettingsColumns`), i.e. before the first query against `user_settings` — otherwise every read of the table would have crashed until the migration was run by hand.
 
@@ -76,10 +76,14 @@ docker logs tidsrapport --tail 20
 - Header and footer data (employee number, addresses, org. number, bank account, payout day, employer contribution, message) are v19 columns on `user_settings` and are edited under Inställningar → "Uppgifter på lönebeskedet". None of it affects the salary calculation
 - Columns the app has no source for (saved/advance/unpaid holiday days, comp-time balance, benefits) are written **empty**, never as 0
 
+## Messages between users
+- `/meddelanden` + `/api/messages`: one-to-one messages between any two users. The `messages` table (v21) is created by `lib/messages/store.ts` on import, so `scripts/migrate-v21.ts` is optional
+- Only sender and recipient can read a conversation — there is no admin view. `GET ?with=<id>` marks the other user's messages as read; the nav badge polls `GET ?unread=1` every 60 s and refreshes on the `messages-read` window event
+- `messages` has FKs to `users`: the user-deletion cascade in `/api/users` calls `deleteMessagesForUser()` before the users row goes
+
 ## Warnings
 - `lib/tax-tables/data-*.json` are 323 KB each — do NOT read these files, use `lib/tax-tables/tax-lookup.ts`
 - `node_modules/`, `.next/` — never read
-- Timer state is kept in localStorage under the key `tidsrapport-timer`
 
 ---
 

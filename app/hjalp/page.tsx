@@ -6,7 +6,7 @@ const sections = [
   { id: 'raster',            label: 'Raster' },
   { id: 'avdelningsloggning',label: 'Avdelningsloggning' },
   { id: 'schema-import',     label: 'Importera schema (AI)' },
-  { id: 'timer',             label: 'Timer' },
+  { id: 'meddelanden',       label: 'Meddelanden' },
   { id: 'lon',               label: 'Lön' },
   { id: 'lonespecar',        label: 'Lönespecar' },
   { id: 'installningar',     label: 'Inställningar' },
@@ -251,16 +251,17 @@ export default function HjalpPage() {
         </Tip>
       </Section>
 
-      {/* 6. Timer */}
-      <Section id="timer" title="6. Timer">
+      {/* 6. Meddelanden */}
+      <Section id="meddelanden" title="6. Meddelanden">
         <p>
-          Under <Link href="/timer" className="text-blue-600 hover:underline">Timer</Link> kan du
-          mäta arbetstiden i realtid. Starta timern när du börjar jobba och stoppa den när du är klar.
+          Under <Link href="/meddelanden" className="text-blue-600 hover:underline">Meddelanden</Link> kan
+          du skriva till de andra som använder appen. Välj en person i listan för att öppna samtalet.
         </p>
         <ul className="list-disc list-inside pl-2 space-y-1">
-          <li>Timern fortsätter köra även om du stänger fliken eller byter sida — tillståndet sparas lokalt i webbläsaren.</li>
-          <li>När du stoppar timern fylls datum, start- och sluttid i automatiskt i registreringsformuläret.</li>
-          <li>Du kan ange rast och projekt innan du sparar.</li>
+          <li>Tryck <strong>Enter</strong> för att skicka, <strong>Shift + Enter</strong> för ny rad.</li>
+          <li>En röd siffra i menyn visar hur många olästa meddelanden du har.</li>
+          <li>Under dina egna meddelanden står <em>Läst</em> när mottagaren har öppnat samtalet.</li>
+          <li>Meddelanden syns bara för dig och den du skriver till — inte för administratören.</li>
         </ul>
       </Section>
 
