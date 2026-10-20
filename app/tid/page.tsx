@@ -11,6 +11,7 @@ import CalendarMonthView from '@/components/calendar/CalendarMonthView';
 import CalendarViewToggle from '@/components/calendar/CalendarViewToggle';
 import TaskSegmentEditor from '@/components/TaskSegmentEditor';
 import ScheduleImportDialog from '@/components/dialogs/ScheduleImportDialog';
+import CalendarEventDialog, { CalendarEventDraft } from '@/components/dialogs/CalendarEventDialog';
 import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
 import { BreakPeriod, sumBreakMinutes, serializeBreakPeriods } from '@/lib/types/break-periods';
 import { BreakRule, generateBreakPeriod } from '@/lib/calculations';
@@ -137,11 +138,13 @@ export default function TidPage() {
   const [monthYear, setMonthYear] = useState(() => ({ year: new Date().getFullYear(), month: new Date().getMonth() }));
   const [calendarEntries, setCalendarEntries] = useState<any[]>([]);
   const [calendarVacationDays, setCalendarVacationDays] = useState<{ date: string; dailyPay: number; note: string | null }[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<(CalendarEventDraft & { id: number })[]>([]);
 
   // Dialog states
   const [detailEntry, setDetailEntry] = useState<TimeEntry | null>(null);
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
   const [scheduleImportOpen, setScheduleImportOpen] = useState(false);
+  const [eventDraft, setEventDraft] = useState<CalendarEventDraft | null>(null);
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [defaultTimes, setDefaultTimes] = useState<{ start: string; end: string } | null>(null);
@@ -198,6 +201,34 @@ export default function TidPage() {
         setCalendarVacationDays(data.vacationDays || []);
       })
       .catch(() => setCalendarEntries([]));
+  }
+
+  function calendarRange(): { start: string; end: string } {
+    if (calendarView === 'week') return { start: week.start, end: week.end };
+    const ym = `${monthYear.year}-${String(monthYear.month + 1).padStart(2, '0')}`;
+    const lastDay = new Date(monthYear.year, monthYear.month + 1, 0).getDate();
+    return { start: `${ym}-01`, end: `${ym}-${String(lastDay).padStart(2, '0')}` };
+  }
+
+  function fetchCalendarEvents() {
+    const { start, end } = calendarRange();
+    fetch(`/api/calendar-events?startDate=${start}&endDate=${end}`)
+      .then((r) => r.json())
+      .then((data) => setCalendarEvents(data.events || []))
+      .catch(() => setCalendarEvents([]));
+  }
+
+  useEffect(() => {
+    fetchCalendarEvents();
+  }, [calendarView, weekOffset, monthYear]);
+
+  function openNewEvent() {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const { start, end } = calendarRange();
+    // Default to today when it is on screen, otherwise to the first visible day
+    const date = today >= start && today <= end ? today : start;
+    setEventDraft({ date, startTime: null, endTime: null, title: '', note: null });
   }
 
   async function refreshAll() {
@@ -626,7 +657,15 @@ export default function TidPage() {
       <div className="bg-white rounded-lg shadow p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Kalender</h2>
-          <CalendarViewToggle view={calendarView} onChange={setCalendarView} />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              onClick={openNewEvent}
+              className="text-sm px-3 py-1.5 rounded-md border border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100"
+            >
+              + Händelse
+            </button>
+            <CalendarViewToggle view={calendarView} onChange={setCalendarView} />
+          </div>
         </div>
 
         {calendarView === 'week' ? (
@@ -634,6 +673,8 @@ export default function TidPage() {
             weekOffset={weekOffset}
             entries={entries}
             vacationDays={calendarVacationDays}
+            events={calendarEvents}
+            onEventClick={setEventDraft}
             onDayClick={(clickedDate, dayEntries) => {
               if (dayEntries.length === 1) {
                 setDetailEntry(dayEntries[0] as any);
@@ -657,6 +698,8 @@ export default function TidPage() {
             month={monthYear.month}
             entries={calendarEntries}
             vacationDays={calendarVacationDays}
+            events={calendarEvents}
+            onEventClick={setEventDraft}
             onDayClick={(clickedDate, dayEntries) => {
               if (dayEntries.length === 1) {
                 setDetailEntry(dayEntries[0] as any);
@@ -769,6 +812,11 @@ export default function TidPage() {
         departments={departments}
         onClose={() => setEditEntry(null)}
         onSaved={refreshAll}
+      />
+      <CalendarEventDialog
+        event={eventDraft}
+        onClose={() => setEventDraft(null)}
+        onSaved={fetchCalendarEvents}
       />
       <ScheduleImportDialog
         open={scheduleImportOpen}

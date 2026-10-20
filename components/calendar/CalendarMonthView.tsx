@@ -28,11 +28,22 @@ interface VacationDay {
   note: string | null;
 }
 
+interface CalendarEvent {
+  id: number;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  title: string;
+  note: string | null;
+}
+
 interface Props {
   year: number;
   month: number; // 0-indexed
   entries: CalendarEntry[];
   vacationDays?: VacationDay[];
+  events?: CalendarEvent[];
+  onEventClick?: (event: CalendarEvent) => void;
   onDayClick: (date: string, entries: CalendarEntry[]) => void;
   onEntryClick: (entry: CalendarEntry) => void;
   onPrev: () => void;
@@ -53,7 +64,7 @@ function formatCurrency(amount: number) {
 }
 
 export default function CalendarMonthView({
-  year, month, entries, vacationDays = [], onDayClick, onEntryClick, onPrev, onNext,
+  year, month, entries, vacationDays = [], events = [], onEventClick, onDayClick, onEntryClick, onPrev, onNext,
   scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount,
 }: Props) {
   const now = new Date();
@@ -147,6 +158,7 @@ export default function CalendarMonthView({
                 const hasSick = dayEntries.some((e) => e.entryType === 'sick');
                 const hasVab = dayEntries.some((e) => e.entryType === 'vab');
                 const vacDay = vacationDays.find((v) => v.date === dateStr);
+                const dayEvents = events.filter((ev) => ev.date === dateStr);
 
                 return (
                   <div
@@ -227,6 +239,21 @@ export default function CalendarMonthView({
                             {dayPay > 0 && <span className="text-green-700 ml-1">{Math.round(dayPay).toLocaleString('sv-SE')} kr</span>}
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {dayEvents.length > 0 && (
+                      <div className="mt-0.5 space-y-0.5">
+                        {dayEvents.map((ev) => (
+                          <div
+                            key={ev.id}
+                            onClick={(e) => { e.stopPropagation(); onEventClick?.(ev); }}
+                            title={ev.title}
+                            className="text-[8px] leading-tight px-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 hover:bg-sky-200 cursor-pointer truncate"
+                          >
+                            {ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
+                          </div>
+                        ))}
                       </div>
                     )}
 

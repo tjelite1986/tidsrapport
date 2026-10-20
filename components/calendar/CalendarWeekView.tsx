@@ -28,10 +28,21 @@ interface VacationDay {
   note: string | null;
 }
 
+interface CalendarEvent {
+  id: number;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  title: string;
+  note: string | null;
+}
+
 interface Props {
   weekOffset: number;
   entries: CalendarEntry[];
   vacationDays?: VacationDay[];
+  events?: CalendarEvent[];
+  onEventClick?: (event: CalendarEvent) => void;
   onDayClick: (date: string, entries: CalendarEntry[]) => void;
   onEntryClick: (entry: CalendarEntry) => void;
   onPrev: () => void;
@@ -65,7 +76,7 @@ function formatCurrency(amount: number) {
 }
 
 export default function CalendarWeekView({
-  weekOffset, entries, vacationDays = [], onDayClick, onEntryClick, onPrev, onNext,
+  weekOffset, entries, vacationDays = [], events = [], onEventClick, onDayClick, onEntryClick, onPrev, onNext,
   scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount,
 }: Props) {
   const dates = getWeekDates(weekOffset);
@@ -126,6 +137,7 @@ export default function CalendarWeekView({
           const hasVab = dayEntries.some((e) => e.entryType === 'vab');
           const schedEntry = getScheduledEntry(d, i);
           const vacDay = vacationDays.find((v) => v.date === d);
+          const dayEvents = events.filter((ev) => ev.date === d);
 
           return (
             <div
@@ -188,6 +200,21 @@ export default function CalendarWeekView({
                   {vacDay.dailyPay > 0 && (
                     <div className="text-[10px] text-teal-600 font-medium">{Math.round(vacDay.dailyPay).toLocaleString('sv-SE')} kr</div>
                   )}
+                </div>
+              )}
+              {dayEvents.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {dayEvents.map((ev) => (
+                    <div
+                      key={ev.id}
+                      onClick={(e) => { e.stopPropagation(); onEventClick?.(ev); }}
+                      title={ev.title}
+                      className="text-[10px] leading-tight px-1 py-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 hover:bg-sky-200 cursor-pointer"
+                    >
+                      {ev.startTime && <div className="font-medium">{ev.startTime}{ev.endTime ? `–${ev.endTime}` : ''}</div>}
+                      <div className="truncate">{ev.title}</div>
+                    </div>
+                  ))}
                 </div>
               )}
               {dayTotal === 0 && schedEntry && (
