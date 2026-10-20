@@ -15,8 +15,8 @@ See `.claude/architecture.md` for the full file structure and API reference.
 - An admin can NOT see other users' salary or report data
 
 ## Migration order
-v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings) → v20 (sick/karens hours on payslips) → v21 (messages) → v22 (calendar_events, latest)
-Next: **v23**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings) → v20 (sick/karens hours on payslips) → v21 (messages) → v22 (calendar_events) → v23 (recurring calendar events, latest)
+Next: **v24**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
 v17 and v18 also run on the first call (`lib/payslips/store.ts`: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` behind `PRAGMA table_info`) — so they need no manual run, but are kept for completeness.
 v19 runs at module init in `lib/db/index.ts` (`applyUserSettingsColumns`), i.e. before the first query against `user_settings` — otherwise every read of the table would have crashed until the migration was run by hand.
 
@@ -85,6 +85,7 @@ docker logs tidsrapport --tail 20
 - `/tid` → "+ Händelse" adds a personal appointment (title, date, optional start/end time or all-day, note) to the calendar. Clicking an event chip in the week or month view opens it for edit/delete
 - `calendar_events` (v22) is created by `lib/calendar-events/store.ts` on import, so `scripts/migrate-v22.ts` is optional. Events are per user (404 for someone else's id) and never feed the pay calculation
 - The user-deletion cascade in `/api/users` calls `deleteEventsForUser()` before the users row goes
+- Recurring events (v23 columns, added at import via `addColumnsIfMissing`): `recurrence` none/daily/weekly/biweekly/monthly, optional `recurrence_until`, and `excluded_dates` (JSON) for single occurrences removed with `DELETE ?id=&occurrence=<date>`. One row per series; `listEvents()` expands it with `occurrencesInRange()` (`lib/calendar-events/recurrence.ts`, tested). Editing always edits the whole series; `date` is the first occurrence and the API returns it as `seriesDate`. Monthly on the 29th-31st skips months that lack the day
 
 ## Warnings
 - `lib/tax-tables/data-*.json` are 323 KB each — do NOT read these files, use `lib/tax-tables/tax-lookup.ts`

@@ -35,6 +35,7 @@ interface CalendarEvent {
   endTime: string | null;
   title: string;
   note: string | null;
+  recurrence?: string;
 }
 
 interface Props {
@@ -212,7 +213,7 @@ export default function CalendarWeekView({
                       className="text-[10px] leading-tight px-1 py-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 hover:bg-sky-200 cursor-pointer"
                     >
                       {ev.startTime && <div className="font-medium">{ev.startTime}{ev.endTime ? `–${ev.endTime}` : ''}</div>}
-                      <div className="truncate">{ev.title}</div>
+                      <div className="truncate">{ev.recurrence && ev.recurrence !== 'none' ? '↻ ' : ''}{ev.title}</div>
                     </div>
                   ))}
                 </div>

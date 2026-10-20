@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { createEvent, deleteEvent, listEvents, parseEventInput, updateEvent } from '@/lib/calendar-events/store';
+import {
+  createEvent,
+  deleteEvent,
+  excludeOccurrence,
+  listEvents,
+  parseEventInput,
+  updateEvent,
+} from '@/lib/calendar-events/store';
 
 export const dynamic = 'force-dynamic';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// GET ?startDate=&endDate=  → { events }
+// GET ?startDate=&endDate=        → { events }, recurring series expanded per occurrence
+// PUT                             → edits the whole series
+// DELETE ?id=                     → deletes the whole series
+// DELETE ?id=&occurrence=<date>   → removes one occurrence of a recurring series
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -56,8 +66,14 @@ export async function DELETE(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const me = parseInt(session.user.id);
 
-  const id = Number(req.nextUrl.searchParams.get('id'));
-  if (!Number.isInteger(id) || !deleteEvent(me, id)) {
+  const params = req.nextUrl.searchParams;
+  const id = Number(params.get('id'));
+  const occurrence = params.get('occurrence');
+  if (occurrence !== null && !DATE_RE.test(occurrence)) {
+    return NextResponse.json({ error: 'Invalid occurrence date' }, { status: 400 });
+  }
+  const removed = Number.isInteger(id) && (occurrence ? excludeOccurrence(me, id, occurrence) : deleteEvent(me, id));
+  if (!removed) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 });
   }
   return NextResponse.json({ ok: true });

@@ -11,12 +11,29 @@ export interface CalendarEventDraft {
   endTime: string | null;
   title: string;
   note: string | null;
+  recurrence?: string;
+  recurrenceUntil?: string | null;
+  // First date of a recurring series; `date` is then the occurrence that was clicked
+  seriesDate?: string;
 }
 
 interface Props {
   event: CalendarEventDraft | null;
   onClose: () => void;
   onSaved: () => void;
+}
+
+const recurrenceOptions = [
+  { value: 'none', label: 'Upprepas inte' },
+  { value: 'daily', label: 'Varje dag' },
+  { value: 'weekly', label: 'Varje vecka' },
+  { value: 'biweekly', label: 'Varannan vecka' },
+  { value: 'monthly', label: 'Varje månad' },
+];
+
+function formatShortDate(date: string) {
+  const d = new Date(date + 'T12:00:00');
+  return d.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500';
@@ -28,25 +45,31 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [note, setNote] = useState('');
+  const [recurrence, setRecurrence] = useState('none');
+  const [recurrenceUntil, setRecurrenceUntil] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<'one' | 'all' | null>(null);
 
   useEffect(() => {
     if (!event) return;
     setTitle(event.title);
-    setDate(event.date);
+    // A recurring event is edited as a series, so the form shows its first date
+    setDate(event.seriesDate ?? event.date);
     setAllDay(event.id !== undefined && !event.startTime);
     setStartTime(event.startTime ?? '');
     setEndTime(event.endTime ?? '');
     setNote(event.note ?? '');
+    setRecurrence(event.recurrence ?? 'none');
+    setRecurrenceUntil(event.recurrenceUntil ?? '');
     setError('');
     setSaving(false);
-    setConfirmDelete(false);
+    setConfirmDelete(null);
   }, [event]);
 
   if (!event) return null;
   const isNew = event.id === undefined;
+  const wasRecurring = !isNew && (event.recurrence ?? 'none') !== 'none';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,6 +82,10 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
       setError('Sluttiden måste vara efter starttiden.');
       return;
     }
+    if (recurrence !== 'none' && recurrenceUntil && recurrenceUntil < date) {
+      setError('Slutdatumet för upprepningen måste vara efter första datumet.');
+      return;
+    }
     setSaving(true);
     const body = {
       id: event!.id,
@@ -67,6 +94,8 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
       note,
       startTime: allDay ? null : startTime,
       endTime: allDay ? null : endTime || null,
+      recurrence,
+      recurrenceUntil: recurrence === 'none' ? null : recurrenceUntil || null,
     };
     const res = await fetch('/api/calendar-events', {
       method: isNew ? 'POST' : 'PUT',
@@ -82,12 +111,13 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
     onClose();
   }
 
-  async function handleDelete() {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
+  async function handleDelete(scope: 'one' | 'all') {
+    if (confirmDelete !== scope) {
+      setConfirmDelete(scope);
       return;
     }
-    const res = await fetch(`/api/calendar-events?id=${event!.id}`, { method: 'DELETE' });
+    const query = scope === 'one' ? `&occurrence=${event!.date}` : '';
+    const res = await fetch(`/api/calendar-events?id=${event!.id}${query}`, { method: 'DELETE' });
     if (!res.ok) {
       setError('Kunde inte ta bort händelsen.');
       return;
@@ -123,8 +153,32 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {recurrence === 'none' ? 'Datum' : 'Första datum'}
+            </label>
             <DatePicker value={date} onChange={setDate} required className={inputClass} />
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Upprepa</label>
+              <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className={inputClass}>
+                {recurrenceOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            {recurrence !== 'none' && (
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Till och med (valfritt)</label>
+                <DatePicker value={recurrenceUntil} onChange={setRecurrenceUntil} className={inputClass} placeholder="Tills vidare" />
+                {recurrenceUntil && (
+                  <button type="button" onClick={() => setRecurrenceUntil('')} className="mt-1 text-xs text-blue-600 hover:underline">
+                    Ta bort slutdatum
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -156,6 +210,9 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
             />
           </div>
 
+          {wasRecurring && (
+            <p className="text-xs text-gray-500">Ändringar gäller alla tillfällen i serien.</p>
+          )}
           <p className="text-xs text-gray-500">Händelser syns bara för dig och påverkar inte lönen.</p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -166,9 +223,16 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
               Avbryt
             </button>
             {!isNew && (
-              <button type="button" onClick={handleDelete} className="ml-auto text-red-600 hover:underline text-sm">
-                {confirmDelete ? 'Bekräfta borttagning' : 'Ta bort'}
-              </button>
+              <div className="ml-auto flex flex-col items-end gap-1">
+                {wasRecurring && (
+                  <button type="button" onClick={() => handleDelete('one')} className="text-red-600 hover:underline text-sm">
+                    {confirmDelete === 'one' ? 'Bekräfta' : `Ta bort bara ${formatShortDate(event.date)}`}
+                  </button>
+                )}
+                <button type="button" onClick={() => handleDelete('all')} className="text-red-600 hover:underline text-sm">
+                  {confirmDelete === 'all' ? 'Bekräfta borttagning' : wasRecurring ? 'Ta bort alla' : 'Ta bort'}
+                </button>
+              </div>
             )}
           </div>
         </form>

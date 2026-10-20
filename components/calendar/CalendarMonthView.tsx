@@ -35,6 +35,7 @@ interface CalendarEvent {
   endTime: string | null;
   title: string;
   note: string | null;
+  recurrence?: string;
 }
 
 interface Props {
@@ -251,7 +252,7 @@ export default function CalendarMonthView({
                             title={ev.title}
                             className="text-[8px] leading-tight px-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 hover:bg-sky-200 cursor-pointer truncate"
                           >
-                            {ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
+                            {ev.recurrence && ev.recurrence !== 'none' ? '↻' : ''}{ev.startTime ? `${ev.startTime} ` : ''}{ev.title}
                           </div>
                         ))}
                       </div>
