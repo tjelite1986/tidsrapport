@@ -5,6 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
+// Pages that get an icon of their own next to the messages icon in the mobile header
+const mobileShortcutHrefs = ['/tid', '/lon', '/lonespecar', '/installningar', '/hjalp'];
+
 const navItems = [
   {
     href: '/',
@@ -192,7 +195,8 @@ export default function Navigation() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              Tidsrapport
+              {/* Below 400px the name gives way to the mobile shortcut icons */}
+              <span className="hidden min-[400px]:inline">Tidsrapport</span>
             </Link>
             <div className="hidden 2xl:flex items-center gap-0.5 min-w-0 overflow-x-auto scrollbar-none">
               {allItems.map((item) => (
@@ -230,12 +234,30 @@ export default function Navigation() {
           </div>
 
           {/* Mobile: messages shortcut + hamburger */}
-          <div className="2xl:hidden flex items-center gap-1">
+          <div className="2xl:hidden flex items-center">
+            {navItems
+              .filter((item) => mobileShortcutHrefs.includes(item.href))
+              .map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  aria-label={item.label}
+                  title={item.label}
+                  className={`p-1.5 rounded-md transition-colors [&>svg]:h-5 [&>svg]:w-5 ${
+                    pathname === item.href
+                      ? 'bg-white/15 text-white'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {item.icon}
+                </Link>
+              ))}
             <Link
               href="/meddelanden"
               onClick={() => setMenuOpen(false)}
               aria-label={unread > 0 ? `Meddelanden, ${unread} olästa` : 'Meddelanden'}
-              className={`relative p-2 rounded-md transition-colors ${
+              className={`relative p-1.5 rounded-md transition-colors ${
                 pathname === '/meddelanden'
                   ? 'bg-white/15 text-white'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -252,7 +274,7 @@ export default function Navigation() {
             </Link>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {menuOpen ? (
