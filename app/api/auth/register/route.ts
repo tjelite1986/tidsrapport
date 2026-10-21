@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users, salarySettings } from '@/lib/db/schema';
 import { hashSync } from 'bcryptjs';
+import { createDefaultProject } from '@/lib/projects/default';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
       .get();
 
     db.insert(salarySettings).values({ userId: user.id, workingHoursPerMonth: 160 }).run();
+    createDefaultProject(user.id);
 
     return NextResponse.json({ id: user.id, name: user.name, email: user.email });
   } catch (e: any) {

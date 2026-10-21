@@ -15,8 +15,8 @@ See `.claude/architecture.md` for the full file structure and API reference.
 - An admin can NOT see other users' salary or report data
 
 ## Migration order
-v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings) → v20 (sick/karens hours on payslips) → v21 (messages) → v22 (calendar_events) → v23 (recurring calendar events, latest)
-Next: **v24**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings) → v20 (sick/karens hours on payslips) → v21 (messages) → v22 (calendar_events) → v23 (recurring calendar events) → v24 (own copy of shared projects + default project per user, latest)
+Next: **v25**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
 v17 and v18 also run on the first call (`lib/payslips/store.ts`: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` behind `PRAGMA table_info`) — so they need no manual run, but are kept for completeness.
 v19 runs at module init in `lib/db/index.ts` (`applyUserSettingsColumns`), i.e. before the first query against `user_settings` — otherwise every read of the table would have crashed until the migration was run by hand.
 
@@ -361,6 +361,7 @@ useEffect(() => { fetch('/api/data')... }, []); // Unnecessary
 
 ### Isolation and auth
 - Every `/api/projects` verb filters on the session user, and time-entry POST/PUT verify project ownership. Answer 404, not 403, for another user's id. Why: projects once had no owner column and every user could edit everyone's projects.
+- Every user owns their own projects; new users get a default "Arbete" project at creation (`createDefaultProject()`, called from register and admin create). Why: users created after v14 had an empty project picker and could not log time.
 - Do not re-add user pickers to `/lon` or `/rapporter`; admins must not see other users' pay. They were removed on purpose.
 - `middleware.ts` excludes public assets by exact filename. Adding or renaming anything in `public/` (icons, manifest, sw) without updating the matcher makes it require a login. The login page's own favicon then silently redirects to `/login`.
 - Icon URLs carry `?v=N` in `app/manifest.ts` and `app/layout.tsx`. Bump N whenever the icons change. Why: installed Android/iOS home-screen apps only pick up a new icon when the manifest itself changes.
