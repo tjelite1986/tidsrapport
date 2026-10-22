@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { getWeekNumber } from '@/lib/calculations/time-utils';
 
 interface ParsedShift {
@@ -58,6 +58,27 @@ function monthLabel(month: string): string {
   return `${MONTH_NAMES[m - 1]} ${year}`;
 }
 
+/** "2026-10" … "2027-04" → "oktober 2026 – april 2027" */
+function spanLabel(from: string | null, to: string | null): string {
+  if (!from || !to) return '';
+  return from === to ? monthLabel(from) : `${monthLabel(from)} – ${monthLabel(to)}`;
+}
+
+/** { "(Sjuk)": 2, "(Semester)": 3 } → "2 (Sjuk), 3 (Semester)" */
+function skippedLabel(skipped: Record<string, number>): string {
+  return Object.entries(skipped).map(([label, n]) => `${n} ${label}`).join(', ');
+}
+
+function describeLinkError(status: number, detail: string | undefined): string {
+  const headline =
+    status === 400 ? 'Länken fungerar inte. Klistra in en https- eller webcal-länk till en kalender (.ics).'
+    : status === 413 ? 'Kalendern är för stor.'
+    : status === 422 ? 'Länken gav ingen kalender. Kontrollera att du kopierat hela kalenderlänken.'
+    : status === 502 ? 'Kunde inte hämta kalendern från länken.'
+    : 'Kunde inte läsa kalendern.';
+  return detail ? `${headline} (${detail})` : headline;
+}
+
 /** The API answers in English; the dialog speaks the product's Swedish. */
 function describeError(status: number, detail: string | undefined): string {
   const headline =
@@ -70,6 +91,7 @@ function describeError(status: number, detail: string | undefined): string {
 }
 
 type Step = 'upload' | 'analyzing' | 'confirm' | 'importing' | 'done';
+type Source = 'image' | 'link';
 
 export default function ScheduleImportDialog({ open, projects, onClose, onImported }: Props) {
   const [step, setStep] = useState<Step>('upload');
@@ -80,9 +102,87 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
   const [projectId, setProjectId] = useState('');
   const [error, setError] = useState('');
   const [importedCount, setImportedCount] = useState(0);
-  const [month, setMonth] = useState('');
   const [outsideMonth, setOutsideMonth] = useState(0);
+  const [source, setSource] = useState<Source>('image');
+  const [icsUrl, setIcsUrl] = useState('');
+  const [periodLabel, setPeriodLabel] = useState('');
+  const [skipped, setSkipped] = useState<Record<string, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Offer the link imported from last time, and open on the link tab when
+  // there is one — a schedule feed is re-read every few weeks
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch('/api/schedule-import/ics')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.url) return;
+        setIcsUrl((current) => current || data.url);
+        setSource('link');
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open]);
+
+  /** Shared by both sources: load the shifts into the confirm step. */
+  function showShifts(parsed: ParsedShift[]) {
+    setShifts(parsed);
+    // Dates that already have an entry stay unchecked so a second import
+    // of the same schedule does not double the month
+    setSelected(new Set(parsed.map((s, i) => (s.existing ? -1 : i)).filter((i) => i >= 0)));
+
+    if (!projectId) {
+      const first = projects.find((p) => p.active);
+      if (first) setProjectId(String(first.id));
+    }
+
+    setStep('confirm');
+  }
+
+  async function fetchLink() {
+    if (!icsUrl.trim()) return;
+    setStep('analyzing');
+    setError('');
+
+    try {
+      const res = await fetch('/api/schedule-import/ics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: icsUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(describeLinkError(res.status, data.error));
+        setStep('upload');
+        return;
+      }
+
+      const parsed: ParsedShift[] = (data.shifts || []).map((s: ParsedShift) => ({
+        date: s.date,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        breakMinutes: 0,
+        existing: Boolean(s.existing),
+      }));
+
+      if (parsed.length === 0) {
+        setError('Kalendern hittades men innehöll inga arbetspass.');
+        setStep('upload');
+        return;
+      }
+
+      setIcsUrl(data.url || icsUrl);
+      setPeriodLabel(spanLabel(data.from, data.to));
+      setSkipped(data.skipped || {});
+      setOutsideMonth(0);
+      showShifts(parsed);
+    } catch {
+      setError('Nätverksfel – försök igen');
+      setStep('upload');
+    }
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -131,19 +231,10 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
         return;
       }
 
-      setMonth(data.month);
+      setPeriodLabel(monthLabel(data.month));
+      setSkipped({});
       setOutsideMonth(data.outsideMonth || 0);
-      setShifts(parsed);
-      // Dates that already have an entry stay unchecked so a second upload
-      // of the same schedule does not double the month
-      setSelected(new Set(parsed.map((s, i) => (s.existing ? -1 : i)).filter((i) => i >= 0)));
-
-      if (!projectId) {
-        const first = projects.find((p) => p.active);
-        if (first) setProjectId(String(first.id));
-      }
-
-      setStep('confirm');
+      showShifts(parsed);
     } catch {
       setError('Nätverksfel – försök igen');
       setStep('upload');
@@ -185,8 +276,9 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
     setProjectId('');
     setError('');
     setImportedCount(0);
-    setMonth('');
     setOutsideMonth(0);
+    setPeriodLabel('');
+    setSkipped({});
   }
 
   function handleClose() {
@@ -232,6 +324,52 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
           {/* STEP: UPLOAD */}
           {step === 'upload' && (
             <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-lg text-sm">
+                {([['image', 'Skärmdump'], ['link', 'Kalenderlänk']] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => { setSource(value); setError(''); }}
+                    className={`py-1.5 rounded-md font-medium transition ${
+                      source === value ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {source === 'link' && (
+                <>
+                  <p className="text-sm text-gray-600">
+                    Klistra in länken till ditt schema som kalender (.ics), till exempel från ipool. Alla
+                    pass i kalendern hämtas och du väljer vilka som ska läggas in. Länken sparas så att du
+                    kan hämta schemat igen när det har ändrats.
+                  </p>
+
+                  {error && <div className="bg-red-50 text-red-700 p-3 rounded text-sm">{error}</div>}
+
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={icsUrl}
+                    onChange={(e) => setIcsUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') fetchLink(); }}
+                    placeholder="https://…/ics"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+
+                  <button
+                    onClick={fetchLink}
+                    disabled={!icsUrl.trim()}
+                    className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                  >
+                    Hämta schema
+                  </button>
+                </>
+              )}
+
+              {source === 'image' && (<>
               <p className="text-sm text-gray-600">
                 Ladda upp en skärmdump av ditt arbetsschema. Månaden läses av från veckonumren och
                 dagarna i bilden, och passen läggs in på rätt datum.
@@ -270,6 +408,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
                   Analysera schema
                 </button>
               )}
+              </>)}
             </div>
           )}
 
@@ -277,8 +416,14 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
           {step === 'analyzing' && (
             <div className="py-12 text-center">
               <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-gray-600 font-medium">Analyserar bilden...</p>
-              <p className="text-gray-400 text-sm mt-1">AI:n läser av schemat, detta tar några sekunder</p>
+              {source === 'link' ? (
+                <p className="text-gray-600 font-medium">Hämtar schemat...</p>
+              ) : (
+                <>
+                  <p className="text-gray-600 font-medium">Analyserar bilden...</p>
+                  <p className="text-gray-400 text-sm mt-1">AI:n läser av schemat, detta tar några sekunder</p>
+                </>
+              )}
             </div>
           )}
 
@@ -286,12 +431,13 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
           {step === 'confirm' && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                <span className="font-semibold text-gray-800">{monthLabel(month)}</span>:{' '}
+                <span className="font-semibold text-gray-800">{periodLabel}</span>:{' '}
                 {shifts.length} arbetspass hittades
                 {shifts.some((s) => s.existing) && (
                   <>, {shifts.filter((s) => s.existing).length} dagar har redan en post och är avmarkerade</>
                 )}
                 {outsideMonth > 0 && <>. {outsideMonth} pass från en annan månad i bilden hoppades över</>}
+                {Object.keys(skipped).length > 0 && <>. Hoppade över {skippedLabel(skipped)}</>}
                 .
               </p>
 
@@ -415,7 +561,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
               </div>
               <div>
                 <p className="text-lg font-semibold text-gray-800">{importedCount} pass importerade</p>
-                <p className="text-sm text-gray-500 mt-1">Tidsregistreringarna för {monthLabel(month)} är sparade</p>
+                <p className="text-sm text-gray-500 mt-1">Tidsregistreringarna för {periodLabel} är sparade</p>
               </div>
               <button
                 onClick={handleClose}

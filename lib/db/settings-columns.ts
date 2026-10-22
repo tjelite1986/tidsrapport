@@ -23,6 +23,9 @@ export const USER_SETTINGS_EXTRA_COLUMNS: { name: string; ddl: string }[] = [
   // Employer social fees, shown as "Månadens sociala avgifter". 31.42% is the
   // standard Swedish rate for an employee born 1959-2003.
   { name: 'employer_fee_rate', ddl: 'employer_fee_rate REAL NOT NULL DEFAULT 31.42' },
+  // v25: the schedule feed (.ics link) the user last imported from, so the
+  // import dialog can offer it again.
+  { name: 'schedule_ics_url', ddl: 'schedule_ics_url TEXT' },
 ];
 
 /**

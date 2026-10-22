@@ -50,6 +50,7 @@ export async function GET() {
       paydayDay: 25,
       payslipMessage: null,
       employerFeeRate: 31.42,
+      scheduleIcsUrl: null,
     });
   }
 

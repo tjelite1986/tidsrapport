@@ -90,6 +90,8 @@ export const userSettings = sqliteTable('user_settings', {
   paydayDay: integer('payday_day').notNull().default(25),
   payslipMessage: text('payslip_message'),
   employerFeeRate: real('employer_fee_rate').notNull().default(31.42),
+  // Schedule feed link (v25), remembered by the .ics import
+  scheduleIcsUrl: text('schedule_ics_url'),
 });
 
 export const workTemplates = sqliteTable('work_templates', {

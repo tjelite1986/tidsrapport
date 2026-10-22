@@ -15,8 +15,8 @@ See `.claude/architecture.md` for the full file structure and API reference.
 - An admin can NOT see other users' salary or report data
 
 ## Migration order
-v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings) → v20 (sick/karens hours on payslips) → v21 (messages) → v22 (calendar_events) → v23 (recurring calendar events) → v24 (own copy of shared projects + default project per user, latest)
-Next: **v25**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
+v2 → … → v14 (per-user projects) → v15 (hourly_rate_history) → v16 (vacation_daily_rate) → v17 (payslips) → v18 (salary lines on payslips) → v19 (payslip document fields on user_settings) → v20 (sick/karens hours on payslips) → v21 (messages) → v22 (calendar_events) → v23 (recurring calendar events) → v24 (own copy of shared projects + default project per user) → v25 (`schedule_ics_url` on user_settings, latest; also applied at `lib/db` init)
+Next: **v26**. Run inside the container: `docker exec tidsrapport npx tsx scripts/migrate-vN.ts /app/data/tidsrapport.db`
 v17 and v18 also run on the first call (`lib/payslips/store.ts`: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` behind `PRAGMA table_info`) — so they need no manual run, but are kept for completeness.
 v19 runs at module init in `lib/db/index.ts` (`applyUserSettingsColumns`), i.e. before the first query against `user_settings` — otherwise every read of the table would have crashed until the migration was run by hand.
 
@@ -65,6 +65,8 @@ docker logs tidsrapport --tail 20
 - `/tid` → "Importera schema" posts a PNG/JPG/WEBP to `/api/schedule-import`. The month is **not** chosen by the user: the model only transcribes the grid (`lib/schedule-import/extract.ts`: week number per row, per cell column 0–6, day number, greyed flag, start/end), and `resolveSchedule()` in `lib/schedule-import/resolve.ts` dates it — ISO week + column + day number pins the month exactly. Without week numbers it falls back on the day pattern over a window around today, ties go to a visible month heading, then to the month nearest next month
 - The route saves nothing. It answers `{month, shifts[{date,startTime,endTime,existing}], outsideMonth}`; dates that already have a time entry come back `existing: true` and the dialog leaves them unchecked, so a re-upload does not double the month. Shifts on greyed neighbouring-month days are counted in `outsideMonth` and not imported
 - AI calls go through `lib/ai/vision-json.ts` (OpenRouter first, same env variables as the payslip reader). `resolve.test.ts` locks the two sample screenshots; `scripts/try-schedule-import.ts <image>` runs the live path from the host without saving
+- The same dialog has a "Kalenderlänk" tab: an .ics link (ipool publishes one per employee) is fetched server-side by `/api/schedule-import/ics` and parsed by `parseIcsSchedule()` (`lib/schedule-import/ics.ts`, tested). UTC times are converted to Europe/Stockholm; events whose SUMMARY is in parentheses — `(Sjuk)`, `(Semester)` — are absence markers, counted in `skipped` and never imported. Same `existing` rule as the screenshot path. The last link is remembered in `user_settings.schedule_ics_url` and prefilled next time
+- `lib/schedule-import/fetch-ics.ts` is a server-side fetch of a user-supplied URL: https/webcal only, every hop (redirects followed manually) must resolve to a public address, 2 MB cap, 15 s timeout. Keep those checks — without them any account can make the server read the LAN
 
 ## Generated payslip document (PDF)
 - `/lon` → "Exportera lönebesked" fetches `/api/salary/payslip?month=<payout month>` and draws the PDF client-side. The month is the **payout month**; the rows cover the work period of the month before (`workMonthFor`)
