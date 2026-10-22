@@ -90,6 +90,7 @@ function request(url: URL, deadline: number): Promise<RawResponse> {
     }, (res) => {
       const status = res.statusCode ?? 0;
       if (status >= 300 && status < 400) {
+        clearTimeout(timer);
         res.resume();
         resolve({ status, location: res.headers.location ?? null, body: '' });
         return;
@@ -105,10 +106,20 @@ function request(url: URL, deadline: number): Promise<RawResponse> {
         chunks.push(chunk);
       });
       // Decode once at the end so a multi-byte character split across chunks survives
-      res.on('end', () => resolve({ status, location: null, body: Buffer.concat(chunks).toString('utf8') }));
+      res.on('end', () => {
+        clearTimeout(timer);
+        resolve({ status, location: null, body: Buffer.concat(chunks).toString('utf8') });
+      });
       res.on('error', reject);
     });
+    // The socket timeout is per idle gap only; a server dripping one byte at a
+    // time would never trip it, so the whole request also has a hard deadline
+    const timer = setTimeout(
+      () => req.destroy(new IcsFetchError('Calendar did not answer in time', 502)),
+      Math.max(1, deadline - Date.now()),
+    );
     req.on('timeout', () => req.destroy(new IcsFetchError('Calendar did not answer in time', 502)));
+    req.on('close', () => clearTimeout(timer));
     req.on('error', (err) => reject(err instanceof IcsFetchError ? err : new IcsFetchError('Could not reach the calendar', 502)));
     req.end();
   });
