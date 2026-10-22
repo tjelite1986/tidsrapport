@@ -85,9 +85,38 @@ describe('planSync', () => {
     expect(plan.remove).toEqual([]);
   });
 
-  it('does not create two entries for two shifts on one new date', () => {
-    const plan = planSync({ shifts: [shift('a', '2026-11-01'), shift('b', '2026-11-01', '18:00', '20:00')], items: [], entries: [], today: TODAY });
-    expect(plan.create.map((s) => s.uid)).toEqual(['a']);
+  it('creates both shifts of a split day', () => {
+    const plan = planSync({ shifts: [shift('a', '2026-11-01', '08:00', '12:00'), shift('b', '2026-11-01', '16:00', '20:00')], items: [], entries: [], today: TODAY });
+    expect(plan.create.map((s) => s.uid)).toEqual(['a', 'b']);
+  });
+
+  it('adds a second shift later to a date whose only entry the sync made', () => {
+    const plan = planSync({
+      shifts: [shift('a', '2026-11-01', '08:00', '12:00'), shift('b', '2026-11-01', '16:00', '20:00')],
+      items: [item('a', '2026-11-01', 1, '08:00', '12:00')],
+      entries: [entry(1, '2026-11-01', '08:00', '12:00')],
+      today: TODAY,
+    });
+    expect(plan.create.map((s) => s.uid)).toEqual(['b']);
+  });
+
+  it('never creates a shift that overlaps one already there', () => {
+    const plan = planSync({
+      shifts: [shift('a', '2026-11-01', '08:00', '12:00'), shift('b', '2026-11-01', '11:00', '15:00'), shift('c', '2026-11-02', '22:00', '06:00'), shift('d', '2026-11-02', '23:00', '01:00')],
+      items: [], entries: [], today: TODAY,
+    });
+    expect(plan.create.map((s) => s.uid)).toEqual(['a', 'c']);
+    expect(plan.markSeen.map((s) => s.uid)).toEqual(['b', 'd']);
+  });
+
+  it('adds nothing to a date with an entry the user made, even beside a synced one', () => {
+    const plan = planSync({
+      shifts: [shift('a', '2026-11-01', '08:00', '12:00'), shift('b', '2026-11-01', '16:00', '20:00')],
+      items: [item('a', '2026-11-01', 1, '08:00', '12:00')],
+      entries: [entry(1, '2026-11-01', '08:00', '12:00'), entry(2, '2026-11-01', '13:00', '14:00', null)],
+      today: TODAY,
+    });
+    expect(plan.create).toEqual([]);
     expect(plan.markSeen.map((s) => s.uid)).toEqual(['b']);
   });
 });
