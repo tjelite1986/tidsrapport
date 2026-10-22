@@ -26,6 +26,11 @@ export const USER_SETTINGS_EXTRA_COLUMNS: { name: string; ddl: string }[] = [
   // v25: the schedule feed (.ics link) the user last imported from, so the
   // import dialog can offer it again.
   { name: 'schedule_ics_url', ddl: 'schedule_ics_url TEXT' },
+  // v26: automatic sync of that feed every 30 minutes (lib/schedule-sync)
+  { name: 'schedule_sync_enabled', ddl: 'schedule_sync_enabled INTEGER NOT NULL DEFAULT 0' },
+  { name: 'schedule_sync_project_id', ddl: 'schedule_sync_project_id INTEGER' },
+  { name: 'schedule_synced_at', ddl: 'schedule_synced_at TEXT' },
+  { name: 'schedule_sync_status', ddl: 'schedule_sync_status TEXT' },
 ];
 
 /**

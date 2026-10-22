@@ -51,6 +51,10 @@ export async function GET() {
       payslipMessage: null,
       employerFeeRate: 31.42,
       scheduleIcsUrl: null,
+      scheduleSyncEnabled: false,
+      scheduleSyncProjectId: null,
+      scheduleSyncedAt: null,
+      scheduleSyncStatus: null,
     });
   }
 

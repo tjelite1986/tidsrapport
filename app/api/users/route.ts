@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { deleteMessagesForUser } from '@/lib/messages/store';
 import { deleteEventsForUser } from '@/lib/calendar-events/store';
+import { deleteSyncItemsForUser } from '@/lib/schedule-sync/store';
 import { db, sqlite } from '@/lib/db';
 import { users, salarySettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -155,6 +156,7 @@ export async function DELETE(req: NextRequest) {
     sqlite.prepare('DELETE FROM user_settings WHERE user_id = ?').run(userId);
     deleteMessagesForUser(userId);
     deleteEventsForUser(userId);
+    deleteSyncItemsForUser(userId);
     sqlite.prepare('DELETE FROM users WHERE id = ?').run(userId);
   });
   cascadeDelete(id);

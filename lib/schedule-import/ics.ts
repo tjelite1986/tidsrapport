@@ -16,6 +16,10 @@ export type IcsShift = {
   endTime: string;
   /** The event's SUMMARY, e.g. "Biltema Trollhättan - Kundservice, Kassa". */
   summary: string;
+  /** Departments listed after the workplace: ["Kundservice", "Kassa"]. */
+  departments: string[];
+  /** The event's UID — stable across feed refreshes, so a sync can follow a moved shift. */
+  uid: string | null;
 };
 
 export type IcsParseResult = {
@@ -80,6 +84,16 @@ function localDateTime(prop: Property): { date: string; time: string } | null {
   return { date: `${y}-${mo}-${d}`, time: `${h}:${mi}` };
 }
 
+/**
+ * ipool writes "<workplace> - <department>, <department>". Without the
+ * separator there is no department list to read.
+ */
+export function departmentsOf(summary: string): string[] {
+  const sep = summary.indexOf(' - ');
+  if (sep < 0) return [];
+  return summary.slice(sep + 3).split(',').map((d) => d.trim()).filter(Boolean);
+}
+
 /** Labels in parentheses — "(Sjuk)", "(Semester)" — mark absence, not a shift. */
 function isAbsenceMarker(summary: string): boolean {
   return /^\(.*\)$/.test(summary.trim());
@@ -128,7 +142,14 @@ export function parseIcsSchedule(text: string): IcsParseResult {
 
     // A shift past midnight belongs to the day it starts on; the time-entry
     // API treats an end before the start as the next day
-    shifts.push({ date: start.date, startTime: start.time, endTime: end.time, summary });
+    shifts.push({
+      date: start.date,
+      startTime: start.time,
+      endTime: end.time,
+      summary,
+      departments: departmentsOf(summary),
+      uid: get('UID')?.value.trim() || null,
+    });
   }
 
   shifts.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));

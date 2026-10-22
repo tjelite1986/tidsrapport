@@ -10,6 +10,8 @@ interface ParsedShift {
   breakMinutes: number;
   /** The user already has an entry on this date — left unchecked by default. */
   existing: boolean;
+  /** From a calendar link only: the departments the shift lists. */
+  departments?: string[];
 }
 
 interface Project {
@@ -79,6 +81,17 @@ function describeLinkError(status: number, detail: string | undefined): string {
   return detail ? `${headline} (${detail})` : headline;
 }
 
+/** "ok: 3 new, 1 changed, 0 removed" from the server, in the product's Swedish. */
+function describeSyncStatus(status: string | null, syncedAt: string | null): string {
+  if (!status) return 'Inte synkad än';
+  const when = syncedAt
+    ? new Date(syncedAt).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' })
+    : '';
+  const ok = status.match(/^ok: (\d+) new, (\d+) changed, (\d+) removed$/);
+  if (ok) return `Senast synkad ${when}: ${ok[1]} nya, ${ok[2]} ändrade, ${ok[3]} borttagna pass`;
+  return `Synken misslyckades ${when} (${status.replace(/^error: /, '')})`;
+}
+
 /** The API answers in English; the dialog speaks the product's Swedish. */
 function describeError(status: number, detail: string | undefined): string {
   const headline =
@@ -107,6 +120,10 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
   const [icsUrl, setIcsUrl] = useState('');
   const [periodLabel, setPeriodLabel] = useState('');
   const [skipped, setSkipped] = useState<Record<string, number>>({});
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [syncProjectId, setSyncProjectId] = useState('');
+  const [syncInfo, setSyncInfo] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Offer the link imported from last time, and open on the link tab when
@@ -117,13 +134,48 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
     fetch('/api/schedule-import/ics')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data?.url) return;
+        if (cancelled || !data) return;
+        setSyncEnabled(Boolean(data.syncEnabled));
+        if (data.syncProjectId) setSyncProjectId(String(data.syncProjectId));
+        setSyncInfo(data.syncEnabled ? describeSyncStatus(data.syncStatus, data.syncedAt) : '');
+        if (!data.url) return;
         setIcsUrl((current) => current || data.url);
         setSource('link');
       })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [open]);
+
+  async function toggleSync(enable: boolean) {
+    const project = syncProjectId || String(projects.find((p) => p.active)?.id ?? '');
+    if (enable && (!icsUrl.trim() || !project)) {
+      setError(!project ? 'Välj ett projekt för synken' : 'Klistra in länken först');
+      return;
+    }
+    setSyncBusy(true);
+    setError('');
+    try {
+      const res = await fetch('/api/schedule-import/ics/sync', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enable, url: icsUrl, projectId: Number(project) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && !data.enabled) {
+        setError(describeLinkError(res.status, data.error));
+        return;
+      }
+      setSyncEnabled(enable);
+      setSyncProjectId(project);
+      setSyncInfo(enable ? describeSyncStatus(data.status ?? null, data.syncedAt ?? null) : '');
+      // The first sync may have written entries; the page behind should show them
+      if (enable && data.result && (data.result.created || data.result.updated || data.result.removed)) onImported();
+    } catch {
+      setError('Nätverksfel – försök igen');
+    } finally {
+      setSyncBusy(false);
+    }
+  }
 
   /** Shared by both sources: load the shifts into the confirm step. */
   function showShifts(parsed: ParsedShift[]) {
@@ -165,6 +217,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
         endTime: s.endTime,
         breakMinutes: 0,
         existing: Boolean(s.existing),
+        departments: Array.isArray(s.departments) ? s.departments : [],
       }));
 
       if (parsed.length === 0) {
@@ -258,6 +311,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
           startTime: shift.startTime,
           endTime: shift.endTime,
           breakMinutes: shift.breakMinutes || 0,
+          description: shift.departments?.length ? shift.departments.join(', ') : undefined,
         }),
       });
       if (res.ok) count++;
@@ -366,6 +420,38 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
                   >
                     Hämta schema
                   </button>
+
+                  <div className="border rounded-lg p-3 space-y-2">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={syncEnabled}
+                        disabled={syncBusy}
+                        onChange={(e) => toggleSync(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 text-blue-600 rounded flex-shrink-0"
+                      />
+                      <span className="text-sm">
+                        <span className="font-medium text-gray-800">Synka automatiskt var 30:e minut</span>
+                        <span className="block text-xs text-gray-500 mt-0.5">
+                          Nya pass från idag och framåt läggs in, ändrade och borttagna pass följer med.
+                          Pass du själv har ändrat i, och dagar som redan har en post, rörs inte.
+                        </span>
+                      </span>
+                    </label>
+                    <select
+                      value={syncProjectId}
+                      disabled={syncBusy || syncEnabled}
+                      onChange={(e) => setSyncProjectId(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Projekt för synkade pass...</option>
+                      {projects.filter((p) => p.active).map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                    {syncBusy && <p className="text-xs text-gray-500">Synkar...</p>}
+                    {!syncBusy && syncInfo && <p className="text-xs text-gray-500">{syncInfo}</p>}
+                  </div>
                 </>
               )}
 
@@ -486,6 +572,9 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
                               {shiftLabel(shift)}
                               <span className="ml-1.5 text-xs text-gray-400 font-mono">{shift.date}</span>
                               {shift.existing && <span className="ml-1.5 text-xs text-amber-600">finns redan</span>}
+                              {shift.departments && shift.departments.length > 0 && (
+                                <span className="block text-xs text-gray-500 truncate">{shift.departments.join(', ')}</span>
+                              )}
                             </span>
                           </label>
                           <div className="flex items-center gap-1.5 flex-shrink-0">

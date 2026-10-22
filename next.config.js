@@ -3,6 +3,8 @@ const nextConfig = {
   output: 'standalone',
   experimental: {
     serverComponentsExternalPackages: ['better-sqlite3'],
+    // instrumentation.ts starts the 30-minute schedule sync
+    instrumentationHook: true,
   },
   headers: async () => [
     {

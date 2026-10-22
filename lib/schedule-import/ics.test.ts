@@ -46,8 +46,11 @@ describe('parseIcsSchedule', () => {
     const { shifts } = parseIcsSchedule(FEED);
     // 22 Oct is summer time (UTC+2), 27 Oct winter time (UTC+1)
     expect(shifts).toEqual([
-      { date: '2026-10-22', startTime: '07:00', endTime: '11:00', summary: 'Store - Plock' },
-      { date: '2026-10-27', startTime: '06:00', endTime: '10:15', summary: 'Store - Kundservice, Kassa' },
+      { date: '2026-10-22', startTime: '07:00', endTime: '11:00', summary: 'Store - Plock', departments: ['Plock'], uid: 'b' },
+      {
+        date: '2026-10-27', startTime: '06:00', endTime: '10:15',
+        summary: 'Store - Kundservice, Kassa', departments: ['Kundservice', 'Kassa'], uid: 'c',
+      },
     ]);
   });
 
@@ -88,7 +91,7 @@ describe('parseIcsSchedule', () => {
     ].join('\n');
     const result = parseIcsSchedule(feed);
     expect(result.shifts).toEqual([
-      { date: '2026-11-05', startTime: '08:00', endTime: '16:30', summary: 'A long summary' },
+      { date: '2026-11-05', startTime: '08:00', endTime: '16:30', summary: 'A long summary', departments: [], uid: null },
     ]);
     expect(result.skipped).toEqual({ Heldag: 1, 'Inställda': 1 });
   });

@@ -9,18 +9,30 @@ import { IcsParseError, parseIcsSchedule, shiftMonthSpan } from '@/lib/schedule-
 
 export const dynamic = 'force-dynamic';
 
-/** The schedule link the user imported from last time, if any. */
+/** The schedule link the user imported from last time, if any, and its sync state. */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const userId = parseInt(session.user.id);
   const row = db
-    .select({ url: userSettings.scheduleIcsUrl })
+    .select({
+      url: userSettings.scheduleIcsUrl,
+      syncEnabled: userSettings.scheduleSyncEnabled,
+      syncProjectId: userSettings.scheduleSyncProjectId,
+      syncedAt: userSettings.scheduleSyncedAt,
+      syncStatus: userSettings.scheduleSyncStatus,
+    })
     .from(userSettings)
     .where(eq(userSettings.userId, userId))
     .get();
-  return NextResponse.json({ url: row?.url ?? null });
+  return NextResponse.json({
+    url: row?.url ?? null,
+    syncEnabled: row?.syncEnabled ?? false,
+    syncProjectId: row?.syncProjectId ?? null,
+    syncedAt: row?.syncedAt ?? null,
+    syncStatus: row?.syncStatus ?? null,
+  });
 }
 
 /**

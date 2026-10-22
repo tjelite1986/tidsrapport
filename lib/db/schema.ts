@@ -92,6 +92,11 @@ export const userSettings = sqliteTable('user_settings', {
   employerFeeRate: real('employer_fee_rate').notNull().default(31.42),
   // Schedule feed link (v25), remembered by the .ics import
   scheduleIcsUrl: text('schedule_ics_url'),
+  // Automatic sync of that link (v26), run by lib/schedule-sync every 30 min
+  scheduleSyncEnabled: integer('schedule_sync_enabled', { mode: 'boolean' }).notNull().default(false),
+  scheduleSyncProjectId: integer('schedule_sync_project_id'),
+  scheduleSyncedAt: text('schedule_synced_at'),
+  scheduleSyncStatus: text('schedule_sync_status'),
 });
 
 export const workTemplates = sqliteTable('work_templates', {
