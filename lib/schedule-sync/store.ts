@@ -1,5 +1,6 @@
 import { sqlite } from '@/lib/db';
-import { calculateAutoBreak, calculateWorkHours, type BreakRule } from '@/lib/calculations';
+import { calculateAutoBreak, calculateWorkHours, generateBreakPeriod, type BreakRule } from '@/lib/calculations';
+import { serializeBreakPeriods } from '@/lib/types/break-periods';
 import { fetchIcs } from '@/lib/schedule-import/fetch-ics';
 import { parseIcsSchedule } from '@/lib/schedule-import/ics';
 import { descriptionFor, planSync, type EntryRef, type SyncItem, type SyncShift } from './plan';
@@ -91,14 +92,18 @@ export async function syncScheduleForUser(userId: number): Promise<SyncResult> {
 
   const hoursFor = (shift: SyncShift) => {
     const breakMinutes = calculateAutoBreak(shift.startTime, shift.endTime, rules);
-    return { breakMinutes, hours: calculateWorkHours(shift.startTime, shift.endTime, breakMinutes) };
+    // Place the break mid-shift like the time form does, so it shows with times and OB sees where it falls
+    const breakPeriods = breakMinutes > 0
+      ? serializeBreakPeriods([generateBreakPeriod(shift.startTime, shift.endTime, breakMinutes)])
+      : null;
+    return { breakMinutes, breakPeriods, hours: calculateWorkHours(shift.startTime, shift.endTime, breakMinutes) };
   };
 
   const insertEntry = sqlite.prepare(`INSERT INTO time_entries
-    (user_id, project_id, date, hours, start_time, end_time, break_minutes, entry_type, overtime_type, description, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'work', 'none', ?, ?)`);
+    (user_id, project_id, date, hours, start_time, end_time, break_minutes, break_periods, entry_type, overtime_type, description, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'work', 'none', ?, ?)`);
   const updateEntry = sqlite.prepare(`UPDATE time_entries
-    SET date = ?, hours = ?, start_time = ?, end_time = ?, break_minutes = ?, description = ?
+    SET date = ?, hours = ?, start_time = ?, end_time = ?, break_minutes = ?, break_periods = ?, description = ?
     WHERE id = ? AND user_id = ?`);
   const deleteEntry = sqlite.prepare('DELETE FROM time_entries WHERE id = ? AND user_id = ?');
   const upsertItem = sqlite.prepare(`INSERT INTO schedule_sync_items
@@ -110,7 +115,7 @@ export async function syncScheduleForUser(userId: number): Promise<SyncResult> {
   const apply = sqlite.transaction(() => {
     let created = 0;
     for (const shift of plan.create) {
-      const { breakMinutes, hours } = hoursFor(shift);
+      const { breakMinutes, breakPeriods, hours } = hoursFor(shift);
       // Same bounds as the time-entry API: a shift that computes to nothing is not an entry
       if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
         upsertItem.run(userId, shift.uid, shift.date, shift.startTime, shift.endTime, descriptionFor(shift), null);
@@ -118,7 +123,7 @@ export async function syncScheduleForUser(userId: number): Promise<SyncResult> {
       }
       const description = descriptionFor(shift);
       const info = insertEntry.run(userId, settings.projectId, shift.date, hours, shift.startTime, shift.endTime,
-        breakMinutes, description, new Date().toISOString());
+        breakMinutes, breakPeriods, description, new Date().toISOString());
       upsertItem.run(userId, shift.uid, shift.date, shift.startTime, shift.endTime, description, Number(info.lastInsertRowid));
       created++;
     }
@@ -126,10 +131,10 @@ export async function syncScheduleForUser(userId: number): Promise<SyncResult> {
       upsertItem.run(userId, shift.uid, shift.date, shift.startTime, shift.endTime, descriptionFor(shift), null);
     }
     for (const { item, shift } of plan.update) {
-      const { breakMinutes, hours } = hoursFor(shift);
+      const { breakMinutes, breakPeriods, hours } = hoursFor(shift);
       if (!Number.isFinite(hours) || hours <= 0 || hours > 24) continue;
       const description = descriptionFor(shift);
-      updateEntry.run(shift.date, hours, shift.startTime, shift.endTime, breakMinutes, description, item.entryId, userId);
+      updateEntry.run(shift.date, hours, shift.startTime, shift.endTime, breakMinutes, breakPeriods, description, item.entryId, userId);
       upsertItem.run(userId, shift.uid, shift.date, shift.startTime, shift.endTime, description, item.entryId);
     }
     for (const item of plan.remove) {
