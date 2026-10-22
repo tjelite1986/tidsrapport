@@ -6,7 +6,8 @@
  * and the body is capped. Without the address check anyone with an account
  * could make the server read the Pi's own LAN services.
  */
-import { lookup } from 'dns/promises';
+import dns from 'dns';
+import https from 'https';
 import net from 'net';
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -32,75 +33,100 @@ export function normalizeIcsUrl(input: string): URL {
   return url;
 }
 
-function isPrivateAddress(address: string): boolean {
-  if (net.isIPv4(address)) {
-    const [a, b] = address.split('.').map(Number);
-    return (
-      a === 0 || a === 10 || a === 127 ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      a >= 224
-    );
-  }
-  const lower = address.toLowerCase();
-  if (lower.startsWith('::ffff:')) return isPrivateAddress(lower.slice(7));
-  return lower === '::' || lower === '::1' || lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80');
+// Everything that is not ordinary public unicast. IPv6 forms that embed an
+// IPv4 address (mapped, NAT64, 6to4, Teredo) are blocked wholesale rather than
+// unpacked: no calendar host needs them, and unpacking is where checks slip.
+// Two lists, because BlockList checks an IPv4 address against IPv4-mapped IPv6
+// rules too: in one list ::ffff:0:0/96 would block every IPv4 host.
+const BLOCKED_V4 = new net.BlockList();
+const BLOCKED_V6 = new net.BlockList();
+for (const [prefix, bits] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
+  ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16],
+  ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3],
+] as const) BLOCKED_V4.addSubnet(prefix, bits, 'ipv4');
+for (const [prefix, bits] of [
+  ['::', 96], ['::1', 128], ['::ffff:0:0', 96], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64],
+  ['2001::', 32], ['2001:db8::', 32], ['2002::', 16], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8],
+] as const) BLOCKED_V6.addSubnet(prefix, bits, 'ipv6');
+
+export function isBlockedAddress(address: string): boolean {
+  const family = net.isIP(address);
+  if (family === 0) return true;
+  return family === 4 ? BLOCKED_V4.check(address, 'ipv4') : BLOCKED_V6.check(address, 'ipv6');
 }
 
-async function assertPublicHost(url: URL): Promise<void> {
-  const host = url.hostname.replace(/^\[|\]$/g, '');
-  const addresses = net.isIP(host) ? [host] : (await lookup(host, { all: true }).catch(() => [])).map((a) => a.address);
-  if (addresses.length === 0) throw new IcsFetchError('Host not found', 400);
-  if (addresses.some(isPrivateAddress)) throw new IcsFetchError('Link points to a private address', 400);
-}
-
-async function readCapped(res: Response): Promise<string> {
-  if (!res.body) return '';
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_BYTES) {
-      await reader.cancel();
-      throw new IcsFetchError('Calendar is larger than 2 MB', 413);
+/**
+ * DNS lookup for the request itself: the address checked here is the address
+ * the socket connects to, so a host cannot answer public for the check and
+ * private for the connection (DNS rebinding).
+ */
+const checkedLookup: typeof dns.lookup = ((hostname: string, options: dns.LookupOptions, callback: (...args: unknown[]) => void) => {
+  dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) return callback(err);
+    const list = addresses as dns.LookupAddress[];
+    if (list.length === 0) return callback(new IcsFetchError('Host not found', 400));
+    if (list.some((a) => isBlockedAddress(a.address))) {
+      return callback(new IcsFetchError('Link points to a private address', 400));
     }
-    chunks.push(value);
+    if (options.all) return callback(null, list);
+    callback(null, list[0].address, list[0].family);
+  });
+}) as typeof dns.lookup;
+
+type RawResponse = { status: number; location: string | null; body: string };
+
+function request(url: URL, deadline: number): Promise<RawResponse> {
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(host) && isBlockedAddress(host)) {
+    return Promise.reject(new IcsFetchError('Link points to a private address', 400));
   }
-  // Decode once at the end so a multi-byte character split across chunks survives
-  return Buffer.concat(chunks).toString('utf8');
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      method: 'GET',
+      lookup: checkedLookup,
+      headers: { Accept: 'text/calendar, */*;q=0.5', 'User-Agent': 'tidsrapport-schedule-import' },
+      timeout: Math.max(1, deadline - Date.now()),
+    }, (res) => {
+      const status = res.statusCode ?? 0;
+      if (status >= 300 && status < 400) {
+        res.resume();
+        resolve({ status, location: res.headers.location ?? null, body: '' });
+        return;
+      }
+      const chunks: Buffer[] = [];
+      let total = 0;
+      res.on('data', (chunk: Buffer) => {
+        total += chunk.length;
+        if (total > MAX_BYTES) {
+          req.destroy(new IcsFetchError('Calendar is larger than 2 MB', 413));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      // Decode once at the end so a multi-byte character split across chunks survives
+      res.on('end', () => resolve({ status, location: null, body: Buffer.concat(chunks).toString('utf8') }));
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new IcsFetchError('Calendar did not answer in time', 502)));
+    req.on('error', (err) => reject(err instanceof IcsFetchError ? err : new IcsFetchError('Could not reach the calendar', 502)));
+    req.end();
+  });
 }
 
 export async function fetchIcs(input: string): Promise<string> {
   let url = normalizeIcsUrl(input);
-  const signal = AbortSignal.timeout(TIMEOUT_MS);
+  const deadline = Date.now() + TIMEOUT_MS;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    await assertPublicHost(url);
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        redirect: 'manual',
-        signal,
-        headers: { Accept: 'text/calendar, */*;q=0.5' },
-        cache: 'no-store',
-      });
-    } catch {
-      throw new IcsFetchError('Could not reach the calendar', 502);
-    }
-
+    const res = await request(url, deadline);
     if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get('location');
-      if (!location) throw new IcsFetchError('Redirect without a location', 502);
-      url = normalizeIcsUrl(new URL(location, url).toString());
+      if (!res.location) throw new IcsFetchError('Redirect without a location', 502);
+      url = normalizeIcsUrl(new URL(res.location, url).toString());
       continue;
     }
-    if (!res.ok) throw new IcsFetchError(`Calendar answered ${res.status}`, 502);
-    return readCapped(res);
+    if (res.status < 200 || res.status >= 300) throw new IcsFetchError(`Calendar answered ${res.status}`, 502);
+    return res.body;
   }
   throw new IcsFetchError('Too many redirects', 502);
 }
