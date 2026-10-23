@@ -54,6 +54,8 @@ interface Props {
   scheduleD?: ScheduleEntry[];
   referenceDate?: string | null;
   weekCount?: 2 | 4;
+  /** A day to point out, e.g. the one a notice links to */
+  highlightDate?: string | null;
 }
 
 const dayNames = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
@@ -78,7 +80,7 @@ function formatCurrency(amount: number) {
 
 export default function CalendarWeekView({
   weekOffset, entries, vacationDays = [], events = [], onEventClick, onDayClick, onEntryClick, onPrev, onNext,
-  scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount,
+  scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount, highlightDate,
 }: Props) {
   const dates = getWeekDates(weekOffset);
   const now = new Date();
@@ -143,6 +145,7 @@ export default function CalendarWeekView({
           return (
             <div
               key={d}
+              id={`cal-day-${d}`}
               onClick={() => onDayClick(d, dayEntries)}
               className={`p-2 rounded-lg border cursor-pointer transition-all min-h-[100px] ${
                 isToday ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200' :
@@ -152,7 +155,7 @@ export default function CalendarWeekView({
                 isSaturday ? 'bg-purple-50 border-purple-200' :
                 dayTotal > 0 ? 'bg-blue-50 border-blue-200' :
                 'bg-gray-50 border-gray-200'
-              } hover:shadow-md`}
+              } hover:shadow-md${d === highlightDate ? ' ring-2 !ring-amber-400' : ''}`}
             >
               <div className="flex justify-between items-start">
                 <span className="text-xs text-gray-500 font-medium">{dayNames[i]}</span>

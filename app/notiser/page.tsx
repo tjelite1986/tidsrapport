@@ -93,7 +93,7 @@ export default function NotiserPage() {
                   <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
                     <span>{formatTime(n.createdAt)}</span>
                     {n.date && (
-                      <Link href="/tid" className="text-blue-600 hover:underline">
+                      <Link href={`/tid?date=${n.date}`} className="text-blue-600 hover:underline">
                         Visa tider
                       </Link>
                     )}

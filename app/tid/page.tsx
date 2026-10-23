@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getWeekType } from '@/lib/calculations/time-utils';
 import DatePicker from '@/components/DatePicker';
 import TimePicker from '@/components/TimePicker';
@@ -150,6 +150,37 @@ export default function TidPage() {
   const [defaultTimes, setDefaultTimes] = useState<{ start: string; end: string } | null>(null);
 
   const week = getWeekDates(weekOffset);
+
+  // /tid?date=YYYY-MM-DD (the "Visa tider" link on a notice): open the calendar on that day and point it out
+  const [highlightDate, setHighlightDate] = useState<string | null>(null);
+  const scrolledView = useRef<string | null>(null);
+  useEffect(() => {
+    const target = new URLSearchParams(window.location.search).get('date');
+    if (!target || !/^\d{4}-\d{2}-\d{2}$/.test(target)) return;
+    const [y, m, d] = target.split('-').map(Number);
+    const day = new Date(y, m - 1, d);
+    if (day.getMonth() !== m - 1) return;
+    const monday = (x: Date) => {
+      const r = new Date(x.getFullYear(), x.getMonth(), x.getDate());
+      r.setDate(r.getDate() - ((r.getDay() + 6) % 7));
+      return r;
+    };
+    // Round: a DST change makes the gap between two Mondays an hour off a whole number of days
+    setWeekOffset(Math.round((monday(day).getTime() - monday(new Date()).getTime()) / (7 * 86_400_000)));
+    setMonthYear({ year: y, month: m - 1 });
+    setHighlightDate(target);
+  }, []);
+  useEffect(() => {
+    if (!highlightDate || scrolledView.current === calendarView) return;
+    // Wait a frame so the view has rendered the day
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`cal-day-${highlightDate}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      scrolledView.current = calendarView;
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [highlightDate, calendarView, weekOffset, monthYear]);
 
   useEffect(() => {
     fetch('/api/projects').then((r) => r.json()).then(setProjects);
@@ -691,6 +722,7 @@ export default function TidPage() {
             scheduleD={scheduleD}
             referenceDate={referenceDate}
             weekCount={weekCount}
+            highlightDate={highlightDate}
           />
         ) : (
           <CalendarMonthView
@@ -726,6 +758,7 @@ export default function TidPage() {
             scheduleD={scheduleD}
             referenceDate={referenceDate}
             weekCount={weekCount}
+            highlightDate={highlightDate}
           />
         )}
 

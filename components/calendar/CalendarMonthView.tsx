@@ -55,6 +55,8 @@ interface Props {
   scheduleD?: ScheduleEntry[];
   referenceDate?: string | null;
   weekCount?: 2 | 4;
+  /** A day to point out, e.g. the one a notice links to */
+  highlightDate?: string | null;
 }
 
 const dayHeaders = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
@@ -66,7 +68,7 @@ function formatCurrency(amount: number) {
 
 export default function CalendarMonthView({
   year, month, entries, vacationDays = [], events = [], onEventClick, onDayClick, onEntryClick, onPrev, onNext,
-  scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount,
+  scheduleA, scheduleB, scheduleC, scheduleD, referenceDate, weekCount, highlightDate,
 }: Props) {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -164,6 +166,7 @@ export default function CalendarMonthView({
                 return (
                   <div
                     key={di}
+                    id={`cal-day-${dateStr}`}
                     onClick={() => onDayClick(dateStr, dayEntries)}
                     className={`p-1 min-h-[60px] cursor-pointer border-l transition-colors ${
                       isToday ? 'bg-indigo-50' :
@@ -173,7 +176,7 @@ export default function CalendarMonthView({
                       isSaturday ? 'bg-purple-50/50' :
                       hasScheduleOnly ? 'hover:bg-gray-100' :
                       'hover:bg-gray-50'
-                    }`}
+                    }${dateStr === highlightDate ? ' relative ring-2 ring-inset ring-amber-400' : ''}`}
                   >
                     <div className={`text-xs font-medium mb-0.5 ${
                       isToday ? 'bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center' :
