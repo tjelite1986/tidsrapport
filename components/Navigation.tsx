@@ -382,7 +382,7 @@ export default function Navigation() {
       )}
 
       {/* Mobile: bottom tab bar */}
-      <div className="2xl:hidden fixed inset-x-0 bottom-0 z-50 bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)]">
+      <div className="2xl:hidden fixed inset-x-0 bottom-0 z-50 bg-slate-900 border-t border-slate-800 pb-[env(safe-area-inset-bottom)]">
         <div className="flex h-16">
           {bottomTabHrefs.map((href) => {
             const item = navItems.find((i) => i.href === href)!;
@@ -392,11 +392,17 @@ export default function Navigation() {
                 key={href}
                 href={href}
                 onClick={() => setMenuOpen(false)}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium [&>svg]:w-6 [&>svg]:h-6 ${
-                  active ? 'text-blue-600' : 'text-gray-500'
+                className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                  active ? 'text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {item.icon}
+                <span
+                  className={`px-4 py-0.5 rounded-full transition-colors [&>svg]:w-6 [&>svg]:h-6 ${
+                    active ? 'bg-white/15' : ''
+                  }`}
+                >
+                  {item.icon}
+                </span>
                 {bottomTabLabels[href]}
               </Link>
             );
@@ -404,13 +410,15 @@ export default function Navigation() {
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             aria-expanded={menuOpen}
-            className={`relative flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium ${
-              menuOpen || moreActive ? 'text-blue-600' : 'text-gray-500'
+            className={`relative flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+              menuOpen || moreActive ? 'text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <span className={`px-4 py-0.5 rounded-full transition-colors ${menuOpen || moreActive ? 'bg-white/15' : ''}`}>
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </span>
             Mer
           </button>
         </div>
