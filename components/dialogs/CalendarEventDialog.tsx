@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DatePicker from '@/components/DatePicker';
-import TimePicker from '@/components/TimePicker';
+import TimePicker, { TimePickerHandle } from '@/components/TimePicker';
 
 export interface CalendarEventDraft {
   id?: number;
@@ -39,6 +39,7 @@ function formatShortDate(date: string) {
 const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500';
 
 export default function CalendarEventDialog({ event, onClose, onSaved }: Props) {
+  const endTimePicker = useRef<TimePickerHandle>(null);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [allDay, setAllDay] = useState(false);
@@ -190,11 +191,18 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[120px]">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
-                <TimePicker value={startTime} onChange={setStartTime} required className={inputClass} />
+                <TimePicker
+                  value={startTime}
+                  onChange={setStartTime}
+                  required
+                  title="Start"
+                  onPicked={() => endTimePicker.current?.open()}
+                  className={inputClass}
+                />
               </div>
               <div className="flex-1 min-w-[120px]">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Slut (valfritt)</label>
-                <TimePicker value={endTime} onChange={setEndTime} className={inputClass} />
+                <TimePicker ref={endTimePicker} value={endTime} onChange={setEndTime} title="Slut" className={inputClass} />
               </div>
             </div>
           )}

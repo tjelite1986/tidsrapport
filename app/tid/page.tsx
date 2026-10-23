@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getWeekType } from '@/lib/calculations/time-utils';
 import DatePicker from '@/components/DatePicker';
-import TimePicker from '@/components/TimePicker';
+import TimePicker, { TimePickerHandle } from '@/components/TimePicker';
 import TimeEntryDetailsDialog from '@/components/dialogs/TimeEntryDetailsDialog';
 import EditTimeEntryDialog from '@/components/dialogs/EditTimeEntryDialog';
 import CalendarWeekView from '@/components/calendar/CalendarWeekView';
@@ -160,6 +160,8 @@ export default function TidPage() {
   // /tid?date=YYYY-MM-DD (the "Visa tider" link on a notice): open the calendar on that day and point it out
   const [highlightDate, setHighlightDate] = useState<string | null>(null);
   const scrolledView = useRef<string | null>(null);
+  const endTimePicker = useRef<TimePickerHandle>(null);
+  const breakEndPickers = useRef<(TimePickerHandle | null)[]>([]);
   useEffect(() => {
     const target = new URLSearchParams(window.location.search).get('date');
     if (!target || !/^\d{4}-\d{2}-\d{2}$/.test(target)) return;
@@ -518,15 +520,19 @@ export default function TidPage() {
               value={startTime}
               onChange={setStartTime}
               required={!isAbsence}
+              title="Starttid"
+              onPicked={() => endTimePicker.current?.open()}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sluttid</label>
             <TimePicker
+              ref={endTimePicker}
               value={endTime}
               onChange={setEndTime}
               required={!isAbsence}
+              title="Sluttid"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -558,16 +564,20 @@ export default function TidPage() {
                       setAutoBreakEnabled(false);
                       setBreakPeriods((prev) => prev.map((p, i) => i === idx ? { ...p, start: v } : p));
                     }}
+                    onPicked={() => breakEndPickers.current[idx]?.open()}
+                    title="Rast start"
                     placeholder="Start"
                     className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                   <span className="text-gray-400 text-sm">–</span>
                   <TimePicker
+                    ref={(el) => { breakEndPickers.current[idx] = el; }}
                     value={bp.end}
                     onChange={(v) => {
                       setAutoBreakEnabled(false);
                       setBreakPeriods((prev) => prev.map((p, i) => i === idx ? { ...p, end: v } : p));
                     }}
+                    title="Rast slut"
                     placeholder="Slut"
                     className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />

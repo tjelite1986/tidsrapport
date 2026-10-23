@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DatePicker from '@/components/DatePicker';
-import TimePicker from '@/components/TimePicker';
+import TimePicker, { TimePickerHandle } from '@/components/TimePicker';
 import TaskSegmentEditor from '@/components/TaskSegmentEditor';
 import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
 import { BreakPeriod, sumBreakMinutes } from '@/lib/types/break-periods';
@@ -50,6 +50,8 @@ function calcHoursPreview(startTime: string, endTime: string, breakMin: number):
 }
 
 export default function EditTimeEntryDialog({ entry, projects, departments, onClose, onSaved }: Props) {
+  const endTimePicker = useRef<TimePickerHandle>(null);
+  const breakEndPickers = useRef<(TimePickerHandle | null)[]>([]);
   const [projectId, setProjectId] = useState('');
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -182,14 +184,18 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
               <TimePicker
                 value={startTime}
                 onChange={setStartTime}
+                title="Starttid"
+                onPicked={() => endTimePicker.current?.open()}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sluttid</label>
               <TimePicker
+                ref={endTimePicker}
                 value={endTime}
                 onChange={setEndTime}
+                title="Sluttid"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -203,13 +209,17 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
                   <TimePicker
                     value={bp.start}
                     onChange={(v) => setBreakPeriods((prev) => prev.map((p, i) => i === idx ? { ...p, start: v } : p))}
+                    onPicked={() => breakEndPickers.current[idx]?.open()}
+                    title="Rast start"
                     placeholder="Start"
                     className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                   <span className="text-gray-400 text-sm">–</span>
                   <TimePicker
+                    ref={(el) => { breakEndPickers.current[idx] = el; }}
                     value={bp.end}
                     onChange={(v) => setBreakPeriods((prev) => prev.map((p, i) => i === idx ? { ...p, end: v } : p))}
+                    title="Rast slut"
                     placeholder="Slut"
                     className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />

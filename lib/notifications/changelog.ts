@@ -8,6 +8,13 @@ export type AppUpdate = { id: string; date: string; title: string; body: string 
 
 export const APP_UPDATES: AppUpdate[] = [
   {
+    id: '2026-10-23-end-time-follows',
+    date: '2026-10-23',
+    title: 'Sluttiden öppnas direkt',
+    body:
+      'När du väljer starttid och trycker OK öppnas sluttiden direkt, så du slipper trycka på den själv. Det gäller även raster och händelser i kalendern. Tryck Avbryt om du bara ville ändra starttiden.',
+  },
+  {
     id: '2026-10-23-new-look',
     date: '2026-10-23',
     title: 'Ny layout i mobilen',

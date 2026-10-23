@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 
 interface Props {
   value: string; // HH:MM
@@ -8,6 +8,13 @@ interface Props {
   required?: boolean;
   className?: string;
   placeholder?: string;
+  title?: string;
+  // Called after OK with a valid time; used to open the next picker (start -> end)
+  onPicked?: () => void;
+}
+
+export interface TimePickerHandle {
+  open: () => void;
 }
 
 function pad(n: number) {
@@ -45,7 +52,10 @@ function minuteToPos(m: number) {
   return { ...polarToXY(m / 5, R_OUTER), handR: HAND_OUTER };
 }
 
-export default function TimePicker({ value, onChange, required, className, placeholder }: Props) {
+const TimePicker = forwardRef<TimePickerHandle, Props>(function TimePicker(
+  { value, onChange, required, className, placeholder, title, onPicked },
+  ref,
+) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'hour' | 'minute' | 'text'>('hour');
   const [pendingHour, setPendingHour] = useState<number | null>(null);
@@ -62,6 +72,8 @@ export default function TimePicker({ value, onChange, required, className, place
     setOpen(true);
   }
 
+  useImperativeHandle(ref, () => ({ open: handleOpen }));
+
   function selectHour(h: number) {
     setPendingHour(h);
     setMode('minute');
@@ -77,6 +89,7 @@ export default function TimePicker({ value, onChange, required, className, place
       if (match) {
         onChange(`${pad(parseInt(match[1]))}:${match[2]}`);
         setOpen(false);
+        onPicked?.();
       }
       return;
     }
@@ -84,6 +97,7 @@ export default function TimePicker({ value, onChange, required, className, place
     const m = pendingMinute ?? 0;
     onChange(`${pad(h)}:${pad(m)}`);
     setOpen(false);
+    onPicked?.();
   }
 
   function handleClear() {
@@ -132,7 +146,7 @@ export default function TimePicker({ value, onChange, required, className, place
 
             {/* Tidsdisplay */}
             <div className="bg-[#2c2b2f] px-8 pt-6 pb-4">
-              <div className="text-xs text-gray-400 mb-2 uppercase tracking-widest">Välj tid</div>
+              <div className="text-xs text-gray-400 mb-2 uppercase tracking-widest">{title || 'Välj tid'}</div>
               <div className="flex items-center justify-center gap-1">
                 <button
                   type="button"
@@ -298,4 +312,6 @@ export default function TimePicker({ value, onChange, required, className, place
       )}
     </div>
   );
-}
+});
+
+export default TimePicker;
