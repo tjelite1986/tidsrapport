@@ -37,6 +37,15 @@ const navItems = [
     ),
   },
   {
+    href: '/notiser',
+    label: 'Notiser',
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+    ),
+  },
+  {
     href: '/projekt',
     label: 'Projekt',
     icon: (
@@ -138,6 +147,7 @@ export default function Navigation() {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [unreadNotices, setUnreadNotices] = useState(0);
   const loggedIn = !!session;
 
   // Unread-message badge: polled, refreshed on navigation, and on the event
@@ -158,12 +168,32 @@ export default function Navigation() {
     };
   }, [loggedIn, pathname]);
 
+  // Same for the notification bell; the notices page fires notifications-read
+  useEffect(() => {
+    if (!loggedIn) return;
+    const refresh = () =>
+      fetch('/api/notifications?unread=1')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => data && setUnreadNotices(data.unread))
+        .catch(() => {});
+    refresh();
+    const timer = setInterval(refresh, 60_000);
+    window.addEventListener('notifications-read', refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('notifications-read', refresh);
+    };
+  }, [loggedIn, pathname]);
+
   if (!session) return null;
 
+  const countFor = (href: string) =>
+    href === '/meddelanden' ? unread : href === '/notiser' ? unreadNotices : 0;
+
   const badge = (href: string) =>
-    href === '/meddelanden' && unread > 0 ? (
+    countFor(href) > 0 ? (
       <span className="ml-1 min-w-[1.25rem] px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none text-center">
-        {unread}
+        {countFor(href)}
       </span>
     ) : null;
 
@@ -233,7 +263,7 @@ export default function Navigation() {
             </button>
           </div>
 
-          {/* Mobile: messages shortcut + hamburger */}
+          {/* Mobile: shortcuts, notification bell, messages + hamburger */}
           <div className="2xl:hidden flex items-center">
             {navItems
               .filter((item) => mobileShortcutHrefs.includes(item.href))
@@ -253,6 +283,26 @@ export default function Navigation() {
                   {item.icon}
                 </Link>
               ))}
+            <Link
+              href="/notiser"
+              onClick={() => setMenuOpen(false)}
+              aria-label={unreadNotices > 0 ? `Notiser, ${unreadNotices} olästa` : 'Notiser'}
+              title="Notiser"
+              className={`relative p-1.5 rounded-md transition-colors ${
+                pathname === '/notiser'
+                  ? 'bg-white/15 text-white'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {unreadNotices > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] px-1 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none text-center ring-2 ring-slate-900">
+                  {unreadNotices}
+                </span>
+              )}
+            </Link>
             <Link
               href="/meddelanden"
               onClick={() => setMenuOpen(false)}
