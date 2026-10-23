@@ -7,7 +7,8 @@
  *   already on that date is one the sync made and none overlaps it in time —
  *   so a split day (two shifts) gets two entries. Past dates are the user's
  *   record of what happened, so a sync never adds to them; a date with an
- *   entry the user made is left alone.
+ *   entry the user made is left alone. A vacation day counts as such a date:
+ *   the feed may still list a shift there, but it would be paid twice.
  * - A UID seen before follows the feed (moved date, new times, new
  *   departments) only while the entry still looks exactly as the sync wrote
  *   it. An entry the user has edited — real clock-out time, say — is theirs.
@@ -80,8 +81,11 @@ export function planSync(input: {
   items: SyncItem[];
   entries: EntryRef[];
   today: string;
+  /** Dates the user has marked as vacation days. */
+  vacationDates?: string[];
 }): SyncPlan {
   const { shifts, items, entries, today } = input;
+  const vacation = new Set(input.vacationDates ?? []);
   const plan: SyncPlan = { create: [], update: [], remove: [], markSeen: [] };
 
   const itemsByUid = new Map(items.map((i) => [i.uid, i]));
@@ -94,6 +98,7 @@ export function planSync(input: {
     if (!day) days.set(date, (day = { userEntry: false, spans: [] }));
     return day;
   };
+  for (const date of vacation) dayOf(date).userEntry = true;
   for (const e of entries) {
     const day = dayOf(e.date);
     if (!syncedEntryIds.has(e.id) || !e.startTime || !e.endTime) day.userEntry = true;
@@ -125,7 +130,8 @@ export function planSync(input: {
       item.startTime !== shift.startTime ||
       item.endTime !== shift.endTime ||
       (item.description ?? null) !== descriptionFor(shift);
-    if (changed) plan.update.push({ item, shift });
+    // Following a shift onto a vacation day would put work on it; leave the entry where it was
+    if (changed && !(shift.date !== item.date && vacation.has(shift.date))) plan.update.push({ item, shift });
   }
 
   if (shifts.length > 0) {

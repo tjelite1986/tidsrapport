@@ -8,6 +8,13 @@ export type AppUpdate = { id: string; date: string; title: string; body: string 
 
 export const APP_UPDATES: AppUpdate[] = [
   {
+    id: '2026-10-23-vacation-day-conflicts',
+    date: '2026-10-23',
+    title: 'Varning för pass på semesterdagar',
+    body:
+      'Ligger ett pass på en dag som också är semesterdag visas en varning överst under Tid, eftersom dagen annars räknas både som arbete och som semester. Tryck på datumet för att öppna passet. Den automatiska schemasynken lägger inte längre in pass på dina semesterdagar.',
+  },
+  {
     id: '2026-10-23-vacation-pot-from-payslips',
     date: '2026-10-23',
     title: 'Semesterpotten följer lönebeskeden',

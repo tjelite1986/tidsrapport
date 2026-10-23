@@ -148,6 +148,8 @@ export default function TidPage() {
 
   // Dialog states
   const [detailEntry, setDetailEntry] = useState<TimeEntry | null>(null);
+  // Work entries on a vacation day, across all dates — the week view only shows one week
+  const [vacationConflicts, setVacationConflicts] = useState<TimeEntry[]>([]);
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
   const [scheduleImportOpen, setScheduleImportOpen] = useState(false);
   const [eventDraft, setEventDraft] = useState<CalendarEventDraft | null>(null);
@@ -227,6 +229,10 @@ export default function TidPage() {
   async function fetchEntries() {
     const res = await fetch(`/api/time-entries?startDate=${week.start}&endDate=${week.end}`);
     setEntries(await res.json());
+    fetch('/api/time-entries/vacation-conflicts')
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setVacationConflicts)
+      .catch(() => {});
   }
 
   async function fetchCalendarEntries() {
@@ -461,6 +467,30 @@ export default function TidPage() {
   return (
     <div>
       <PageHeader title="Tidsregistrering" />
+
+      {vacationConflicts.length > 0 && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-900">
+          <p className="font-semibold">
+            {vacationConflicts.length === 1 ? 'Ett pass ligger på en semesterdag' : `${vacationConflicts.length} pass ligger på semesterdagar`}
+          </p>
+          <p className="mt-1">
+            De räknas både som arbetad tid och som semester. Ta bort passet om du var ledig, eller ta bort semesterdagen om du jobbade.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {vacationConflicts.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => setDetailEntry(entry)}
+                className="px-2.5 py-1 rounded-md border border-amber-300 bg-white hover:bg-amber-100"
+              >
+                {weekdayShort(entry.date)} {parseInt(entry.date.slice(8))}/{parseInt(entry.date.slice(5, 7))} {entry.date.slice(0, 4)}
+                {entry.startTime && entry.endTime ? ` · ${entry.startTime}–${entry.endTime}` : ''}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <div className="flex items-center justify-between mb-4">

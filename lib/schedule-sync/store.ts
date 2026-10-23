@@ -108,7 +108,11 @@ export async function syncScheduleForUser(userId: number): Promise<SyncResult> {
               FROM time_entries WHERE user_id = ? AND date >= ?`)
     .all(userId, earliest) as EntryRef[];
 
-  const plan = planSync({ shifts, items, entries, today });
+  const vacationDates = (sqlite
+    .prepare('SELECT date FROM vacation_days WHERE user_id = ? AND date >= ?')
+    .all(userId, earliest) as { date: string }[]).map((v) => v.date);
+
+  const plan = planSync({ shifts, items, entries, today, vacationDates });
   const notices = planNotices({ shifts, items, plan, today });
   const rules = breakRules(settings.autoBreakRules);
 

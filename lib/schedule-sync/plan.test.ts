@@ -22,6 +22,29 @@ describe('planSync', () => {
     expect(plan.markSeen.map((s) => s.uid)).toEqual(['a']);
   });
 
+  it('does not put a new shift on a vacation day', () => {
+    const plan = planSync({
+      shifts: [shift('a', '2026-11-01'), shift('b', '2026-11-02')],
+      items: [],
+      entries: [],
+      today: TODAY,
+      vacationDates: ['2026-11-01'],
+    });
+    expect(plan.create.map((s) => s.uid)).toEqual(['b']);
+    expect(plan.markSeen.map((s) => s.uid)).toEqual(['a']);
+  });
+
+  it('does not move a synced entry onto a vacation day, but still follows new times on its own date', () => {
+    const plan = planSync({
+      shifts: [shift('a', '2026-11-02'), shift('b', '2026-11-03', '10:00', '18:00')],
+      items: [item('a', '2026-11-01', 1), item('b', '2026-11-03', 2)],
+      entries: [entry(1, '2026-11-01'), entry(2, '2026-11-03')],
+      today: TODAY,
+      vacationDates: ['2026-11-02', '2026-11-03'],
+    });
+    expect(plan.update.map((u) => u.item.uid)).toEqual(['b']);
+  });
+
   it('leaves a date that already has an entry alone', () => {
     const plan = planSync({ shifts: [shift('a', '2026-11-01')], items: [], entries: [entry(1, '2026-11-01', '10:00', '12:00', null)], today: TODAY });
     expect(plan.create).toEqual([]);
