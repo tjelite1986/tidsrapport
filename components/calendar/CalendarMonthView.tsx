@@ -120,19 +120,19 @@ export default function CalendarMonthView({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <button onClick={onPrev} className="text-blue-600 hover:underline text-sm">&larr; Föregående</button>
-        <span className="text-lg font-semibold">{monthNames[month]} {year}</span>
-        <button onClick={onNext} className="text-blue-600 hover:underline text-sm">Nästa &rarr;</button>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <button onClick={onPrev} aria-label="Föregående månad" className="text-blue-600 hover:underline text-sm shrink-0">&larr;<span className="hidden sm:inline"> Föregående</span></button>
+        <span className="text-base sm:text-lg font-semibold text-center">{monthNames[month]} {year}</span>
+        <button onClick={onNext} aria-label="Nästa månad" className="text-blue-600 hover:underline text-sm shrink-0"><span className="hidden sm:inline">Nästa </span>&rarr;</button>
       </div>
 
-      <div className="overflow-x-auto">
-      <div className="border rounded-lg overflow-hidden min-w-[340px]">
+      {/* Narrow week-number column on phones so all seven days fit without scrolling */}
+      <div className="border rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-8 bg-gray-100 border-b">
-          <div className="p-2 text-xs font-medium text-gray-500 text-center">V</div>
+        <div className="grid grid-cols-[1.25rem_repeat(7,minmax(0,1fr))] sm:grid-cols-8 bg-gray-100 border-b">
+          <div className="py-2 sm:p-2 text-xs font-medium text-gray-500 text-center">V</div>
           {dayHeaders.map((d) => (
-            <div key={d} className="p-2 text-xs font-medium text-gray-500 text-center">{d}</div>
+            <div key={d} className="py-2 sm:p-2 text-[11px] sm:text-xs font-medium text-gray-500 text-center">{d}</div>
           ))}
         </div>
 
@@ -142,8 +142,8 @@ export default function CalendarMonthView({
           const weekNum = firstDateInWeek ? getWeekNumber(new Date(firstDateInWeek + 'T12:00:00')) : '';
 
           return (
-            <div key={wi} className="grid grid-cols-8 border-b last:border-b-0">
-              <div className="p-1 text-xs text-gray-400 text-center flex items-start justify-center pt-2">{weekNum}</div>
+            <div key={wi} className="grid grid-cols-[1.25rem_repeat(7,minmax(0,1fr))] sm:grid-cols-8 border-b last:border-b-0">
+              <div className="sm:p-1 text-[10px] sm:text-xs text-gray-400 text-center flex items-start justify-center pt-2">{weekNum}</div>
               {week.map((dateStr, di) => {
                 if (!dateStr) return <div key={di} className="p-1 bg-gray-50 min-h-[60px]" />;
 
@@ -168,7 +168,7 @@ export default function CalendarMonthView({
                     key={di}
                     id={`cal-day-${dateStr}`}
                     onClick={() => onDayClick(dateStr, dayEntries)}
-                    className={`p-1 min-h-[60px] cursor-pointer border-l transition-colors ${
+                    className={`p-0.5 sm:p-1 min-h-[60px] min-w-0 overflow-hidden cursor-pointer border-l transition-colors ${
                       isToday ? 'bg-indigo-50' :
                       hasSick ? 'bg-red-100' :
                       hasVab ? 'bg-orange-100' :
@@ -274,9 +274,8 @@ export default function CalendarMonthView({
           );
         })}
       </div>
-      </div>
 
-      <div className="flex justify-between mt-3 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+      <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 mt-3 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
         <span>Totalt: <strong className="text-blue-600">{totalHours.toFixed(2)}h</strong></span>
         <span>{entries.length} registreringar</span>
         {totalPay > 0 && <span>Brutto: <strong className="text-green-600">{formatCurrency(totalPay)}</strong></span>}

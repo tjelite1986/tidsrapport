@@ -177,7 +177,11 @@ export default function CalendarWeekView({
                     isSunday ? 'text-pink-600' :
                     isSaturday ? 'text-purple-600' :
                     'text-blue-600'
-                  }`}>{dayTotal.toFixed(2)}h</div>
+                  }`}>
+                    {/* "8.00h" does not fit a ~45px phone column; drop the trailing zeros there */}
+                    <span className="sm:hidden">{Number(dayTotal.toFixed(2))}h</span>
+                    <span className="hidden sm:inline">{dayTotal.toFixed(2)}h</span>
+                  </div>
                   {dayPay > 0 && (
                     <div className="hidden sm:block text-xs text-gray-500">{formatCurrency(dayPay)}</div>
                   )}
@@ -189,9 +193,16 @@ export default function CalendarWeekView({
                     <div
                       key={entry.id}
                       onClick={(e) => { e.stopPropagation(); onEntryClick(entry); }}
-                      className="text-[10px] truncate px-1 py-0.5 rounded bg-white/60 hover:bg-white cursor-pointer"
+                      className="text-[10px] leading-tight text-center sm:text-left sm:truncate px-0.5 sm:px-1 py-0.5 rounded bg-white/60 hover:bg-white cursor-pointer"
                     >
-                      {entry.startTime && entry.endTime ? `${entry.startTime}-${entry.endTime}` : `${entry.hours.toFixed(2)}h`}
+                      {entry.startTime && entry.endTime ? (
+                        <>
+                          {/* Start over end on phones; one line from sm */}
+                          <span className="block sm:inline">{entry.startTime}</span>
+                          <span className="hidden sm:inline">-</span>
+                          <span className="block sm:inline">{entry.endTime}</span>
+                        </>
+                      ) : `${entry.hours.toFixed(2)}h`}
                     </div>
                   ))}
                   {dayEntries.length > 2 && (
@@ -216,16 +227,20 @@ export default function CalendarWeekView({
                       title={ev.title}
                       className="text-[10px] leading-tight px-1 py-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 hover:bg-sky-200 cursor-pointer"
                     >
-                      {ev.startTime && <div className="font-medium">{ev.startTime}{ev.endTime ? `–${ev.endTime}` : ''}</div>}
+                      {ev.startTime && <div className="font-medium">{ev.startTime}<span className="hidden sm:inline">{ev.endTime ? `–${ev.endTime}` : ''}</span></div>}
                       <div className="truncate">{ev.recurrence && ev.recurrence !== 'none' ? '↻ ' : ''}{ev.title}</div>
                     </div>
                   ))}
                 </div>
               )}
               {dayTotal === 0 && schedEntry && (
-                <div className="mt-1 border border-dashed border-gray-300 rounded px-1.5 py-1 bg-white/50">
+                <div className="mt-1 border border-dashed border-gray-300 rounded px-0.5 sm:px-1.5 py-1 bg-white/50">
                   <div className="text-[9px] text-gray-400">Schema</div>
-                  <div className="text-[11px] text-gray-600 font-medium">{schedEntry.startTime}–{schedEntry.endTime}</div>
+                  <div className="text-[10px] sm:text-[11px] leading-tight text-gray-600 font-medium">
+                    <span className="block sm:inline">{schedEntry.startTime}</span>
+                    <span className="hidden sm:inline">–</span>
+                    <span className="block sm:inline">{schedEntry.endTime}</span>
+                  </div>
                 </div>
               )}
             </div>
