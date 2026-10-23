@@ -98,6 +98,13 @@ docker logs tidsrapport --tail 20
 - The user-deletion cascade in `/api/users` calls `deleteEventsForUser()` before the users row goes
 - Recurring events (v23 columns, added at import via `addColumnsIfMissing`): `recurrence` none/daily/weekly/biweekly/monthly, optional `recurrence_until`, and `excluded_dates` (JSON) for single occurrences removed with `DELETE ?id=&occurrence=<date>`. One row per series; `listEvents()` expands it with `occurrencesInRange()` (`lib/calendar-events/recurrence.ts`, tested). Editing always edits the whole series; `date` is the first occurrence and the API returns it as `seriesDate`. Monthly on the 29th-31st skips months that lack the day
 
+## UI conventions (redesign 2026-10-23)
+- Colours mean the same thing everywhere (`components/ui/tones.ts`): blue = time and actions, emerald = money earned, red = deductions/sick, orange = OB and VAB, amber = overtime, teal = vacation. Tiles are white; only the value carries the colour. Do not add per-tile pastel colours back
+- Page titles go through `components/ui/PageHeader.tsx`; the home greeting card is the only hero
+- Mobile (below `2xl`) has a bottom tab bar (Hem, Tid, Lön, Lönespecar, Mer) in `components/Navigation.tsx`; help, settings, bell and messages stay in the header. Anything fixed to the bottom must sit above it (`bottom-[calc(...+env(safe-area-inset-bottom))]`) and `<main>` keeps `pb-28`
+- Charts return `EmptyChart` when every value is 0; `BarChart`/`StackedBarChart` are flex columns so they fit a phone without scrolling
+- Rollback to the old look: git tag `ui-before-redesign-2026-10-23`; the old image is tagged locally on the Pi as `ghcr.io/tjelite1986/tidsrapport:ui-before-redesign`
+
 ## Warnings
 - `lib/tax-tables/data-*.json` are 323 KB each — do NOT read these files, use `lib/tax-tables/tax-lookup.ts`
 - `node_modules/`, `.next/` — never read
