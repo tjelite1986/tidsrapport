@@ -24,7 +24,12 @@ CREATE TABLE IF NOT EXISTS vacation_daily_rates (
 const LEGACY_RATE_YEAR = 2026;
 
 sqlite.exec(VACATION_DAILY_RATES_TABLE_SQL);
-sqlite.transaction(() => {
+// next build imports this module against an empty database, where
+// user_settings does not exist yet.
+const hasLegacyRateColumn = (sqlite.pragma('table_info(user_settings)') as { name: string }[]).some(
+  (c) => c.name === 'vacation_daily_rate'
+);
+if (hasLegacyRateColumn) sqlite.transaction(() => {
   sqlite
     .prepare(
       `INSERT OR IGNORE INTO vacation_daily_rates (user_id, year, rate)
