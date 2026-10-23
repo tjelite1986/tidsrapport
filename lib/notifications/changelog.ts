@@ -8,6 +8,13 @@ export type AppUpdate = { id: string; date: string; title: string; body: string 
 
 export const APP_UPDATES: AppUpdate[] = [
   {
+    id: '2026-10-23-new-look',
+    date: '2026-10-23',
+    title: 'Ny layout i mobilen',
+    body:
+      'Menyn ligger nu längst ner: Hem, Tid, Lön, Lönespecar och Mer. Startsidan visar ditt nästa pass, kalendern får plats på telefonen och passen visas som kort. Färgerna betyder samma sak överallt: blått är tid, grönt är pengar, turkos är semester och rött är avdrag.',
+  },
+  {
     id: '2026-10-23-notices',
     date: '2026-10-23',
     title: 'Nytt: notiser',

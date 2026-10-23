@@ -59,7 +59,7 @@ export default function PwaInstallBanner() {
   if (state === 'hidden') return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto">
+    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] 2xl:bottom-4 left-4 right-4 z-50 max-w-md mx-auto">
       <div className="bg-slate-900 text-white rounded-xl shadow-2xl p-4 flex items-start gap-3 border border-slate-700">
         {/* Ikon */}
         <div className="shrink-0 w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">

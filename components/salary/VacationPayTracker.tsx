@@ -104,11 +104,11 @@ export default function VacationPayTracker({ refreshKey }: Props) {
   const previewNet = previewAmount - previewTax;
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-white">
-        <h2 className="text-lg font-semibold mb-1">Semesterersättning</h2>
-        <p className="text-amber-100 text-sm">{data.vacationPayRate}% på bruttolön</p>
+      <div className="bg-teal-50 border-b border-teal-100 px-5 py-4">
+        <h2 className="text-lg font-semibold text-teal-900">Semesterersättning</h2>
+        <p className="text-teal-700 text-sm">{data.vacationPayRate}% på bruttolön</p>
       </div>
 
       {/* Balance overview */}
@@ -120,7 +120,7 @@ export default function VacationPayTracker({ refreshKey }: Props) {
           </div>
           <div>
             <div className="text-xs text-gray-500 uppercase font-medium">Semesterlön</div>
-            <div className="text-lg font-bold text-teal-600 mt-1">
+            <div className="text-lg font-bold text-teal-700 mt-1">
               {data.vacationDaysPaidOut > 0 ? `-${formatCurrency(data.vacationDaysPaidOut)}` : formatCurrency(0)}
             </div>
           </div>
@@ -130,7 +130,7 @@ export default function VacationPayTracker({ refreshKey }: Props) {
           </div>
           <div>
             <div className="text-xs text-gray-500 uppercase font-medium">Saldo</div>
-            <div className={`text-xl font-bold mt-1 ${data.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-xl font-bold mt-1 ${data.balance >= 0 ? 'text-teal-700' : 'text-red-600'}`}>
               {formatCurrency(data.balance)}
             </div>
           </div>
@@ -155,7 +155,7 @@ export default function VacationPayTracker({ refreshKey }: Props) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-amber-600">{formatCurrency(yb.earned)}</span>
+                    <span className="font-bold text-teal-700">{formatCurrency(yb.earned)}</span>
                     <svg
                       className={`w-4 h-4 text-gray-400 transition-transform ${expandedYear === yb.year ? 'rotate-180' : ''}`}
                       fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -173,7 +173,7 @@ export default function VacationPayTracker({ refreshKey }: Props) {
                           <span className="text-xs text-gray-400">
                             på {formatCurrency(m.grossBeforeVacation)}
                           </span>
-                          <span className="font-medium text-amber-600 w-24 text-right">
+                          <span className="font-medium text-teal-700 w-24 text-right">
                             +{formatCurrency(m.vacationPay)}
                           </span>
                         </div>

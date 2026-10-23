@@ -1,5 +1,7 @@
 'use client';
 
+import EmptyChart from './EmptyChart';
+
 interface LineChartProps {
   data: { label: string; value: number }[];
   title?: string;
@@ -16,6 +18,7 @@ export default function LineChart({
   formatValue = (v) => v.toFixed(0),
 }: LineChartProps) {
   if (data.length === 0) return null;
+  if (data.every((d) => d.value <= 0)) return <EmptyChart title={title} height={height - 50} />;
 
   const maxValue = Math.max(...data.map((d) => d.value), 1);
   const minValue = Math.min(...data.map((d) => d.value), 0);
@@ -39,7 +42,7 @@ export default function LineChart({
     <div>
       {title && <h3 className="text-sm font-semibold text-gray-700 mb-2">{title}</h3>}
       <div className="overflow-x-auto">
-        <svg width={svgWidth} height={height} className="block">
+        <svg viewBox={`0 0 ${svgWidth} ${height}`} className="block w-full h-auto">
           {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
             const y = padding.top + chartHeight * (1 - frac);

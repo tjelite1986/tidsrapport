@@ -1,5 +1,7 @@
 'use client';
 
+import PageHeader from '@/components/ui/PageHeader';
+import { Tone, toneText } from '@/components/ui/tones';
 import { useEffect, useState } from 'react';
 import BarChart from '@/components/charts/BarChart';
 import PieChart from '@/components/charts/PieChart';
@@ -174,10 +176,7 @@ export default function StatistikPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-6">
-        <h1 className="text-2xl font-bold">Statistik</h1>
-        <p className="text-slate-400 text-sm mt-1">Löneutveckling och arbetstidsanalys</p>
-      </div>
+      <PageHeader title="Statistik" subtitle="Löneutveckling och arbetstidsanalys" />
 
       {/* ===== FLERÅRIG LÖNEUTVECKLING ===== */}
       {!loadingAllTime && allTimeIncome.length > 0 && (
@@ -446,22 +445,16 @@ function KpiCard({
   sub?: string;
   color: 'blue' | 'indigo' | 'emerald' | 'amber' | 'purple' | 'slate' | 'teal' | 'orange';
 }) {
-  const colors: Record<string, { bg: string; text: string }> = {
-    blue:    { bg: 'bg-blue-50',    text: 'text-blue-700' },
-    indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-700' },
-    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700' },
-    amber:   { bg: 'bg-amber-50',   text: 'text-amber-700' },
-    purple:  { bg: 'bg-purple-50',  text: 'text-purple-700' },
-    slate:   { bg: 'bg-slate-50',   text: 'text-slate-700' },
-    teal:    { bg: 'bg-teal-50',    text: 'text-teal-700' },
-    orange:  { bg: 'bg-orange-50',  text: 'text-orange-700' },
+  // The old per-tile colour names map onto the shared meanings (components/ui/tones.ts)
+  const tone: Record<string, Tone> = {
+    blue: 'time', indigo: 'neutral', purple: 'time', emerald: 'money',
+    slate: 'money', teal: 'money', amber: 'neutral', orange: 'ob',
   };
-  const c = colors[color] ?? colors.blue;
 
   return (
-    <div className={`${c.bg} rounded-xl p-4`}>
+    <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-4">
       <p className="text-xs text-gray-500 mb-1 leading-tight">{label}</p>
-      <p className={`text-lg font-bold ${c.text} leading-tight`}>{value}</p>
+      <p className={`text-lg font-bold ${toneText[tone[color] ?? 'neutral']} leading-tight`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   );

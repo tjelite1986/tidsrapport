@@ -5,8 +5,12 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
-// Pages that get an icon of their own next to the messages icon in the mobile header
-const mobileShortcutHrefs = ['/tid', '/lon', '/lonespecar', '/installningar', '/hjalp'];
+// Mobile: the daily pages sit in a bottom tab bar within thumb reach; settings
+// and help keep an icon in the header next to the bell and messages, and
+// everything else lives under "Mer".
+const bottomTabHrefs = ['/', '/tid', '/lon', '/lonespecar'];
+const bottomTabLabels: Record<string, string> = { '/': 'Hem', '/tid': 'Tid', '/lon': 'Lön', '/lonespecar': 'Lönespecar' };
+const mobileHeaderHrefs = ['/hjalp', '/installningar'];
 
 const navItems = [
   {
@@ -198,6 +202,9 @@ export default function Navigation() {
     ) : null;
 
   const allItems = session.user.role === 'admin' ? [...navItems, adminNavItem] : navItems;
+  // The sheet skips the tabs; bell and messages stay too, as a second way in with their badges
+  const moreItems = allItems.filter((item) => !bottomTabHrefs.includes(item.href));
+  const moreActive = moreItems.some((item) => item.href === pathname);
 
   const linkClass = (href: string) =>
     `flex items-center gap-1.5 px-2 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
@@ -225,8 +232,7 @@ export default function Navigation() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              {/* Below 400px the name gives way to the mobile shortcut icons */}
-              <span className="hidden min-[400px]:inline">Tidsrapport</span>
+              <span>Tidsrapport</span>
             </Link>
             <div className="hidden 2xl:flex items-center gap-0.5 min-w-0 overflow-x-auto scrollbar-none">
               {allItems.map((item) => (
@@ -263,10 +269,10 @@ export default function Navigation() {
             </button>
           </div>
 
-          {/* Mobile: shortcuts, notification bell, messages + hamburger */}
+          {/* Mobile: help, settings, notification bell and messages */}
           <div className="2xl:hidden flex items-center">
             {navItems
-              .filter((item) => mobileShortcutHrefs.includes(item.href))
+              .filter((item) => mobileHeaderHrefs.includes(item.href))
               .map((item) => (
                 <Link
                   key={item.href}
@@ -322,64 +328,93 @@ export default function Navigation() {
                 </span>
               )}
             </Link>
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="p-1.5 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {menuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile: "Mer" sheet above the tab bar */}
       {menuOpen && (
-        <div className="2xl:hidden border-t border-slate-800 px-4 py-3 space-y-1">
-          {allItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMenuOpen(false)}
-              className={mobileLinkClass(item.href)}
-            >
-              {item.icon}
-              {item.label}
-              {badge(item.href)}
-            </Link>
-          ))}
-          <div className="border-t border-slate-800 pt-3 mt-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-slate-300">
-              <div className="w-7 h-7 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold">
-                {session.user.name?.charAt(0).toUpperCase()}
+        <div className="2xl:hidden fixed inset-0 z-40" onClick={() => setMenuOpen(false)}>
+          <div className="absolute inset-0 bg-slate-900/40" />
+          <div
+            className="absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] bg-slate-900 rounded-t-2xl px-4 pt-3 pb-4 space-y-1 max-h-[70vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {moreItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className={mobileLinkClass(item.href)}
+              >
+                {item.icon}
+                {item.label}
+                {badge(item.href)}
+              </Link>
+            ))}
+            <div className="border-t border-slate-800 pt-3 mt-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <div className="w-7 h-7 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold">
+                  {session.user.name?.charAt(0).toUpperCase()}
+                </div>
+                {session.user.name}
               </div>
-              {session.user.name}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={hardReload}
-                className="text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 px-2.5 py-1 rounded-md transition-colors flex items-center gap-1"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Uppdatera
-              </button>
-              <button
-                onClick={() => signOut()}
-                className="text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 px-2.5 py-1 rounded-md transition-colors"
-              >
-                Logga ut
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={hardReload}
+                  className="text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 px-2.5 py-1 rounded-md transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Uppdatera
+                </button>
+                <button
+                  onClick={() => signOut()}
+                  className="text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 px-2.5 py-1 rounded-md transition-colors"
+                >
+                  Logga ut
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Mobile: bottom tab bar */}
+      <div className="2xl:hidden fixed inset-x-0 bottom-0 z-50 bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex h-16">
+          {bottomTabHrefs.map((href) => {
+            const item = navItems.find((i) => i.href === href)!;
+            const active = pathname === href && !menuOpen;
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMenuOpen(false)}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium [&>svg]:w-6 [&>svg]:h-6 ${
+                  active ? 'text-blue-600' : 'text-gray-500'
+                }`}
+              >
+                {item.icon}
+                {bottomTabLabels[href]}
+              </Link>
+            );
+          })}
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-expanded={menuOpen}
+            className={`relative flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium ${
+              menuOpen || moreActive ? 'text-blue-600' : 'text-gray-500'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            Mer
+          </button>
+        </div>
+      </div>
     </nav>
   );
 }

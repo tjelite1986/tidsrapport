@@ -10,6 +10,7 @@ import CalendarWeekView from '@/components/calendar/CalendarWeekView';
 import CalendarMonthView from '@/components/calendar/CalendarMonthView';
 import CalendarViewToggle from '@/components/calendar/CalendarViewToggle';
 import TaskSegmentEditor from '@/components/TaskSegmentEditor';
+import PageHeader from '@/components/ui/PageHeader';
 import ScheduleImportDialog from '@/components/dialogs/ScheduleImportDialog';
 import CalendarEventDialog, { CalendarEventDraft } from '@/components/dialogs/CalendarEventDialog';
 import { TaskSegment, parseTaskSegments, serializeTaskSegments } from '@/lib/types/segments';
@@ -71,6 +72,11 @@ function getWeekDates(offset: number = 0): { start: string; end: string; dates: 
 }
 
 const dayNames = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
+
+function weekdayShort(dateStr: string): string {
+  const jsDay = new Date(dateStr + 'T12:00:00').getDay();
+  return dayNames[jsDay === 0 ? 6 : jsDay - 1];
+}
 
 function calcHoursPreview(startTime: string, endTime: string, breakMin: number): string {
   if (!startTime || !endTime) return '';
@@ -452,9 +458,9 @@ export default function TidPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Tidsregistrering</h1>
+      <PageHeader title="Tidsregistrering" />
 
-      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-lg shadow mb-6">
+      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Logga tid</h2>
           <button
@@ -482,7 +488,7 @@ export default function TidPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Projekt</label>
             <select
@@ -526,8 +532,8 @@ export default function TidPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-4">
+          <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Raster
               <span className="ml-2 inline-flex rounded overflow-hidden border border-gray-200 text-xs align-middle">
@@ -613,7 +619,7 @@ export default function TidPage() {
             </select>
           </div>
           {isAbsence && (
-            <div>
+            <div className="col-span-2 lg:col-span-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Timmar (heldag utan tider)</label>
               <div className="flex gap-2">
                 <input
@@ -651,7 +657,7 @@ export default function TidPage() {
               <option value="kvalificerad">Kvalificerad övertid (+70%)</option>
             </select>
           </div>
-          <div>
+          <div className="col-span-2 lg:col-span-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivning</label>
             <input
               type="text"
@@ -670,12 +676,12 @@ export default function TidPage() {
           passEnd={endTime}
         />
 
-        <div className="mt-4 flex items-center gap-4">
-          <button type="submit" disabled={submitting} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50">
+        <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] 2xl:static -mx-4 sm:mx-0 mt-4 px-4 sm:px-0 py-3 sm:py-0 bg-white/95 backdrop-blur border-t border-gray-100 sm:border-0 flex flex-col-reverse sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <button type="submit" disabled={submitting} className="w-full sm:w-auto bg-blue-600 text-white font-semibold px-6 py-3 sm:py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
             Spara
           </button>
           {previewHours && (
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 text-center sm:text-left">
               Beräknade timmar: <strong className="text-blue-600">{previewHours}h</strong>
             </span>
           )}
@@ -685,7 +691,7 @@ export default function TidPage() {
         )}
       </form>
 
-      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Kalender</h2>
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -762,7 +768,46 @@ export default function TidPage() {
           />
         )}
 
-        <div className="overflow-x-auto mt-6">
+        {/* Phone: one card per entry; tapping opens the details dialog (edit/delete live there) */}
+        <div className="sm:hidden mt-4 space-y-2">
+          {entries.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => setDetailEntry(entry)}
+              className="w-full text-left flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white active:bg-gray-50"
+            >
+              <div className="w-11 shrink-0 text-center">
+                <div className="text-[11px] text-gray-500 uppercase">{weekdayShort(entry.date)}</div>
+                <div className="text-lg font-bold text-gray-900 leading-none">{parseInt(entry.date.slice(8))}</div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-gray-900">
+                  {entry.startTime && entry.endTime ? `${entry.startTime}–${entry.endTime}` : 'Heldag'}
+                  {entry.breakPeriods && entry.breakPeriods.length > 0
+                    ? <span className="text-gray-400 font-normal"> · {sumBreakMinutes(entry.breakPeriods)}m rast</span>
+                    : entry.breakMinutes ? <span className="text-gray-400 font-normal"> · {entry.breakMinutes}m rast</span> : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                  {entry.entryType !== 'work' && (
+                    <span className={`text-[11px] px-1.5 py-0.5 rounded ${entry.entryType === 'sick' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                      {entry.entryType === 'sick' ? 'Sjuk' : 'VAB'}
+                    </span>
+                  )}
+                  {entry.overtimeType !== 'none' && (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                      {entry.overtimeType === 'mertid' ? 'Mertid' : entry.overtimeType === 'enkel' ? 'Enkel ÖT' : 'Kval ÖT'}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-500 truncate">{entry.description || entry.projectName}</span>
+                </div>
+              </div>
+              <div className="shrink-0 text-base font-semibold text-blue-700">{entry.hours.toFixed(2)}h</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="hidden sm:block overflow-x-auto mt-6">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
@@ -792,13 +837,13 @@ export default function TidPage() {
                   <td className="px-4 py-2">
                     <span className={`text-xs px-1.5 py-0.5 rounded ${
                       entry.entryType === 'sick' ? 'bg-red-100 text-red-700'
-                      : entry.entryType === 'vab' ? 'bg-amber-100 text-amber-700'
+                      : entry.entryType === 'vab' ? 'bg-orange-100 text-orange-700'
                       : 'bg-green-100 text-green-700'
                     }`}>
                       {entry.entryType === 'sick' ? 'Sjuk' : entry.entryType === 'vab' ? 'VAB' : 'Arbete'}
                     </span>
                     {entry.overtimeType !== 'none' && (
-                      <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
+                      <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
                         {entry.overtimeType === 'mertid' ? 'Mertid' :
                          entry.overtimeType === 'enkel' ? 'Enkel ÖT' : 'Kval ÖT'}
                       </span>

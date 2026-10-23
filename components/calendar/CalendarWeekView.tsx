@@ -126,7 +126,7 @@ export default function CalendarWeekView({
         <button onClick={onNext} className="text-blue-600 hover:underline text-sm">Nästa &rarr;</button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {dates.map((d, i) => {
           const dayEntries = entries.filter((e) => e.date === d);
           const dayTotal = dayEntries.reduce((sum, e) => sum + e.hours, 0);
@@ -147,7 +147,7 @@ export default function CalendarWeekView({
               key={d}
               id={`cal-day-${d}`}
               onClick={() => onDayClick(d, dayEntries)}
-              className={`p-2 rounded-lg border cursor-pointer transition-all min-h-[100px] ${
+              className={`p-1 sm:p-2 rounded-lg border cursor-pointer transition-all min-h-[100px] min-w-0 overflow-hidden ${
                 isToday ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200' :
                 hasSick ? 'bg-red-100 border-red-300' :
                 hasVab ? 'bg-orange-100 border-orange-300' :
@@ -157,8 +157,9 @@ export default function CalendarWeekView({
                 'bg-gray-50 border-gray-200'
               } hover:shadow-md${d === highlightDate ? ' ring-2 !ring-amber-400' : ''}`}
             >
-              <div className="flex justify-between items-start">
-                <span className="text-xs text-gray-500 font-medium">{dayNames[i]}</span>
+              {/* Weekday above the date: side by side they collide in a ~45px phone column */}
+              <div className="flex flex-col items-center sm:flex-row sm:justify-between sm:items-start">
+                <span className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight">{dayNames[i]}</span>
                 <span className={`text-sm font-semibold ${
                   isToday ? 'bg-indigo-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs' :
                   ''
@@ -170,15 +171,15 @@ export default function CalendarWeekView({
                 </div>
               )}
               {dayTotal > 0 && (
-                <div className="mt-1">
-                  <div className={`text-lg font-bold ${
+                <div className="mt-1 text-center sm:text-left">
+                  <div className={`text-xs sm:text-lg font-bold ${
                     isToday ? 'text-indigo-600' :
                     isSunday ? 'text-pink-600' :
                     isSaturday ? 'text-purple-600' :
                     'text-blue-600'
                   }`}>{dayTotal.toFixed(2)}h</div>
                   {dayPay > 0 && (
-                    <div className="text-xs text-gray-500">{formatCurrency(dayPay)}</div>
+                    <div className="hidden sm:block text-xs text-gray-500">{formatCurrency(dayPay)}</div>
                   )}
                 </div>
               )}

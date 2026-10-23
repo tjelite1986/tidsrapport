@@ -215,15 +215,15 @@ export default function TotalSummaryCard({ salary, month, userName, includeVacat
           />
         </div>
 
-        {/* Net pay */}
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-4 flex items-center justify-between">
+        {/* Net pay: the sum line of the statement above (the header already shows it big) */}
+        <div className="border-t-2 border-gray-200 pt-3 flex items-center justify-between">
           <div>
-            <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wide">Nettolön</p>
+            <p className="text-sm font-semibold text-gray-800">Nettolön</p>
             <p className="text-xs text-gray-400 mt-0.5">
               {taxMode ? `Skatteavdrag tabell ${salary.settings.taxTable}` : `${salary.settings.taxRate}% i skatt`}
             </p>
           </div>
-          <p className="text-3xl font-bold text-emerald-600">{formatCurrency(salary.netPay)}</p>
+          <p className="text-xl font-bold text-emerald-700">{formatCurrency(salary.netPay)}</p>
         </div>
       </div>
     </div>

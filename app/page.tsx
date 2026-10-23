@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import BarChart from '@/components/charts/BarChart';
+import StatTile from '@/components/ui/StatTile';
 
 interface TimeEntry {
   id: number;
@@ -51,12 +52,23 @@ function formatCurrency(amount: number) {
 
 const dayNames = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
 
+function formatShiftDay(dateStr: string): string {
+  const today = toLocalDate(new Date());
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (dateStr === today) return 'idag';
+  if (dateStr === toLocalDate(tomorrow)) return 'imorgon';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [weekEntries, setWeekEntries] = useState<TimeEntry[]>([]);
   const [monthEntries, setMonthEntries] = useState<TimeEntry[]>([]);
   const [salary, setSalary] = useState<SalarySummary | null>(null);
   const [vacationBalance, setVacationBalance] = useState<number | null>(null);
+  const [nextShift, setNextShift] = useState<TimeEntry | null>(null);
 
   useEffect(() => {
     const week = getWeekDates();
@@ -72,6 +84,21 @@ export default function DashboardPage() {
     fetch(`/api/time-entries?startDate=${month.start}&endDate=${month.end}`)
       .then((r) => (r.ok ? r.json() : []))
       .then(setMonthEntries)
+      .catch(() => {});
+
+    // Next shift: the first work entry from now on (synced schedule entries are future entries)
+    const soon = new Date(now);
+    soon.setDate(now.getDate() + 14);
+    const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    fetch(`/api/time-entries?startDate=${toLocalDate(now)}&endDate=${toLocalDate(soon)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: TimeEntry[]) => {
+        const upcoming = list
+          .filter((e) => e.entryType === 'work' && e.startTime)
+          .filter((e) => e.date > toLocalDate(now) || (e.endTime ?? '') > nowTime)
+          .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
+        setNextShift(upcoming[0] ?? null);
+      })
       .catch(() => {});
 
     fetch(`/api/salary?month=${currentMonth}`)
@@ -114,14 +141,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <p className="text-slate-400 text-sm mb-1 capitalize">{monthName}</p>
           <h1 className="text-2xl font-bold">Hej, {session?.user?.name?.split(' ')[0]}!</h1>
-          <p className="text-slate-400 text-sm mt-1">
-            {weekTotal > 0
-              ? `Du har registrerat ${weekTotal.toFixed(1)} timmar denna vecka.`
-              : 'Inga registreringar denna vecka ännu.'}
+          <p className="text-slate-300 text-sm mt-1">
+            {nextShift
+              ? <>Nästa pass: <strong className="text-white">{formatShiftDay(nextShift.date)} {nextShift.startTime}–{nextShift.endTime}</strong></>
+              : weekTotal > 0
+                ? `Du har registrerat ${weekTotal.toFixed(1)} timmar denna vecka.`
+                : 'Inga registreringar denna vecka ännu.'}
           </p>
         </div>
         <Link
@@ -136,45 +165,45 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatTile
           label="Timmar denna vecka"
           value={`${weekTotal.toFixed(1)}h`}
           sub={`${weekEntries.length} pass`}
-          color="blue"
+          tone="time"
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           }
         />
-        <StatCard
+        <StatTile
           label="Timmar denna månad"
           value={`${monthTotal.toFixed(1)}h`}
           sub={`${monthEntries.length} pass`}
-          color="indigo"
+          tone="time"
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
         />
-        <StatCard
+        <StatTile
           label="Uppskattad nettolön"
           value={salary ? formatCurrency(salary.netPay) : '—'}
           sub={salary && salary.totalOB > 0 ? `varav OB ${formatCurrency(salary.totalOB)}` : 'denna månad'}
-          color="green"
+          tone="money"
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
           }
         />
-        <StatCard
+        <StatTile
           label="Semestersaldo"
           value={vacationBalance !== null ? formatCurrency(vacationBalance) : '—'}
           sub="intjänat saldo"
-          color="amber"
+          tone="vacation"
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -266,37 +295,6 @@ export default function DashboardPage() {
       <p className="text-xs text-gray-400 text-center pb-2">
         Löneberäkningar är uppskattningar baserade på Handels kollektivavtal och ersätter inte ett officiellt lönebesked.
       </p>
-    </div>
-  );
-}
-
-function StatCard({
-  label, value, sub, color, icon,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  color: 'blue' | 'indigo' | 'green' | 'amber';
-  icon: React.ReactNode;
-}) {
-  const colors = {
-    blue: { bg: 'bg-blue-50', icon: 'bg-blue-500', text: 'text-blue-600' },
-    indigo: { bg: 'bg-indigo-50', icon: 'bg-indigo-500', text: 'text-indigo-600' },
-    green: { bg: 'bg-emerald-50', icon: 'bg-emerald-500', text: 'text-emerald-600' },
-    amber: { bg: 'bg-amber-50', icon: 'bg-amber-500', text: 'text-amber-600' },
-  };
-  const c = colors[color];
-
-  return (
-    <div className={`${c.bg} rounded-xl p-4 flex flex-col gap-3`}>
-      <div className={`${c.icon} w-9 h-9 rounded-lg flex items-center justify-center text-white`}>
-        {icon}
-      </div>
-      <div>
-        <div className={`text-xl font-bold ${c.text}`}>{value}</div>
-        <div className="text-xs text-gray-500 mt-0.5 leading-tight">{label}</div>
-        <div className="text-xs text-gray-400 mt-0.5">{sub}</div>
-      </div>
     </div>
   );
 }
