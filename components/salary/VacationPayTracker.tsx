@@ -6,6 +6,7 @@ interface MonthlyBreakdown {
   month: string;
   vacationPay: number;
   grossBeforeVacation: number;
+  source: 'payslip' | 'calculated';
 }
 
 interface YearlyBreakdown {
@@ -204,7 +205,7 @@ export default function VacationPayTracker({ refreshKey }: Props) {
                         <span className="text-gray-600">{formatMonth(m.month)}</span>
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-gray-400">
-                            på {formatCurrency(m.grossBeforeVacation)}
+                            {m.source === 'payslip' ? 'lönebesked' : 'beräknat'} · på {formatCurrency(m.grossBeforeVacation)}
                           </span>
                           <span className="font-medium text-teal-700 w-24 text-right">
                             +{formatCurrency(m.vacationPay)}

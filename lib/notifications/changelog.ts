@@ -8,6 +8,13 @@ export type AppUpdate = { id: string; date: string; title: string; body: string 
 
 export const APP_UPDATES: AppUpdate[] = [
   {
+    id: '2026-10-23-vacation-pot-from-payslips',
+    date: '2026-10-23',
+    title: 'Semesterpotten följer lönebeskeden',
+    body:
+      'För månader där du har laddat upp ett lönebesked räknas semesterersättningen nu på lönebeskedets bruttolön, inte på appens egen beräkning. Under Lön står det vid varje månad om beloppet kommer från ett lönebesked eller är beräknat från dina pass.',
+  },
+  {
     id: '2026-10-23-vacation-pot-per-year',
     date: '2026-10-23',
     title: 'Semesterpotten per år',

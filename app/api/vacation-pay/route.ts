@@ -8,6 +8,8 @@ import { calculateMonthlyPay, buildPaySettings, isPaidVacationDay, type TimeEntr
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 import { lookupMonthlyTax } from '@/lib/tax-tables/tax-lookup';
 import { getVacationDailyRate } from '@/lib/vacation-rate';
+import { listPayslips } from '@/lib/payslips/store';
+import { payslipBasesByWorkMonth } from '@/lib/payslips/vacation-base';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +18,8 @@ interface MonthBreakdownEntry {
   vacationPay: number;
   grossBeforeVacation: number;
   includedInSalary: boolean;
+  /** Where the base came from: the uploaded payslip, or the app's own calculation. */
+  source: 'payslip' | 'calculated';
 }
 
 interface EarningYear {
@@ -73,33 +77,48 @@ function computeVacationPayState(userId: number) {
   const earningYear = (year: number) =>
     (yearlyTotals[year] ??= { earned: 0, months: [], daysTaken: 0, paidOutViaDays: 0, withdrawn: 0 });
 
-  const sortedMonths = Object.keys(entriesByMonth).sort();
-  for (const month of sortedMonths) {
-    const monthEntries = entriesByMonth[month];
-    const payEntries: TimeEntryForPay[] = monthEntries.map((e) => ({
-      date: e.date,
-      hours: e.hours,
-      startTime: e.startTime,
-      endTime: e.endTime,
-      breakMinutes: e.breakMinutes,
-      breakPeriods: parseBreakPeriods(e.breakPeriods),
-      entryType: e.entryType,
-      overtimeType: e.overtimeType,
-    }));
+  // An uploaded payslip is the employer's own figure for its work month, so it
+  // beats the calculation from time entries whenever both exist. Months without
+  // one (the current month, or a payslip not uploaded yet) fall back to entries.
+  const payslipBases = payslipBasesByWorkMonth(listPayslips(userId));
 
+  const sortedMonths = Array.from(new Set([...Object.keys(entriesByMonth), ...payslipBases.keys()])).sort();
+  for (const month of sortedMonths) {
     const year = parseInt(month.split('-')[0]);
-    const result = calculateMonthlyPay(payEntries, { ...paySettings, taxYear: year });
+    const payslipBase = payslipBases.get(month);
+    let grossBeforeVacation: number;
+    let accrued: number;
+    if (payslipBase !== undefined) {
+      grossBeforeVacation = payslipBase;
+      accrued = payslipBase * (paySettings.vacationPayRate / 100);
+    } else {
+      const monthEntries = entriesByMonth[month];
+      const payEntries: TimeEntryForPay[] = monthEntries.map((e) => ({
+        date: e.date,
+        hours: e.hours,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        breakMinutes: e.breakMinutes,
+        breakPeriods: parseBreakPeriods(e.breakPeriods),
+        entryType: e.entryType,
+        overtimeType: e.overtimeType,
+      }));
+      const result = calculateMonthlyPay(payEntries, { ...paySettings, taxYear: year });
+      grossBeforeVacation = result.grossBeforeVacation;
+      accrued = result.vacationPay;
+    }
 
     // Om semesterersättningen inkluderades i lönen denna månad läggs den INTE till potten.
     // Detsamma gäller för 'included'-läge — semesterersättning ingår alltid i lönen och hamnar aldrig i potten.
     const isIncludedInSalary = inclusionsByMonth.has(month);
-    const vacationPayForPot = (isIncludedInSalary || paySettings.vacationPayMode === 'included') ? 0 : result.vacationPay;
+    const vacationPayForPot = (isIncludedInSalary || paySettings.vacationPayMode === 'included') ? 0 : accrued;
 
     const entry: MonthBreakdownEntry = {
       month,
       vacationPay: vacationPayForPot,
-      grossBeforeVacation: result.grossBeforeVacation,
+      grossBeforeVacation,
       includedInSalary: isIncludedInSalary,
+      source: payslipBase !== undefined ? 'payslip' : 'calculated',
     };
 
     monthlyBreakdown.push(entry);
