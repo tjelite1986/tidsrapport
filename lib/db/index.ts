@@ -12,6 +12,10 @@ if (!fs.existsSync(dbDir)) {
 
 const dbPath = path.join(dbDir, 'tidsrapport.db');
 export const sqlite = new Database(dbPath);
+// First, before anything that takes a write lock: next build collects page data
+// in parallel workers that all open this file and run the bootstraps below, and
+// without a timeout the loser of a lock fails the build with "database is locked".
+sqlite.pragma('busy_timeout = 15000');
 sqlite.pragma('journal_mode = WAL');
 sqlite.pragma('foreign_keys = ON');
 
