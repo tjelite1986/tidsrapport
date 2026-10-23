@@ -6,7 +6,7 @@ import PwaRegister from '@/components/PwaRegister';
 import PwaInstallBanner from '@/components/PwaInstallBanner';
 
 export const viewport: Viewport = {
-  themeColor: '#2563eb',
+  themeColor: '#0f172a',
 };
 
 export const metadata: Metadata = {

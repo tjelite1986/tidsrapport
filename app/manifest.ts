@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     display: 'standalone',
     background_color: '#f9fafb',
-    theme_color: '#2563eb',
+    theme_color: '#0f172a',
     orientation: 'any',
     categories: ['productivity'],
     // The ?v= is what makes a new icon reach an already-installed home screen
