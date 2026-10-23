@@ -123,7 +123,7 @@ export default function SemesterPage() {
     await fetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vacationDaysPerYear: days, vacationDailyRate: rate }),
+      body: JSON.stringify({ vacationDaysPerYear: days, vacationDailyRate: rate, vacationDailyRateYear: year }),
     });
     await load(year);
     setSavingSettings(false);
@@ -214,7 +214,7 @@ export default function SemesterPage() {
         {data.dailyRate > 0 && (
           <p className="text-center text-emerald-200/80 text-xs mt-1">
             {formatCurrency(data.dailyRate)}/dag
-            {data.manualDailyRate != null ? ' (manuellt satt)' : ' (ur föregående års pott)'}
+            {data.manualDailyRate != null ? ` (manuellt satt för ${year})` : ` (ur ${year - 1} års pott)`}
           </p>
         )}
 
@@ -309,7 +309,7 @@ export default function SemesterPage() {
                 <p className="text-xs text-gray-400 mt-1">Lagen kräver minst 25 dagar/år. Gäller alla år.</p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Semesterlön per dag (kr)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Semesterlön per dag {year} (kr)</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -319,8 +319,9 @@ export default function SemesterPage() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  A-priset på lönebeskedets rad &quot;Semesterlön betald&quot;. Lämna tomt för att räkna
-                  ut det ur föregående års pott.
+                  A-priset på lönebeskedets rad &quot;Semesterlön betald&quot;. Gäller bara semester
+                  {' '}{year} — byt år ovan för att sätta ett annat. Lämna tomt för att räkna ut det ur
+                  {' '}{year - 1} års pott.
                 </p>
               </div>
               <button

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { userSettings } from '@/lib/db/schema';
+import { setManualVacationDailyRate } from '@/lib/vacation-rate';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -222,20 +223,30 @@ export async function PATCH(req: NextRequest) {
     patch.vacationDaysPerYear = v;
   }
 
+  // The manual per-day rate belongs to one vacation year, so it lives in its own
+  // table rather than in user_settings (v29).
+  let dailyRate: { year: number; rate: number | null } | null = null;
   if (body.vacationDailyRate !== undefined) {
+    const year = parseInt(body.vacationDailyRateYear);
+    if (isNaN(year) || year < 2000 || year > 2100) {
+      return NextResponse.json({ error: 'Invalid year for the vacation daily rate' }, { status: 400 });
+    }
     // Empty string / null clears the override and falls back to the derived rate
     if (body.vacationDailyRate === null || body.vacationDailyRate === '') {
-      patch.vacationDailyRate = null;
+      dailyRate = { year, rate: null };
     } else {
       const v = parseFloat(body.vacationDailyRate);
       if (isNaN(v) || v < 0 || v > 100000) {
         return NextResponse.json({ error: 'Ogiltig semesterlön per dag' }, { status: 400 });
       }
-      patch.vacationDailyRate = v > 0 ? v : null;
+      dailyRate = { year, rate: v > 0 ? v : null };
     }
   }
 
+  if (dailyRate) setManualVacationDailyRate(userId, dailyRate.year, dailyRate.rate);
+
   if (Object.keys(patch).length === 0) {
+    if (dailyRate) return NextResponse.json({ ok: true });
     return NextResponse.json({ error: 'Inga fält att uppdatera' }, { status: 400 });
   }
 

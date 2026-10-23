@@ -8,6 +8,13 @@ export type AppUpdate = { id: string; date: string; title: string; body: string 
 
 export const APP_UPDATES: AppUpdate[] = [
   {
+    id: '2026-10-23-vacation-pot-per-year',
+    date: '2026-10-23',
+    title: 'Semesterpotten per år',
+    body:
+      'Under Lön ser du nu hur mycket som finns kvar av varje års semesterersättning: det du tjänar in ett år betalas ut som semesterlön året efter. Bara pass som redan har varit räknas in. Semesterlön per dag ställs in per år på Semester-sidan.',
+  },
+  {
     id: '2026-10-23-end-time-follows',
     date: '2026-10-23',
     title: 'Sluttiden öppnas direkt',

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { vacationDays, userSettings, users } from '@/lib/db/schema';
-import { getVacationDailyRate } from '@/lib/vacation-rate';
+import { getVacationDailyRate, getManualVacationDailyRate } from '@/lib/vacation-rate';
 import { eq, and } from 'drizzle-orm';
 import { isPaidVacationDay, countPaidVacationDays } from '@/lib/calculations';
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     registeredThisYear: daysThisYear.length,
     remaining,
     dailyRate: getVacationDailyRate(userId, user, settings, year),
-    manualDailyRate: settings?.vacationDailyRate ?? null,
+    manualDailyRate: getManualVacationDailyRate(userId, year),
     year,
     yearStart,
     yearEnd,

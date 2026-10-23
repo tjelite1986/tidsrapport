@@ -12,6 +12,10 @@ interface YearlyBreakdown {
   year: number;
   sempiralYear: number;
   earned: number;
+  daysTaken: number;
+  paidOutViaDays: number;
+  withdrawn: number;
+  remaining: number;
   months: MonthlyBreakdown[];
 }
 
@@ -155,7 +159,12 @@ export default function VacationPayTracker({ refreshKey }: Props) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-teal-700">{formatCurrency(yb.earned)}</span>
+                    <div className="text-right">
+                      <div className={`font-bold ${yb.remaining >= 0 ? 'text-teal-700' : 'text-red-600'}`}>
+                        {formatCurrency(yb.remaining)}
+                      </div>
+                      <div className="text-xs text-gray-400">kvar</div>
+                    </div>
                     <svg
                       className={`w-4 h-4 text-gray-400 transition-transform ${expandedYear === yb.year ? 'rotate-180' : ''}`}
                       fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -166,6 +175,30 @@ export default function VacationPayTracker({ refreshKey }: Props) {
                 </button>
                 {expandedYear === yb.year && (
                   <div className="border-t border-gray-200 px-3 py-2 bg-gray-50">
+                    <div className="space-y-1 text-sm pb-2 mb-2 border-b border-gray-200">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Intjänat {yb.year}</span>
+                        <span className="font-medium text-teal-700">+{formatCurrency(yb.earned)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">
+                          Semesterlön {yb.sempiralYear} ({yb.daysTaken} dag{yb.daysTaken !== 1 ? 'ar' : ''})
+                        </span>
+                        <span className="font-medium text-gray-700">-{formatCurrency(yb.paidOutViaDays)}</span>
+                      </div>
+                      {yb.withdrawn > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Manuellt uttag</span>
+                          <span className="font-medium text-red-600">-{formatCurrency(yb.withdrawn)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-semibold">
+                        <span className="text-gray-800">Kvar för semester {yb.sempiralYear}</span>
+                        <span className={yb.remaining >= 0 ? 'text-teal-700' : 'text-red-600'}>
+                          {formatCurrency(yb.remaining)}
+                        </span>
+                      </div>
+                    </div>
                     {yb.months.map((m) => (
                       <div key={m.month} className="flex items-center justify-between text-sm py-1">
                         <span className="text-gray-600">{formatMonth(m.month)}</span>

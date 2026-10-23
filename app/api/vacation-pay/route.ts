@@ -7,6 +7,7 @@ import { eq, desc } from 'drizzle-orm';
 import { calculateMonthlyPay, buildPaySettings, isPaidVacationDay, type TimeEntryForPay } from '@/lib/calculations';
 import { parseBreakPeriods } from '@/lib/types/break-periods';
 import { lookupMonthlyTax } from '@/lib/tax-tables/tax-lookup';
+import { getVacationDailyRate } from '@/lib/vacation-rate';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,21 @@ interface MonthBreakdownEntry {
   vacationPay: number;
   grossBeforeVacation: number;
   includedInSalary: boolean;
+}
+
+interface EarningYear {
+  earned: number;
+  months: MonthBreakdownEntry[];
+  /** Vacation days taken the year after, which this pot pays for. */
+  daysTaken: number;
+  paidOutViaDays: number;
+  /** Manual withdrawals, drawn from the oldest pot first. */
+  withdrawn: number;
+}
+
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // Single source of truth for the vacation-pay pot. GET (display) and POST
@@ -34,11 +50,15 @@ function computeVacationPayState(userId: number) {
     allInclusions.filter((i) => i.includeInSalary).map((i) => i.month)
   );
 
+  // Only shifts that have happened earn vacation pay. Scheduled shifts further
+  // ahead are already in time_entries and would otherwise fill the pot early.
+  const today = localToday();
   const allEntries = db
     .select()
     .from(timeEntries)
     .where(eq(timeEntries.userId, userId))
-    .all();
+    .all()
+    .filter((e) => e.date <= today);
 
   const entriesByMonth: Record<string, typeof allEntries> = {};
   for (const entry of allEntries) {
@@ -49,7 +69,9 @@ function computeVacationPayState(userId: number) {
 
   const monthlyBreakdown: MonthBreakdownEntry[] = [];
   let totalAccumulated = 0;
-  const yearlyTotals: Record<number, { earned: number; months: MonthBreakdownEntry[] }> = {};
+  const yearlyTotals: Record<number, EarningYear> = {};
+  const earningYear = (year: number) =>
+    (yearlyTotals[year] ??= { earned: 0, months: [], daysTaken: 0, paidOutViaDays: 0, withdrawn: 0 });
 
   const sortedMonths = Object.keys(entriesByMonth).sort();
   for (const month of sortedMonths) {
@@ -83,11 +105,8 @@ function computeVacationPayState(userId: number) {
     monthlyBreakdown.push(entry);
     totalAccumulated += vacationPayForPot;
 
-    if (!yearlyTotals[year]) {
-      yearlyTotals[year] = { earned: 0, months: [] };
-    }
-    yearlyTotals[year].earned += vacationPayForPot;
-    yearlyTotals[year].months.push(entry);
+    earningYear(year).earned += vacationPayForPot;
+    earningYear(year).months.push(entry);
   }
 
   const withdrawals = db
@@ -100,9 +119,10 @@ function computeVacationPayState(userId: number) {
   const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
   const totalTax = withdrawals.reduce((sum, w) => sum + (w.tax ?? 0), 0);
 
-  // Beräkna hur mycket som betalats ut via semesterdagar (automatisk semesterlön)
-  // Semesterdagar tagna år X dras från år X-1:s pot. Bara vardagar (mån–fre)
-  // räknas — helger inuti en semesterperiod drar ingen dag.
+  // Vacation days taken in year X are paid from the pot earned in X-1. Only
+  // weekdays count — weekends inside a vacation period cost no day. The rate
+  // comes from getVacationDailyRate, the same one /lon pays out with, so the pot
+  // drains exactly as fast as the salary pays.
   let vacationDaysPaidOut = 0;
   if (paySettings.vacationPayMode === 'separate') {
     const allVacDays = db.select().from(vacationDays).where(eq(vacationDays.userId, userId)).all();
@@ -112,22 +132,28 @@ function computeVacationPayState(userId: number) {
       const y = parseInt(v.date.slice(0, 4));
       vacDaysByYear[y] = (vacDaysByYear[y] ?? 0) + 1;
     }
-    const daysPerYear = settings?.vacationDaysPerYear ?? 25;
-    const manualDailyRate = settings?.vacationDailyRate ?? null;
     for (const [yearStr, daysCount] of Object.entries(vacDaysByYear)) {
       const year = parseInt(yearStr);
-      // A manual per-day rate wins over the derived one, exactly as in /lon —
-      // otherwise the pot would drain at a different rate than the salary pays out.
-      if (manualDailyRate != null && manualDailyRate > 0) {
-        vacationDaysPaidOut += manualDailyRate * daysCount;
-        continue;
-      }
-      const prevYearPot = yearlyTotals[year - 1]?.earned ?? 0;
-      if (prevYearPot > 0 && daysPerYear > 0) {
-        vacationDaysPaidOut += (prevYearPot / daysPerYear) * daysCount;
-      }
+      const paid = getVacationDailyRate(userId, user, settings, year) * daysCount;
+      const pot = earningYear(year - 1);
+      pot.daysTaken += daysCount;
+      pot.paidOutViaDays += paid;
+      vacationDaysPaidOut += paid;
     }
   }
+
+  // Withdrawals carry no year; take each from the oldest pot that still has money
+  // left, and let whatever is over land on the newest one.
+  const years = Object.keys(yearlyTotals).map(Number).sort((a, b) => a - b);
+  let toAllocate = totalWithdrawn;
+  for (const y of years) {
+    if (toAllocate <= 0) break;
+    const pot = yearlyTotals[y];
+    const take = Math.min(toAllocate, Math.max(0, pot.earned - pot.paidOutViaDays));
+    pot.withdrawn += take;
+    toAllocate -= take;
+  }
+  if (toAllocate > 0 && years.length > 0) yearlyTotals[years[years.length - 1]].withdrawn += toAllocate;
 
   const balance = totalAccumulated - totalWithdrawn - vacationDaysPaidOut;
 
@@ -160,6 +186,10 @@ export async function GET() {
       year: parseInt(year),
       sempiralYear: parseInt(year) + 1, // semester tas ut året efter intjänande
       earned: data.earned,
+      daysTaken: data.daysTaken,
+      paidOutViaDays: data.paidOutViaDays,
+      withdrawn: data.withdrawn,
+      remaining: data.earned - data.paidOutViaDays - data.withdrawn,
       months: [...data.months].reverse(),
     }))
     .sort((a, b) => b.year - a.year);
