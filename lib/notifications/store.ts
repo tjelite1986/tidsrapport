@@ -1,4 +1,6 @@
 import { sqlite } from '@/lib/db';
+import { addColumnsIfMissing } from '@/lib/db/add-columns';
+import { APP_UPDATES } from './changelog';
 
 // In-app notices for one user (migration v27): schedule changes picked up by
 // the automatic sync, and room for other kinds later. The table is created here
@@ -20,6 +22,9 @@ CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, r
 `;
 
 sqlite.exec(NOTIFICATIONS_TABLE_SQL);
+// v28: a dedup key for notices that must arrive once per user (app updates). Also in scripts/migrate-v28.ts.
+addColumnsIfMissing(sqlite, 'notifications', [{ name: 'ref', ddl: 'ref TEXT' }]);
+sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_ref ON notifications (user_id, ref) WHERE ref IS NOT NULL');
 
 const LIST_LIMIT = 100;
 
@@ -42,6 +47,30 @@ const insert = sqlite.prepare(
 export function addNotifications(userId: number, notices: NewNotification[]): void {
   const now = new Date().toISOString();
   for (const n of notices) insert.run(userId, n.kind, n.date, n.title, n.body, now);
+}
+
+const insertUpdate = sqlite.prepare(
+  `INSERT OR IGNORE INTO notifications (user_id, kind, date, title, body, created_at, ref)
+   VALUES (?, 'app_update', NULL, ?, ?, ?, ?)`
+);
+
+/**
+ * Give the user every entry in the changelog they have not had yet. Only
+ * entries from the day their account was made on: a new user should not get
+ * a backlog of news about features that were already there.
+ */
+export function deliverAppUpdates(userId: number): void {
+  const user = sqlite.prepare('SELECT created_at AS createdAt FROM users WHERE id = ?').get(userId) as
+    | { createdAt: string | null }
+    | undefined;
+  if (!user) return;
+  // created_at is either ISO or SQLite's "YYYY-MM-DD HH:MM:SS"; the first ten characters are the date in both
+  const joined = (user.createdAt ?? '').slice(0, 10);
+  const now = new Date().toISOString();
+  // Oldest first, so the newest update gets the highest id and lists on top
+  for (const update of [...APP_UPDATES].reverse()) {
+    if (update.date >= joined) insertUpdate.run(userId, update.title, update.body, now, update.id);
+  }
 }
 
 /** The latest notices, newest first. */

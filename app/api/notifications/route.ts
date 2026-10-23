@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import {
   countUnreadNotifications,
   deleteNotification,
+  deliverAppUpdates,
   listNotifications,
   markNotificationsRead,
 } from '@/lib/notifications/store';
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const me = parseInt(session.user.id);
+  deliverAppUpdates(me);
 
   if (req.nextUrl.searchParams.get('unread')) {
     return NextResponse.json({ unread: countUnreadNotifications(me) });

@@ -17,6 +17,7 @@ const kindStyle: Record<string, { label: string; className: string }> = {
   shift_changed: { label: 'Ändrat', className: 'bg-amber-100 text-amber-800' },
   shift_new: { label: 'Nytt', className: 'bg-green-100 text-green-800' },
   shift_removed: { label: 'Borttaget', className: 'bg-red-100 text-red-800' },
+  app_update: { label: 'Nyhet i appen', className: 'bg-blue-100 text-blue-800' },
 };
 
 function formatTime(iso: string): string {
@@ -63,13 +64,13 @@ export default function NotiserPage() {
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold mb-2">Notiser</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Ändringar i schemat som den automatiska synken har hittat — nya pass, flyttade tider och borttagna pass.
+        Ändringar i schemat som den automatiska synken har hittat — nya pass, flyttade tider och borttagna pass — och nyheter i appen.
       </p>
 
       {notifications === null && <p className="text-sm text-gray-400">Laddar...</p>}
       {notifications?.length === 0 && (
         <div className="bg-white rounded-lg shadow p-6 text-sm text-gray-500">
-          Inga notiser ännu. När chefen ändrar i schemat dyker det upp här.
+          Inga notiser ännu. När chefen ändrar i schemat eller appen får något nytt dyker det upp här.
         </div>
       )}
 
