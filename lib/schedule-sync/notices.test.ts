@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planSync, type SyncShift } from './plan';
+import { pairReplacedShifts, planSync, type SyncShift } from './plan';
 import { formatDay, planNotices, type SeenItem } from './notices';
 
 const TODAY = '2026-10-22';
@@ -101,5 +101,20 @@ describe('planNotices', () => {
 
   it('reports nothing removed when the feed is empty', () => {
     expect(run([], [item('a', '2026-11-01', 1)], [entry(1, '2026-11-01')])).toEqual([]);
+  });
+
+  it('reports a shift the feed replaced under a new UID as a change, and the hand-made entry as updated', () => {
+    const shifts = [shift('new', '2026-10-27', '06:00', '15:00')];
+    const stored = [item('old', '2026-10-27', null, '06:00', '10:15')];
+    const today = '2026-10-27';
+    const pairs = pairReplacedShifts({ shifts, items: stored, today });
+    const items = stored.map((i) => (i.uid === pairs.get('new') ? { ...i, uid: 'new' } : i));
+    const entries = [{ id: 588, date: '2026-10-27', startTime: '06:00', endTime: '10:15', description: null }];
+    const plan = planSync({ shifts, items, entries, today });
+    const notices = planNotices({ shifts, items, plan, today });
+    expect(notices).toHaveLength(1);
+    expect(notices[0].kind).toBe('shift_changed');
+    expect(notices[0].body).toContain('06:00–10:15 → 06:00–15:00');
+    expect(notices[0].body).toContain('Din inlagda tid är uppdaterad.');
   });
 });

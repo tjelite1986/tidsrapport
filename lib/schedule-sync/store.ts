@@ -5,7 +5,7 @@ import { addColumnsIfMissing } from '@/lib/db/add-columns';
 import { addNotifications } from '@/lib/notifications/store';
 import { fetchIcs } from '@/lib/schedule-import/fetch-ics';
 import { parseIcsSchedule } from '@/lib/schedule-import/ics';
-import { descriptionFor, planSync, type EntryRef, type SyncShift } from './plan';
+import { descriptionFor, pairReplacedShifts, planSync, type EntryRef, type SyncShift } from './plan';
 import { planNotices, type SeenItem } from './notices';
 
 // Feed shifts the automatic sync has seen (migration v26), keyed by the feed's
@@ -95,16 +95,20 @@ export async function syncScheduleForUser(userId: number): Promise<SyncResult> {
   }
 
   const today = swedishToday();
-  const items = (sqlite
+  const stored = (sqlite
     .prepare(`SELECT uid, date, start_time AS startTime, end_time AS endTime, description, entry_id AS entryId,
                      seen_date AS seenDate, seen_start AS seenStart, seen_end AS seenEnd,
                      seen_description AS seenDescription, first_date AS firstDate, first_start AS firstStart,
                      first_end AS firstEnd, gone
               FROM schedule_sync_items WHERE user_id = ?`)
     .all(userId)) as SeenItem[];
+  // A changed shift comes back under a new UID; carry the old item, history and all, over to it
+  const replaced = pairReplacedShifts({ shifts, items: stored, today });
+  const renamedFrom = new Map([...replaced].map(([newUid, oldUid]) => [oldUid, newUid]));
+  const items = stored.map((i) => (renamedFrom.has(i.uid) ? { ...i, uid: renamedFrom.get(i.uid)! } : i));
   const earliest = [...shifts.map((s) => s.date), ...items.map((i) => i.date), today].sort()[0];
   const entries = sqlite
-    .prepare(`SELECT id, date, start_time AS startTime, end_time AS endTime, description
+    .prepare(`SELECT id, date, start_time AS startTime, end_time AS endTime, description, entry_type AS entryType
               FROM time_entries WHERE user_id = ? AND date >= ?`)
     .all(userId, earliest) as EntryRef[];
 
@@ -146,8 +150,10 @@ export async function syncScheduleForUser(userId: number): Promise<SyncResult> {
   const markSeenInFeed = sqlite.prepare(`UPDATE schedule_sync_items
     SET seen_date = ?, seen_start = ?, seen_end = ?, seen_description = ?, gone = 0 WHERE user_id = ? AND uid = ?`);
   const markGone = sqlite.prepare('UPDATE schedule_sync_items SET gone = 1 WHERE user_id = ? AND uid = ?');
+  const renameItem = sqlite.prepare('UPDATE schedule_sync_items SET uid = ? WHERE user_id = ? AND uid = ?');
 
   const apply = sqlite.transaction(() => {
+    for (const [newUid, oldUid] of replaced) renameItem.run(newUid, userId, oldUid);
     let created = 0;
     for (const shift of plan.create) {
       const { breakMinutes, breakPeriods, hours } = hoursFor(shift);

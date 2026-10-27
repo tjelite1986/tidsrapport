@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planSync, type EntryRef, type SyncItem, type SyncShift } from './plan';
+import { pairReplacedShifts, planSync, type EntryRef, type SyncItem, type SyncShift } from './plan';
 
 const TODAY = '2026-10-22';
 
@@ -141,5 +141,83 @@ describe('planSync', () => {
     });
     expect(plan.create).toEqual([]);
     expect(plan.markSeen.map((s) => s.uid)).toEqual(['b']);
+  });
+
+  it('adopts a work entry made by hand that has the shift\'s last times, once the shift changes', () => {
+    const plan = planSync({
+      shifts: [shift('a', '2026-10-27', '06:00', '15:00')],
+      items: [item('a', '2026-10-27', null, '06:00', '10:15')],
+      entries: [entry(588, '2026-10-27', '06:00', '10:15', null)],
+      today: '2026-10-27',
+    });
+    expect(plan.update).toHaveLength(1);
+    expect(plan.update[0].item.entryId).toBe(588);
+    expect(plan.update[0].shift.endTime).toBe('15:00');
+  });
+
+  it('does not adopt an entry while the shift is unchanged, nor one with other times, a sick day or a past date', () => {
+    const unchanged = planSync({
+      shifts: [shift('a', '2026-11-01')],
+      items: [item('a', '2026-11-01', null)],
+      entries: [entry(1, '2026-11-01', '08:00', '16:00', null)],
+      today: TODAY,
+    });
+    expect(unchanged.update).toEqual([]);
+
+    const edited = planSync({
+      shifts: [shift('a', '2026-11-01', '08:00', '18:00')],
+      items: [item('a', '2026-11-01', null)],
+      entries: [entry(1, '2026-11-01', '08:00', '16:30', null)],
+      today: TODAY,
+    });
+    expect(edited.update).toEqual([]);
+
+    const sick = planSync({
+      shifts: [shift('a', '2026-11-01', '08:00', '18:00')],
+      items: [item('a', '2026-11-01', null)],
+      entries: [{ ...entry(1, '2026-11-01'), entryType: 'sick' }],
+      today: TODAY,
+    });
+    expect(sick.update).toEqual([]);
+
+    const past = planSync({
+      shifts: [shift('a', '2026-10-20', '08:00', '18:00')],
+      items: [item('a', '2026-10-20', null)],
+      entries: [entry(1, '2026-10-20')],
+      today: TODAY,
+    });
+    expect(past.update).toEqual([]);
+  });
+});
+
+describe('pairReplacedShifts', () => {
+  it('pairs the one shift that left a date with the one that arrived on it', () => {
+    const pairs = pairReplacedShifts({
+      shifts: [shift('new', '2026-10-27', '06:00', '15:00'), shift('b', '2026-10-28')],
+      items: [item('old', '2026-10-27', 588, '06:00', '10:15'), item('b', '2026-10-28', 2)],
+      today: '2026-10-27',
+    });
+    expect([...pairs]).toEqual([['new', 'old']]);
+  });
+
+  it('leaves ambiguous, past, already-reported and outage cases unpaired', () => {
+    const ambiguous = pairReplacedShifts({
+      shifts: [shift('n1', '2026-11-01', '08:00', '12:00'), shift('n2', '2026-11-01', '13:00', '17:00')],
+      items: [item('old', '2026-11-01', 1)],
+      today: TODAY,
+    });
+    expect(ambiguous.size).toBe(0);
+
+    const past = pairReplacedShifts({ shifts: [shift('n', '2026-10-20')], items: [item('old', '2026-10-20', 1)], today: TODAY });
+    expect(past.size).toBe(0);
+
+    const reported = pairReplacedShifts({
+      shifts: [shift('n', '2026-11-01')],
+      items: [{ ...item('old', '2026-11-01', 1), gone: 1 }],
+      today: TODAY,
+    });
+    expect(reported.size).toBe(0);
+
+    expect(pairReplacedShifts({ shifts: [], items: [item('old', '2026-11-01', 1)], today: TODAY }).size).toBe(0);
   });
 });

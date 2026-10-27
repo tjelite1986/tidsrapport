@@ -12,10 +12,18 @@
  * - A UID seen before follows the feed (moved date, new times, new
  *   departments) only while the entry still looks exactly as the sync wrote
  *   it. An entry the user has edited — real clock-out time, say — is theirs.
+ * - A work entry the user made that still has exactly the times the feed last
+ *   gave its shift is the schedule as entered by hand (a screenshot import,
+ *   say), so it follows a change of times or date like a synced one. Only a
+ *   change adopts it: an unchanged shift leaves the entry, break and all, alone.
  * - A synced entry from today on whose UID has left the feed is removed, under
  *   the same "untouched" condition. An empty feed removes nothing: that is far
  *   more likely an outage than a cleared schedule.
  * - An entry the user deleted is not recreated: its UID stays remembered.
+ *
+ * The feed does not edit a shift in place: a changed shift leaves with its old
+ * UID and comes back under a new one. pairReplacedShifts() finds those, so the
+ * caller can carry the old item over to the new UID before planning.
  */
 import type { IcsShift } from '@/lib/schedule-import/ics';
 
@@ -36,6 +44,8 @@ export type EntryRef = {
   startTime: string | null;
   endTime: string | null;
   description: string | null;
+  /** 'work', 'sick', 'vab'; only a work entry can be adopted. */
+  entryType?: string;
 };
 
 export type SyncPlan = {
@@ -65,6 +75,38 @@ function span(startTime: string, endTime: string): [number, number] {
 
 function overlaps(a: [number, number], b: [number, number]): boolean {
   return a[0] < b[1] && b[0] < a[1];
+}
+
+/**
+ * New UID → old UID for shifts the feed replaced: on a date from today on, the
+ * one remembered shift that left the feed this pass and the one unknown shift
+ * that arrived. A date with more of either is ambiguous and left unpaired.
+ */
+export function pairReplacedShifts(input: {
+  shifts: SyncShift[];
+  items: (SyncItem & { gone?: number })[];
+  today: string;
+}): Map<string, string> {
+  const { shifts, items, today } = input;
+  const pairs = new Map<string, string>();
+  // An empty feed is an outage, not a schedule where every shift was replaced
+  if (shifts.length === 0) return pairs;
+  const feedUids = new Set(shifts.map((s) => s.uid));
+  const knownUids = new Set(items.map((i) => i.uid));
+  const left = new Map<string, string[]>();
+  const arrived = new Map<string, string[]>();
+  const push = (m: Map<string, string[]>, date: string, uid: string) => m.set(date, [...(m.get(date) ?? []), uid]);
+  for (const i of items) {
+    if (!feedUids.has(i.uid) && !i.gone && i.date >= today) push(left, i.date, i.uid);
+  }
+  for (const s of shifts) {
+    if (!knownUids.has(s.uid) && s.date >= today) push(arrived, s.date, s.uid);
+  }
+  for (const [date, olds] of left) {
+    const news = arrived.get(date);
+    if (olds.length === 1 && news?.length === 1) pairs.set(news[0], olds[0]);
+  }
+  return pairs;
 }
 
 function untouched(entry: EntryRef, item: SyncItem): boolean {
@@ -105,6 +147,17 @@ export function planSync(input: {
     else day.spans.push(span(e.startTime, e.endTime));
   }
   const feedUids = new Set(shifts.map((s) => s.uid));
+  const adopted = new Set<number>();
+  // The user's one work entry on the item's date with exactly its last times, when this pass moves the shift
+  const adoptable = (item: SyncItem, shift: SyncShift): number | null => {
+    if (item.date < today || shift.date < today) return null;
+    if (item.date === shift.date && item.startTime === shift.startTime && item.endTime === shift.endTime) return null;
+    if (shift.date !== item.date && vacation.has(shift.date)) return null;
+    const matches = entries.filter((e) =>
+      e.date === item.date && e.startTime === item.startTime && e.endTime === item.endTime &&
+      (e.entryType ?? 'work') === 'work' && !syncedEntryIds.has(e.id) && !adopted.has(e.id));
+    return matches.length === 1 ? matches[0].id : null;
+  };
 
   for (const shift of shifts) {
     const item = itemsByUid.get(shift.uid);
@@ -120,7 +173,14 @@ export function planSync(input: {
       continue;
     }
 
-    if (item.entryId == null) continue;
+    if (item.entryId == null) {
+      const id = adoptable(item, shift);
+      if (id != null) {
+        adopted.add(id);
+        plan.update.push({ item: { ...item, entryId: id }, shift });
+      }
+      continue;
+    }
     const entry = entriesById.get(item.entryId);
     if (!entry || !untouched(entry, item)) continue;
     if (item.date < today && shift.date < today) continue;
