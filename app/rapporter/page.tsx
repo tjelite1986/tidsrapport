@@ -140,7 +140,7 @@ export default function RapporterPage() {
     <div>
       <PageHeader title="Rapporter" />
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
+      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Från</label>
@@ -184,7 +184,7 @@ export default function RapporterPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl card-3d border border-gray-100 overflow-hidden">
         <div className="px-6 py-3 bg-gray-50 flex justify-between items-center">
           <span className="text-sm text-gray-600">{entries.length} poster</span>
           <span className="font-semibold">Totalt: {totalHours.toFixed(1)} timmar</span>

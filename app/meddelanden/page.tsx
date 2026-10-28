@@ -124,7 +124,7 @@ export default function MeddelandenPage() {
     <div>
       <PageHeader title="Meddelanden" />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden md:grid md:grid-cols-[18rem_1fr] md:h-[70vh]">
+      <div className="bg-white rounded-xl card-3d border border-gray-100 overflow-hidden md:grid md:grid-cols-[18rem_1fr] md:h-[70vh]">
         {/* Contact list — the whole view on a phone until someone is picked */}
         <div
           className={`border-r border-gray-100 overflow-y-auto ${selected ? 'hidden md:block' : 'block'}`}

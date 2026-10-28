@@ -259,7 +259,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white rounded-2xl p-5 sm:p-6 animate-rise">
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white hero-3d rounded-2xl p-5 sm:p-6 animate-rise">
         <div aria-hidden className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-blue-500/30 blur-3xl animate-drift" />
         <div aria-hidden className="pointer-events-none absolute -bottom-24 left-1/4 w-72 h-72 rounded-full bg-indigo-500/20 blur-3xl animate-drift [animation-delay:-8s]" />
         <div aria-hidden className="pointer-events-none absolute top-1/3 -left-16 w-48 h-48 rounded-full bg-emerald-400/10 blur-3xl animate-drift [animation-delay:-4s]" />
@@ -385,7 +385,7 @@ export default function DashboardPage() {
 
       {/* Salary breakdown */}
       {salary && salary.grossPay > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 animate-rise" style={rise(5)}>
+        <div className="bg-white rounded-xl card-3d border border-gray-100 p-5 animate-rise" style={rise(5)}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-800">Lönefördelning denna månad</h2>
             <Link href="/lon" className="text-sm text-blue-600 hover:underline">Visa detaljer →</Link>
@@ -396,7 +396,7 @@ export default function DashboardPage() {
 
       {/* Hours per day this month */}
       {monthEntries.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 animate-rise" style={rise(6)}>
+        <div className="bg-white rounded-xl card-3d border border-gray-100 p-5 animate-rise" style={rise(6)}>
           <div className="flex items-center justify-between mb-3 gap-2">
             <h2 className="font-semibold text-gray-800">Timmar per dag i {monthLabel}</h2>
             <div className="flex gap-3 text-xs text-gray-500 shrink-0">
@@ -411,7 +411,7 @@ export default function DashboardPage() {
       {/* Charts + Projects */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {weekEntries.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 animate-rise" style={rise(7)}>
+          <div className="bg-white rounded-xl card-3d border border-gray-100 p-5 animate-rise" style={rise(7)}>
             <BarChart
               data={weekChartData}
               title="Timmar per veckodag (denna vecka)"
@@ -423,7 +423,7 @@ export default function DashboardPage() {
         )}
 
         {Object.keys(projectSummary).length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 animate-rise" style={rise(8)}>
+          <div className="bg-white rounded-xl card-3d border border-gray-100 p-5 animate-rise" style={rise(8)}>
             <h2 className="font-semibold text-gray-800 mb-4">Timmar per projekt (denna månad)</h2>
             <div className="space-y-3">
               {Object.entries(projectSummary)
@@ -449,7 +449,7 @@ export default function DashboardPage() {
 
       {/* Recent entries */}
       {weekEntries.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-rise" style={rise(9)}>
+        <div className="bg-white rounded-xl card-3d border border-gray-100 overflow-hidden animate-rise" style={rise(9)}>
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-800">Senaste registreringar</h2>
             <Link href="/tid" className="text-sm text-blue-600 hover:underline">Visa alla →</Link>

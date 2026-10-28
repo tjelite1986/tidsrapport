@@ -496,7 +496,7 @@ export default function TidPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
+      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-xl card-3d border border-gray-100 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Logga tid</h2>
           <button
@@ -735,7 +735,7 @@ export default function TidPage() {
         />
 
         <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] 2xl:static -mx-4 sm:mx-0 mt-4 px-4 sm:px-0 py-3 sm:py-0 bg-white/95 backdrop-blur border-t border-gray-100 sm:border-0 flex flex-col-reverse sm:flex-row sm:items-center gap-2 sm:gap-4">
-          <button type="submit" disabled={submitting} className="w-full sm:w-auto bg-blue-600 text-white font-semibold px-6 py-3 sm:py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <button type="submit" disabled={submitting} className="w-full sm:w-auto btn-3d bg-blue-600 text-white font-semibold px-6 py-3 sm:py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
             Spara
           </button>
           {previewHours && (
@@ -749,7 +749,7 @@ export default function TidPage() {
         )}
       </form>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+      <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Kalender</h2>
           <div className="flex flex-wrap items-center justify-end gap-2">

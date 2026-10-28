@@ -20,7 +20,7 @@ const sections = [
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6 scroll-mt-20">
+    <section id={id} className="bg-white rounded-xl card-3d border border-gray-100 p-6 mb-6 scroll-mt-20">
       <h2 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b border-gray-100">{title}</h2>
       <div className="text-sm text-gray-700 space-y-3 leading-relaxed">{children}</div>
     </section>
@@ -70,7 +70,7 @@ export default function HjalpPage() {
       <PageHeader title="Hjälp & guide" subtitle="En genomgång av alla funktioner i Tidsrapport." />
 
       {/* Innehållsförteckning */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+      <div className="bg-white rounded-xl card-3d border border-gray-100 p-5 mb-6">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Innehåll</h2>
         <ol className="grid grid-cols-1 sm:grid-cols-2 gap-1">
           {sections.map((s, i) => (

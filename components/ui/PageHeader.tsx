@@ -10,7 +10,7 @@ export default function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white px-5 py-4 sm:px-6 sm:py-5 mb-6">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white hero-3d px-5 py-4 sm:px-6 sm:py-5 mb-6">
       <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 w-48 h-48 rounded-full bg-blue-500/30 blur-3xl animate-drift" />
       <div aria-hidden className="pointer-events-none absolute -bottom-20 left-1/3 w-56 h-56 rounded-full bg-indigo-500/20 blur-3xl animate-drift [animation-delay:-8s]" />
       <div className="relative flex items-center justify-between gap-3">

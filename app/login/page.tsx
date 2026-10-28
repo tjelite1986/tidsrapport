@@ -89,7 +89,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+      <div className="max-w-md w-full bg-white rounded-xl card-3d border border-gray-100 p-8">
         <h1 className="text-2xl font-bold text-center mb-6">Tidsrapport</h1>
         <h2 className="text-lg text-gray-600 text-center mb-6">
           {mode === 'login' ? 'Logga in' : 'Skapa konto'}
@@ -143,7 +143,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="w-full btn-3d bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               {loading ? 'Loggar in...' : 'Logga in'}
             </button>
@@ -202,7 +202,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="w-full btn-3d bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               {loading ? 'Skapar konto...' : 'Skapa konto'}
             </button>

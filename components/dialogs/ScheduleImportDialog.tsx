@@ -416,7 +416,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
                   <button
                     onClick={fetchLink}
                     disabled={!icsUrl.trim()}
-                    className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                    className="w-full btn-3d bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
                   >
                     Hämta schema
                   </button>
@@ -489,7 +489,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
               {imageFile && (
                 <button
                   onClick={analyzeImage}
-                  className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                  className="w-full btn-3d bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
                 >
                   Analysera schema
                 </button>
@@ -618,7 +618,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
                 <button
                   onClick={importShifts}
                   disabled={selected.size === 0 || !projectId}
-                  className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                  className="flex-1 btn-3d bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
                 >
                   Importera {selected.size > 0 ? `${selected.size} pass` : ''}
                 </button>
@@ -654,7 +654,7 @@ export default function ScheduleImportDialog({ open, projects, onClose, onImport
               </div>
               <button
                 onClick={handleClose}
-                className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                className="w-full btn-3d bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
               >
                 Stäng
               </button>

@@ -238,7 +238,7 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit, onDelet
           {/* Edit button */}
           <button
             onClick={() => onEdit(entry)}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+            className="w-full btn-3d bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
           >
             Redigera
           </button>

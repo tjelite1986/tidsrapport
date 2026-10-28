@@ -162,7 +162,7 @@ export default function SemesterPage() {
   return (
     <div className="space-y-6">
       {/* Header med årsnavigering */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white rounded-2xl p-5 sm:p-6 animate-rise">
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white hero-3d rounded-2xl p-5 sm:p-6 animate-rise">
         <div aria-hidden className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-teal-500/25 blur-3xl animate-drift" />
         <div aria-hidden className="pointer-events-none absolute -bottom-24 left-1/4 w-72 h-72 rounded-full bg-indigo-500/20 blur-3xl animate-drift [animation-delay:-8s]" />
         <div aria-hidden className="pointer-events-none absolute top-1/3 -left-16 w-48 h-48 rounded-full bg-emerald-400/10 blur-3xl animate-drift [animation-delay:-4s]" />
@@ -257,7 +257,7 @@ export default function SemesterPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Vänster kolumn: formulär + inställningar */}
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
             <h2 className="font-semibold text-gray-800 mb-4">Registrera semesterdag</h2>
             <form onSubmit={handleAdd} className="space-y-3">
               <div>
@@ -299,7 +299,7 @@ export default function SemesterPage() {
           </div>
 
           {/* Inställningar */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
             <h2 className="font-semibold text-gray-800 mb-4">Semesterinställningar</h2>
             <form onSubmit={handleSaveSettings} className="space-y-3">
               <div>
@@ -344,13 +344,13 @@ export default function SemesterPage() {
         {/* Höger kolumn: lista */}
         <div className="lg:col-span-2 space-y-4">
           {loading && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+            <div className="bg-white rounded-xl card-3d border border-gray-100 p-8 text-center text-gray-400 text-sm">
               Laddar {year}...
             </div>
           )}
 
           {!loading && upcoming.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-xl card-3d border border-gray-100 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-semibold text-gray-800">Kommande semester {year}</h2>
                 <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
@@ -366,7 +366,7 @@ export default function SemesterPage() {
           )}
 
           {!loading && past.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-xl card-3d border border-gray-100 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-semibold text-gray-800">Tagen semester {year}</h2>
                 <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
@@ -387,7 +387,7 @@ export default function SemesterPage() {
           )}
 
           {!loading && data.days.length === 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+            <div className="bg-white rounded-xl card-3d border border-gray-100 p-12 text-center">
               <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-3">
                 <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

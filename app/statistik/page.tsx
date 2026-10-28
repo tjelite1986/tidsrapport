@@ -209,7 +209,7 @@ export default function StatistikPage() {
           </div>
 
           {/* Nettolöne-linjechart */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">Nettolön per månad</h3>
             </div>
@@ -223,7 +223,7 @@ export default function StatistikPage() {
 
           {/* Brutto vs netto stackad */}
           {allTimeIncome.length >= 2 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Brutto vs Netto (skatteavdrag synligt)</h3>
               <StackedBarChart
                 data={allTimeIncome.map((m) => {
@@ -267,7 +267,7 @@ export default function StatistikPage() {
         </div>
 
         {loadingYear ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+          <div className="bg-white rounded-xl card-3d border border-gray-100 p-8 text-center text-gray-400 text-sm">
             Laddar {year}...
           </div>
         ) : stats ? (
@@ -303,7 +303,7 @@ export default function StatistikPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Inkomst per månad (staplad) */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                 <StackedBarChart
                   data={monthlyIncomeData}
                   title="Inkomst per månad (Grundlön · OB · Övertid)"
@@ -313,7 +313,7 @@ export default function StatistikPage() {
               </div>
 
               {/* Nettolön per månad (linje) */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                 <LineChart
                   data={netPayTrend}
                   title={`Nettolön per månad ${year}`}
@@ -324,7 +324,7 @@ export default function StatistikPage() {
               </div>
 
               {/* Timmar per månad */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                 <BarChart
                   data={monthlyData}
                   title={`Timmar per månad ${year}`}
@@ -336,7 +336,7 @@ export default function StatistikPage() {
 
               {/* OB-fördelning */}
               {obDonutData.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                   <DonutChart
                     data={obDonutData}
                     title="OB-fördelning"
@@ -347,7 +347,7 @@ export default function StatistikPage() {
               )}
 
               {/* Timmar per veckodag */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                 <BarChart
                   data={weekdayData}
                   title="Totalt timmar per veckodag"
@@ -359,7 +359,7 @@ export default function StatistikPage() {
               </div>
 
               {/* Snitt per veckodag */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                 <BarChart
                   data={weekdayAvgData}
                   title="Snittimmar per veckodag"
@@ -372,14 +372,14 @@ export default function StatistikPage() {
 
               {/* Timmar per projekt */}
               {projectData.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                   <PieChart data={projectData} title="Timmar per projekt" size={180} />
                 </div>
               )}
 
               {/* Arbete vs Sjukdagar */}
               {(stats.entryTypes ?? []).length > 1 && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                   <PieChart
                     data={(stats.entryTypes ?? []).map((e) => ({
                       label: e.entryType === 'sick' ? 'Sjukdagar' : e.entryType === 'vab' ? 'VAB' : 'Arbete',
@@ -398,7 +398,7 @@ export default function StatistikPage() {
               <div className="space-y-4">
                 <h2 className="text-base font-semibold text-gray-800">Avdelningsstatistik {year}</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                     <BarChart
                       data={deptBarData}
                       title="Timmar per avdelning"
@@ -406,7 +406,7 @@ export default function StatistikPage() {
                       formatValue={(v) => v.toFixed(1)}
                     />
                   </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
                     <DonutChart
                       data={deptDonutData}
                       title="Fördelning per avdelning"
@@ -415,7 +415,7 @@ export default function StatistikPage() {
                     />
                   </div>
                   {allDepts.length > 0 && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:col-span-2">
+                    <div className="bg-white rounded-xl card-3d border border-gray-100 p-5 lg:col-span-2">
                       <StackedBarChart
                         data={deptMonthlyStackData}
                         title="Timmar per avdelning och månad"
@@ -452,7 +452,7 @@ function KpiCard({
   };
 
   return (
-    <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-4">
+    <div className="bg-white border border-gray-100 card-3d rounded-xl p-4">
       <p className="text-xs text-gray-500 mb-1 leading-tight">{label}</p>
       <p className={`text-lg font-bold ${toneText[tone[color] ?? 'neutral']} leading-tight`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}

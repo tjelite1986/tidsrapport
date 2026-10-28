@@ -352,7 +352,7 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+              className="flex-1 btn-3d bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
             >
               {saving ? 'Sparar...' : 'Spara ändringar'}
             </button>

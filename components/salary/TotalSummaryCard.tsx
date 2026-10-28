@@ -57,7 +57,7 @@ export default function TotalSummaryCard({ salary, month, userName, includeVacat
   const taxMode = salary.settings.taxMode === 'table' && salary.settings.taxTable;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-2xl card-3d border border-gray-100 overflow-hidden">
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-5 text-white">
         <div className="flex items-start justify-between">

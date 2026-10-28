@@ -224,7 +224,7 @@ export default function CalendarEventDialog({ event, onClose, onSaved }: Props) 
           <p className="text-xs text-gray-500">Händelser syns bara för dig och påverkar inte lönen.</p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50">
+            <button type="submit" disabled={saving} className="btn-3d bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50">
               Spara
             </button>
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50">

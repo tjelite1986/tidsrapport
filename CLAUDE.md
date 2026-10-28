@@ -104,6 +104,7 @@ docker logs tidsrapport --tail 20
 - Mobile (below `2xl`) has a bottom tab bar (Hem, Tid, Lön, Lönespecar, Mer) in `components/Navigation.tsx`; help, settings, bell and messages stay in the header. Anything fixed to the bottom must sit above it (`bottom-[calc(...+env(safe-area-inset-bottom))]`) and `<main>` keeps `pb-28`
 - Charts return `EmptyChart` when every value is 0; `BarChart`/`StackedBarChart` are flex columns so they fit a phone without scrolling
 - Motion (2026-10-28) lives in `app/globals.css`: `animate-rise`/`grow-y`/`grow-x`/`draw`/`fade`/`drift`/`shimmer`, all off under `prefers-reduced-motion`. `<main>` has `page-stagger`, which makes every page's top-level sections rise in one after another (`.fixed` children are skipped so dialogs open without delay). `StatTile` counts up any string value that starts with its number (`CountUpText`); round charts sweep in through `SweepMask`
+- Depth (2026-10-28) also lives in `app/globals.css`: white cards use `card-3d` (layered shadow, lit top edge, deeper shadow on hover) instead of `shadow-sm`; `StatTile` adds `card-lift` and rises on hover. Big panels never get a hover transform, because it would make them the containing block of a fixed dialog rendered inside. The dark heroes and PageHeader use `hero-3d`, primary blue buttons `btn-3d` (a base that presses in on tap). New cards and buttons take the same classes
 - Rollback to the old look: git tag `ui-before-redesign-2026-10-23`; the old image is tagged locally on the Pi as `ghcr.io/tjelite1986/tidsrapport:ui-before-redesign`
 
 ## Warnings

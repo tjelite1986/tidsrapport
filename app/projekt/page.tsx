@@ -78,7 +78,7 @@ export default function ProjektPage() {
     <div>
       <PageHeader title="Projekt" />
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
         <h2 className="text-lg font-semibold mb-4">
           {editingId ? 'Redigera projekt' : 'Skapa nytt projekt'}
         </h2>
@@ -104,7 +104,7 @@ export default function ProjektPage() {
           </div>
         </div>
         <div className="mt-4 flex space-x-2">
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          <button type="submit" className="btn-3d bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
             {editingId ? 'Uppdatera' : 'Skapa'}
           </button>
           {editingId && (
@@ -123,7 +123,7 @@ export default function ProjektPage() {
         <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{deleteError}</div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl card-3d border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50">

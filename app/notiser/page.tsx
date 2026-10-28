@@ -70,7 +70,7 @@ export default function NotiserPage() {
 
       {notifications === null && <p className="text-sm text-gray-400">Laddar...</p>}
       {notifications?.length === 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-sm text-gray-500">
+        <div className="bg-white rounded-xl card-3d border border-gray-100 p-6 text-sm text-gray-500">
           Inga notiser ännu. När chefen ändrar i schemat eller appen får något nytt dyker det upp här.
         </div>
       )}
@@ -81,7 +81,7 @@ export default function NotiserPage() {
           return (
             <li
               key={n.id}
-              className={`bg-white rounded-xl shadow-sm p-4 border-l-4 ${n.readAt ? 'border-transparent' : 'border-blue-500'}`}
+              className={`bg-white rounded-xl card-3d p-4 border-l-4 ${n.readAt ? 'border-transparent' : 'border-blue-500'}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">

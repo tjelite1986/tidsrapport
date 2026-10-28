@@ -298,7 +298,7 @@ export default function LonespecarPage() {
       )}
 
       {/* Upload */}
-      <form onSubmit={handleUpload} className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 mb-6 space-y-4">
+      <form onSubmit={handleUpload} className="bg-white p-4 sm:p-6 rounded-xl card-3d border border-gray-100 mb-6 space-y-4">
         <h2 className="text-lg font-semibold">Ladda upp lönespec</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -371,7 +371,7 @@ export default function LonespecarPage() {
           <button
             type="submit"
             disabled={uploading || reading || !file}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+            className="btn-3d bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
           >
             {uploading ? 'Laddar upp…' : 'Ladda upp'}
           </button>
@@ -410,13 +410,13 @@ export default function LonespecarPage() {
       {loading ? (
         <p className="text-gray-500">Laddar…</p>
       ) : payslips.length === 0 ? (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-gray-500 text-sm">
+        <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 text-gray-500 text-sm">
           Inga lönespecar sparade{year === 'all' ? '' : ` för ${year}`} ännu.
         </div>
       ) : (
         <div className="space-y-4">
           {payslips.map((row) => (
-            <div key={row.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <div key={row.id} className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 className="font-semibold">{formatMonth(row.payMonth)}</h3>
@@ -482,7 +482,7 @@ export default function LonespecarPage() {
                   </div>
                   <button
                     onClick={() => saveEdit(row.id)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
+                    className="btn-3d bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
                   >
                     Spara
                   </button>

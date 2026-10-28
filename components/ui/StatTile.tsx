@@ -16,7 +16,7 @@ export default function StatTile({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="bg-white rounded-xl border border-gray-100 card-3d card-lift p-4">
       <div className="flex items-center gap-2 mb-2">
         {icon && (
           <div className={`${toneIcon[tone]} w-7 h-7 rounded-lg flex items-center justify-center shrink-0 [&>svg]:w-4 [&>svg]:h-4`}>
