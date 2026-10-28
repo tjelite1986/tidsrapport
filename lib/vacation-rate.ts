@@ -114,6 +114,7 @@ export function getVacationDailyRate(
       breakPeriods: parseBreakPeriods(e.breakPeriods),
       entryType: e.entryType,
       overtimeType: e.overtimeType,
+      hourlyRateOverride: e.hourlyRateOverride,
     }));
     const r = calculateMonthlyPay(
       payEntriesMonth,

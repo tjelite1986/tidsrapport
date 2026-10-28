@@ -35,6 +35,7 @@ interface TimeEntry {
   breakPeriods?: BreakPeriod[] | null;
   entryType: string;
   overtimeType: string;
+  hourlyRateOverride?: number | null;
   description: string | null;
   taskSegments: string | null;
 }
@@ -134,6 +135,7 @@ export default function TidPage() {
   const [entryType, setEntryType] = useState('work');
   const [manualHours, setManualHours] = useState('');
   const [overtimeType, setOvertimeType] = useState('none');
+  const [rateOverride, setRateOverride] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [departments, setDepartments] = useState<string[]>([]);
@@ -429,6 +431,7 @@ export default function TidPage() {
           ...(useManualHours ? { hours: parseFloat(manualHours) } : {}),
           entryType,
           overtimeType,
+          hourlyRateOverride: rateOverride.trim() || null,
           description,
           taskSegments: serializeTaskSegments(taskSegments),
         }),
@@ -450,6 +453,7 @@ export default function TidPage() {
     setDescription('');
     setSelectedTemplate('');
     setOvertimeType('none');
+    setRateOverride('');
     setEntryType('work');
     setManualHours('');
     setTaskSegments([]);
@@ -697,6 +701,20 @@ export default function TidPage() {
               <option value="kvalificerad">Kvalificerad övertid (+70%)</option>
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Egen timlön för passet</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={rateOverride}
+              onChange={(e) => setRateOverride(e.target.value)}
+              placeholder="Vanlig timlön"
+              className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Fyll bara i om passet har en annan timlön, t.ex. ett vikariat. Gäller grundlön, OB och övertid för passet.
+            </p>
+          </div>
           <div className="col-span-2 lg:col-span-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivning</label>
             <input
@@ -839,6 +857,11 @@ export default function TidPage() {
                       {entry.overtimeType === 'mertid' ? 'Mertid' : entry.overtimeType === 'enkel' ? 'Enkel ÖT' : 'Kval ÖT'}
                     </span>
                   )}
+                  {entry.hourlyRateOverride != null && (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                      {entry.hourlyRateOverride.toLocaleString('sv-SE')} kr/h
+                    </span>
+                  )}
                   <span className="text-xs text-gray-500 truncate">{entry.description || entry.projectName}</span>
                 </div>
               </div>
@@ -886,6 +909,11 @@ export default function TidPage() {
                       <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
                         {entry.overtimeType === 'mertid' ? 'Mertid' :
                          entry.overtimeType === 'enkel' ? 'Enkel ÖT' : 'Kval ÖT'}
+                      </span>
+                    )}
+                    {entry.hourlyRateOverride != null && (
+                      <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                        {entry.hourlyRateOverride.toLocaleString('sv-SE')} kr/h
                       </span>
                     )}
                   </td>

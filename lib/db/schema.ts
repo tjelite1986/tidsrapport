@@ -36,6 +36,8 @@ export const timeEntries = sqliteTable('time_entries', {
   overtimeType: text('overtime_type', { enum: ['none', 'mertid', 'enkel', 'kvalificerad'] }).notNull().default('none'),
   description: text('description'),
   taskSegments: text('task_segments'),
+  // v30: hourly rate for this shift only; NULL = the normal rate
+  hourlyRateOverride: real('hourly_rate_override'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 

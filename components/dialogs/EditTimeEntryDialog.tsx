@@ -20,6 +20,7 @@ interface TimeEntryDetail {
   breakPeriods?: BreakPeriod[] | null;
   entryType: string;
   overtimeType: string;
+  hourlyRateOverride?: number | null;
   description: string | null;
   taskSegments: string | null;
 }
@@ -60,6 +61,7 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
   const [entryType, setEntryType] = useState('work');
   const [manualHours, setManualHours] = useState('');
   const [overtimeType, setOvertimeType] = useState('none');
+  const [rateOverride, setRateOverride] = useState('');
   const [description, setDescription] = useState('');
   const [taskSegments, setTaskSegments] = useState<TaskSegment[]>([]);
   const [saving, setSaving] = useState(false);
@@ -83,6 +85,7 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
     // Full-day absence entries have no start/end — seed the manual-hours field from the stored hours
     setManualHours(entry.startTime && entry.endTime ? '' : String(entry.hours ?? ''));
     setOvertimeType(entry.overtimeType);
+    setRateOverride(entry.hourlyRateOverride != null ? String(entry.hourlyRateOverride).replace('.', ',') : '');
     setDescription(entry.description || '');
     setTaskSegments(parseTaskSegments(entry.taskSegments));
     setError(''); // don't show a stale error from a previous entry
@@ -120,6 +123,8 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
             : {}),
           entryType,
           overtimeType,
+          // null clears a per-shift rate the user emptied
+          hourlyRateOverride: rateOverride.trim() || null,
           description: description || undefined,
           taskSegments: serializeTaskSegments(taskSegments),
         }),
@@ -302,6 +307,21 @@ export default function EditTimeEntryDialog({ entry, projects, departments, onCl
               <option value="enkel">Enkel övertid (+35%)</option>
               <option value="kvalificerad">Kvalificerad övertid (+70%)</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Egen timlön för passet</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={rateOverride}
+              onChange={(e) => setRateOverride(e.target.value)}
+              placeholder="Vanlig timlön"
+              className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Fyll bara i om passet har en annan timlön, t.ex. ett vikariat. Gäller grundlön, OB och övertid för passet.
+            </p>
           </div>
 
           <div>

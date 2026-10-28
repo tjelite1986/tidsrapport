@@ -15,6 +15,9 @@ export interface TimeEntryForPay {
   breakPeriods?: { start: string; end: string }[] | null;
   entryType: string; // 'work' | 'sick' | 'vab'
   overtimeType: string; // 'none' | 'mertid' | 'enkel' | 'kvalificerad'
+  // Rate for this shift only (time_entries.hourly_rate_override). Wins over every
+  // other rate source in every salary mode; null/undefined = the normal rate.
+  hourlyRateOverride?: number | null;
 }
 
 export interface PaySettings {
@@ -47,6 +50,9 @@ export interface DayPayDetail {
   overtimeType: string;
   sickPay: number;
   entryType: string;
+  /** The rate the entry was paid at (base pay, OB, overtime and sick pay). */
+  hourlyRate: number;
+  rateOverridden: boolean;
 }
 
 export interface OBBreakdownItem {
@@ -149,7 +155,8 @@ export function calculateMonthlyPay(
   for (const entry of sorted) {
     const hours = entry.hours;
     totalHours += hours;
-    const entryRate = getEntryHourlyRate(entry.date);
+    const rateOverridden = entry.hourlyRateOverride != null;
+    const entryRate = rateOverridden ? entry.hourlyRateOverride! : getEntryHourlyRate(entry.date);
 
     if (entry.entryType === 'vab') {
       // VAB (vård av sjukt barn): Försäkringskassan betalar ersättningen, arbetsgivaren 0 kr.
@@ -163,6 +170,8 @@ export function calculateMonthlyPay(
         overtimeType: 'none',
         sickPay: 0,
         entryType: 'vab',
+        hourlyRate: entryRate,
+        rateOverridden,
       });
       continue;
     }
@@ -190,6 +199,8 @@ export function calculateMonthlyPay(
         overtimeType: 'none',
         sickPay: daySickPay,
         entryType: 'sick',
+        hourlyRate: entryRate,
+        rateOverridden,
       });
       continue;
     }
@@ -260,6 +271,8 @@ export function calculateMonthlyPay(
       overtimeType: entry.overtimeType,
       sickPay: 0,
       entryType: 'work',
+      hourlyRate: entryRate,
+      rateOverridden,
     });
   }
 

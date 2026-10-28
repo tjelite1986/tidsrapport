@@ -89,3 +89,31 @@ export function resolveHourlyRate(
   if (opts.flatRate != null) return opts.flatRate;
   return getHourlyRateForDate(opts.contractLevel, date);
 }
+
+/** Upper bound for a per-shift rate, in SEK per hour. Catches a monthly salary typed into the field. */
+export const MAX_RATE_OVERRIDE = 2000;
+
+/**
+ * Normalize a per-shift hourly rate (time_entries.hourly_rate_override).
+ * null/undefined/'' mean "no override" and give null. A number or a numeric
+ * string with '.' or ',' as decimal separator is accepted when 0 < rate <= MAX.
+ * Anything else throws, so a bad value is rejected instead of silently paid.
+ */
+export function parseRateOverride(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  let n: number;
+  if (typeof value === 'number') {
+    n = value;
+  } else if (typeof value === 'string') {
+    const s = value.trim();
+    if (s === '') return null;
+    if (!/^\d+([.,]\d+)?$/.test(s)) throw new Error(`Invalid hourly rate override: ${JSON.stringify(value)}`);
+    n = Number(s.replace(',', '.'));
+  } else {
+    throw new Error(`Invalid hourly rate override: ${String(value)}`);
+  }
+  if (!Number.isFinite(n) || n <= 0 || n > MAX_RATE_OVERRIDE) {
+    throw new Error(`Invalid hourly rate override: ${String(value)} (expected 0 < rate <= ${MAX_RATE_OVERRIDE})`);
+  }
+  return n;
+}

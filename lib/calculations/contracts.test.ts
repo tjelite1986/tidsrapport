@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveHourlyRate } from './contracts';
+import { MAX_RATE_OVERRIDE, parseRateOverride, resolveHourlyRate } from './contracts';
 
 // Shared rate resolver used by BOTH pay.ts and the calendar-data route, so the
 // per-entry display rate (Snittlön) and the salary calc can never drift apart.
@@ -26,5 +26,24 @@ describe('resolveHourlyRate', () => {
   it('falls back to the contract table when neither history nor flat rate exist', () => {
     // 2ar table rate effective 2026-04-01 is 167.87
     expect(resolveHourlyRate('2026-06-29', { contractLevel: '2ar' })).toBeCloseTo(167.87, 5);
+  });
+});
+
+describe('parseRateOverride', () => {
+  it('reads empty values as no override', () => {
+    for (const v of [null, undefined, '', '  ']) expect(parseRateOverride(v)).toBeNull();
+  });
+
+  it('accepts numbers and numeric strings with dot or comma', () => {
+    expect(parseRateOverride(185.5)).toBe(185.5);
+    expect(parseRateOverride('185.5')).toBe(185.5);
+    expect(parseRateOverride('185,5')).toBe(185.5);
+    expect(parseRateOverride(MAX_RATE_OVERRIDE)).toBe(MAX_RATE_OVERRIDE);
+  });
+
+  it('rejects zero, negatives, non-finite, too large and garbage', () => {
+    for (const v of [0, -10, NaN, Infinity, MAX_RATE_OVERRIDE + 1, 32000, '0', '-5', 'abc', '1e3', '1 850', true, {}]) {
+      expect(() => parseRateOverride(v), String(v)).toThrow(/Invalid hourly rate override/);
+    }
   });
 });

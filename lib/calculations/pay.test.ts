@@ -142,3 +142,62 @@ describe('overtime multipliers', () => {
       .toBeCloseTo(100 * 8 * 0.7, 5);
   });
 });
+
+describe('per-shift hourly-rate override', () => {
+  const history: PaySettings = {
+    ...base,
+    hourlyRate: 168.73,
+    rateHistory: [{ effectiveFrom: '2026-06-01', hourlyRate: 175.64 }],
+  };
+  const withRate = (e: TimeEntryForPay, rate: number | null | undefined): TimeEntryForPay => ({ ...e, hourlyRateOverride: rate });
+
+  it('leaves an entry without an override exactly as before', () => {
+    const plain = calculateMonthlyPay([entry('2026-06-10')], history);
+    const nulled = calculateMonthlyPay([withRate(entry('2026-06-10'), null)], history);
+    expect(nulled.basePay).toBe(plain.basePay);
+    expect(nulled.basePay).toBeCloseTo(8 * 175.64, 5);
+    expect(nulled.days[0].rateOverridden).toBe(false);
+    expect(nulled.days[0].hourlyRate).toBeCloseTo(175.64, 5);
+  });
+
+  it('pays only the overridden shift at its own rate, over the rate history', () => {
+    const r = calculateMonthlyPay([entry('2026-06-10'), withRate(entry('2026-06-11'), 210)], history);
+    expect(r.basePay).toBeCloseTo(8 * 175.64 + 8 * 210, 5);
+    expect(r.days.map((d) => d.rateOverridden)).toEqual([false, true]);
+    expect(r.days[1].hourlyRate).toBe(210);
+    // The display rate is the normal rate, not the override
+    expect(r.hourlyRate).toBeCloseTo(175.64, 5);
+  });
+
+  it('applies the override to overtime and sick pay too', () => {
+    const ot = calculateMonthlyPay([withRate(entry('2026-06-10', 'work', 'kvalificerad'), 200)], history);
+    expect(ot.overtidKvalificerad).toBeCloseTo(200 * 8 * 0.7, 5);
+    const sick = calculateMonthlyPay(
+      [withRate(entry('2026-06-10', 'sick'), 200), withRate(entry('2026-06-11', 'sick'), 200)],
+      history,
+    );
+    expect(sick.sickPay).toBeCloseTo(200 * 8 * 0.8, 5); // day 1 is karens
+  });
+
+  it('applies the override to OB', () => {
+    const butik: PaySettings = { ...history, workplaceType: 'butik' };
+    const shift = (rate?: number): TimeEntryForPay => ({
+      ...entry('2026-06-10'),
+      hours: 2,
+      startTime: '20:00',
+      endTime: '22:00',
+      hourlyRateOverride: rate,
+    });
+    const normal = calculateMonthlyPay([shift()], butik).totalOB;
+    const own = calculateMonthlyPay([shift(200)], butik).totalOB;
+    expect(normal).toBeGreaterThan(0);
+    expect(own / normal).toBeCloseTo(200 / 175.64, 5);
+  });
+
+  it('in fixed_plus mode keeps the fixed base pay but uses the override for overtime', () => {
+    const fixed: PaySettings = { ...base, salaryMode: 'fixed_plus', fixedMonthlySalary: 32000, workingHoursPerMonth: 160 };
+    const r = calculateMonthlyPay([withRate(entry('2026-06-10', 'work', 'enkel'), 250)], fixed);
+    expect(r.basePay).toBe(32000);
+    expect(r.overtidEnkel).toBeCloseTo(250 * 8 * 0.35, 5);
+  });
+});

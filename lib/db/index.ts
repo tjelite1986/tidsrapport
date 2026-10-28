@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import { applyUserSettingsColumns } from './settings-columns';
+import { applyTimeEntryColumns } from './time-entry-columns';
 import path from 'path';
 import fs from 'fs';
 
@@ -24,5 +25,7 @@ sqlite.pragma('foreign_keys = ON');
 // hand. Every read of user_settings selects them, so this has to run before the
 // first query rather than on first use.
 applyUserSettingsColumns(sqlite);
+// v30 hourly_rate_override — same reason: every select of time_entries names it.
+applyTimeEntryColumns(sqlite);
 
 export const db = drizzle(sqlite, { schema });

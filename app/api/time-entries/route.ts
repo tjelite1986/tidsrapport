@@ -7,6 +7,7 @@ import { eq, and, gte, lte } from 'drizzle-orm';
 import { calculateWorkHours, calculateAutoBreak } from '@/lib/calculations';
 import { parseBreakPeriods, serializeBreakPeriods, sumBreakMinutes } from '@/lib/types/break-periods';
 import { BreakRule } from '@/lib/calculations';
+import { parseRateOverride } from '@/lib/calculations/contracts';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,11 @@ function validateEntryInput(body: any, { requireDate }: { requireDate: boolean }
   }
   if (entryType !== undefined && !ENTRY_TYPES.has(entryType)) return 'Ogiltig posttyp';
   if (overtimeType !== undefined && !OVERTIME_TYPES.has(overtimeType)) return 'Ogiltig övertidstyp';
+  try {
+    parseRateOverride(body.hourlyRateOverride);
+  } catch {
+    return 'Invalid hourly rate for the shift (expected a number above 0, at most 2000)';
+  }
   return null;
 }
 
@@ -81,6 +87,7 @@ export async function GET(req: NextRequest) {
       breakPeriods: timeEntries.breakPeriods,
       entryType: timeEntries.entryType,
       overtimeType: timeEntries.overtimeType,
+      hourlyRateOverride: timeEntries.hourlyRateOverride,
       description: timeEntries.description,
       taskSegments: timeEntries.taskSegments,
       createdAt: timeEntries.createdAt,
@@ -160,6 +167,7 @@ export async function POST(req: NextRequest) {
       overtimeType: overtimeType || 'none',
       description,
       taskSegments: taskSegments || null,
+      hourlyRateOverride: parseRateOverride(body.hourlyRateOverride),
     })
     .returning()
     .get();
@@ -226,6 +234,8 @@ export async function PUT(req: NextRequest) {
   if (overtimeType !== undefined) updateData.overtimeType = overtimeType;
   if (description !== undefined) updateData.description = description;
   if (taskSegments !== undefined) updateData.taskSegments = taskSegments || null;
+  // undefined = leave as is; null or '' clears the per-shift rate
+  if (body.hourlyRateOverride !== undefined) updateData.hourlyRateOverride = parseRateOverride(body.hourlyRateOverride);
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'Inga fält att uppdatera' }, { status: 400 });

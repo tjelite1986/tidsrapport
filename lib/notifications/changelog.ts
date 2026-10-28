@@ -8,6 +8,13 @@ export type AppUpdate = { id: string; date: string; title: string; body: string 
 
 export const APP_UPDATES: AppUpdate[] = [
   {
+    id: '2026-10-28-per-shift-rate',
+    date: '2026-10-28',
+    title: 'Egen timlön för ett pass',
+    body:
+      'Har ett pass en annan timlön än vanligt, till exempel ett vikariat, kan du nu skriva in den på passet under Tid, både när du lägger till och när du redigerar. Den timlönen gäller bara det passet: grundlön, OB, övertid och sjuklön räknas på den. Lämna fältet tomt så räknas passet som vanligt. Pass med egen timlön har en grön etikett med beloppet.',
+  },
+  {
     id: '2026-10-23-vacation-day-conflicts',
     date: '2026-10-23',
     title: 'Varning för pass på semesterdagar',

@@ -50,6 +50,7 @@ export function computeMonthlySalary(userId: number, month: string | null) {
     breakPeriods: parseBreakPeriods(e.breakPeriods),
     entryType: e.entryType,
     overtimeType: e.overtimeType,
+    hourlyRateOverride: e.hourlyRateOverride,
   }));
 
   // Kolla om semesterersättning ska inkluderas i lönen denna månad

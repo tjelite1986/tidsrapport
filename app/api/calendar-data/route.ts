@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
       breakPeriods: timeEntries.breakPeriods,
       entryType: timeEntries.entryType,
       overtimeType: timeEntries.overtimeType,
+      hourlyRateOverride: timeEntries.hourlyRateOverride,
       description: timeEntries.description,
       taskSegments: timeEntries.taskSegments,
     })
@@ -95,7 +96,11 @@ export async function GET(req: NextRequest) {
   const enrichedMap = new Map<number, Omit<(typeof entries)[0], 'breakPeriods'> & { breakPeriods: import('@/lib/types/break-periods').BreakPeriod[] | null; pay: object }>();
 
   for (const entry of sortedEntries) {
-    const hourlyRate = resolveHourlyRate(entry.date, { rateHistory, flatRate, contractLevel });
+    // A per-shift rate wins over every other source, as in calculateMonthlyPay
+    const rateOverridden = entry.hourlyRateOverride != null;
+    const hourlyRate = rateOverridden
+      ? entry.hourlyRateOverride!
+      : resolveHourlyRate(entry.date, { rateHistory, flatRate, contractLevel });
     let basePay = 0;
     let obAmount = 0;
     let obSegments: { hours: number; obPercent: number; obAmount: number }[] = [];
@@ -174,6 +179,7 @@ export async function GET(req: NextRequest) {
         tax,
         netPay,
         hourlyRate,
+        rateOverridden,
       },
     });
   }

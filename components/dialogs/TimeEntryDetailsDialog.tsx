@@ -31,6 +31,7 @@ interface PayDetail {
   tax: number;
   netPay: number;
   hourlyRate: number;
+  rateOverridden?: boolean;
 }
 
 interface Props {
@@ -180,6 +181,12 @@ export default function TimeEntryDetailsDialog({ entry, onClose, onEdit, onDelet
                 <span className="text-gray-500">Snittlön</span>
                 <p className="font-medium">{avgRate > 0 ? formatCurrency(avgRate) + '/h' : '-'}</p>
               </div>
+              {payDetail?.rateOverridden && (
+                <div>
+                  <span className="text-gray-500">Timlön för passet</span>
+                  <p className="font-medium text-emerald-700">{formatCurrency(payDetail.hourlyRate)}/h (egen)</p>
+                </div>
+              )}
             </div>
           </div>
 

@@ -102,6 +102,7 @@ function computeVacationPayState(userId: number) {
         breakPeriods: parseBreakPeriods(e.breakPeriods),
         entryType: e.entryType,
         overtimeType: e.overtimeType,
+        hourlyRateOverride: e.hourlyRateOverride,
       }));
       const result = calculateMonthlyPay(payEntries, { ...paySettings, taxYear: year });
       grossBeforeVacation = result.grossBeforeVacation;

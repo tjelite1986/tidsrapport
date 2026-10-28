@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
       breakPeriods: timeEntries.breakPeriods,
       entryType: timeEntries.entryType,
       overtimeType: timeEntries.overtimeType,
+      hourlyRateOverride: timeEntries.hourlyRateOverride,
       taskSegments: timeEntries.taskSegments,
     })
     .from(timeEntries)
@@ -172,6 +173,7 @@ export async function GET(req: NextRequest) {
       breakPeriods: parseBreakPeriods(e.breakPeriods),
       entryType: e.entryType,
       overtimeType: e.overtimeType,
+      hourlyRateOverride: e.hourlyRateOverride,
     }));
 
     const taxYear = parseInt(month.split('-')[0]);
