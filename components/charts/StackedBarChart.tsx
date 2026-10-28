@@ -20,6 +20,8 @@ export default function StackedBarChart({
 
   const maxTotal = Math.max(...data.map((d) => d.segments.reduce((sum, s) => sum + s.value, 0)), 1);
   const chartHeight = height - 50;
+  // The whole row grows in within ~0.6 s however many bars there are
+  const stagger = Math.min(70, 600 / data.length);
 
   // Flex columns share the card's width (no sideways scroll on a phone)
   // Collect unique legend items
@@ -40,11 +42,14 @@ export default function StackedBarChart({
           const total = d.segments.reduce((sum, s) => sum + s.value, 0);
           return (
             <div key={i} className="flex-1 min-w-0 flex flex-col items-center justify-end h-full">
-              <span className="text-[10px] text-gray-600 mb-0.5 whitespace-nowrap">
+              <span className="text-[10px] text-gray-600 mb-0.5 whitespace-nowrap animate-rise" style={{ animationDelay: `${300 + i * stagger}ms` }}>
                 {total > 0 ? formatValue(total) : ''}
               </span>
               {/* Segments stack bottom-up, like the SVG version did */}
-              <div className="w-full max-w-[48px] flex flex-col-reverse rounded-t-sm overflow-hidden">
+              <div
+                className="w-full max-w-[48px] flex flex-col-reverse rounded-t-md overflow-hidden animate-grow-y transition-[filter] duration-200 hover:brightness-110"
+                style={{ animationDelay: `${i * stagger}ms` }}
+              >
                 {d.segments.map((seg, j) => (
                   <div key={j} style={{ height: (seg.value / maxTotal) * chartHeight, backgroundColor: seg.color }} />
                 ))}

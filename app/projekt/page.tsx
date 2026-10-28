@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import PageHeader from '@/components/ui/PageHeader';
 interface Project {
   id: number;
   name: string;
@@ -75,9 +76,9 @@ export default function ProjektPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Projekt</h1>
+      <PageHeader title="Projekt" />
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow mb-6">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <h2 className="text-lg font-semibold mb-4">
           {editingId ? 'Redigera projekt' : 'Skapa nytt projekt'}
         </h2>
@@ -122,7 +123,7 @@ export default function ProjektPage() {
         <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{deleteError}</div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50">

@@ -52,14 +52,14 @@ export default function LineChart({
           })}
 
           {/* Area fill */}
-          <path d={areaPath} fill={color} opacity={0.1} />
+          <path d={areaPath} fill={color} opacity={0.1} className="animate-fade [animation-delay:400ms]" />
 
           {/* Line */}
-          <path d={linePath} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={linePath} pathLength={1} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" className="animate-draw" />
 
           {/* Points and labels */}
           {points.map((p, i) => (
-            <g key={i}>
+            <g key={i} className="animate-fade" style={{ animationDelay: `${(i / Math.max(points.length - 1, 1)) * 1000}ms` }}>
               <circle cx={p.x} cy={p.y} r={3.5} fill={color} stroke="white" strokeWidth={2} />
               {p.value > 0 && (
                 <text x={p.x} y={p.y - 10} textAnchor="middle" className="text-[10px] fill-gray-600">

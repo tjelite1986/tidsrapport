@@ -1,4 +1,5 @@
 import { Tone, toneIcon, toneText } from './tones';
+import { CountUpText } from './CountUp';
 
 // Neutral white tile; only the value (and the optional icon) carries the tone colour
 export default function StatTile({
@@ -24,7 +25,7 @@ export default function StatTile({
         )}
         <p className="text-xs text-gray-500 leading-tight">{label}</p>
       </div>
-      <p className={`text-xl font-bold leading-tight ${toneText[tone]}`}>{value}</p>
+      <p className={`text-xl font-bold leading-tight ${toneText[tone]}`}>{typeof value === 'string' ? <CountUpText text={value} /> : value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   );

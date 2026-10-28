@@ -28,6 +28,14 @@
   .animate-drift {
     animation: drift 16s ease-in-out infinite alternate;
   }
+  /* SVG strokes drawn with pathLength={1} */
+  .animate-draw {
+    stroke-dasharray: 1;
+    animation: draw 1.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  .animate-fade {
+    animation: fade 0.6s ease-out both;
+  }
   .animate-shimmer {
     background-image: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.45) 50%, transparent 70%);
     background-size: 250% 100%;
@@ -52,17 +60,39 @@
   50% { transform: translate(-30px, 20px) scale(1.15); }
   100% { transform: translate(20px, -10px) scale(0.95); }
 }
+@keyframes draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 @keyframes shimmer {
   from { background-position: 150% 0; }
   to { background-position: -100% 0; }
 }
+
+/* Every page's top-level sections rise in one after another. Fixed overlays
+   (dialogs) are left alone so they open without a delay. */
+.page-stagger > * > *:not(.fixed) {
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.page-stagger > * > *:nth-child(2) { animation-delay: 60ms; }
+.page-stagger > * > *:nth-child(3) { animation-delay: 120ms; }
+.page-stagger > * > *:nth-child(4) { animation-delay: 180ms; }
+.page-stagger > * > *:nth-child(5) { animation-delay: 240ms; }
+.page-stagger > * > *:nth-child(n + 6) { animation-delay: 300ms; }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-rise,
   .animate-grow-y,
   .animate-grow-x,
   .animate-drift,
-  .animate-shimmer {
+  .animate-shimmer,
+  .animate-draw,
+  .animate-fade,
+  .page-stagger > * > * {
     animation: none;
   }
 }

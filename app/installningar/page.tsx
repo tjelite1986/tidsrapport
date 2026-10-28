@@ -5,6 +5,7 @@ import { getWeekType } from '@/lib/calculations/time-utils';
 import DatePicker from '@/components/DatePicker';
 import TimePicker from '@/components/TimePicker';
 
+import PageHeader from '@/components/ui/PageHeader';
 const contractOptions = [
   { value: '16ar', label: '16 år (101,48 kr/h)' },
   { value: '17ar', label: '17 år (103,95 kr/h)' },
@@ -364,7 +365,7 @@ export default function InstallningarPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Inställningar</h1>
+      <PageHeader title="Inställningar" />
 
       {saveError && (
         <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{saveError}</div>
@@ -374,7 +375,7 @@ export default function InstallningarPage() {
       )}
 
       {/* Personal info */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <h2 className="text-lg font-semibold mb-4">Personuppgifter</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -401,7 +402,7 @@ export default function InstallningarPage() {
       </div>
 
       {/* Payslip header/footer data */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <h2 className="text-lg font-semibold mb-1">Uppgifter på lönebeskedet</h2>
         <p className="text-sm text-gray-500 mb-4">
           Fylls i på det lönebesked som exporteras från Lön-sidan. Påverkar inte löneberäkningen.
@@ -516,7 +517,7 @@ export default function InstallningarPage() {
       </div>
 
       {/* Salary settings */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <h2 className="text-lg font-semibold mb-4">Löne- och OB-inställningar</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -880,7 +881,7 @@ export default function InstallningarPage() {
       </div>
 
       {/* Calendar & Default times */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <h2 className="text-lg font-semibold mb-4">Kalender- och tidspreferenser</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -914,7 +915,7 @@ export default function InstallningarPage() {
       </div>
 
       {/* Departments */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <h2 className="text-lg font-semibold mb-1">Avdelningar</h2>
         <p className="text-sm text-gray-500 mb-4">Avdelningar du kan logga per arbetspass (t.ex. Kassa, Varuplock).</p>
         {departments.length > 0 && (
@@ -961,7 +962,7 @@ export default function InstallningarPage() {
       </div>
 
       {/* Templates */}
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <h2 className="text-lg font-semibold mb-4">Arbetsmallar</h2>
         {templates.length > 0 && (
           <div className="mb-4 space-y-2">
@@ -1020,7 +1021,7 @@ export default function InstallningarPage() {
       </div>
 
       {/* Weekly schedule */}
-      <div className="bg-white p-6 rounded-lg shadow">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-lg font-semibold mb-2">Veckoschema</h2>
         <p className="text-sm text-gray-500 mb-4">Ställ in standardtider per veckodag. Stöd för roterande A/B-schema.</p>
 
@@ -1160,7 +1161,7 @@ export default function InstallningarPage() {
       </div>
 
       {/* Danger zone */}
-      <div className="bg-white p-6 rounded-lg shadow mt-6 border border-red-200">
+      <div className="bg-white p-6 rounded-xl shadow-sm mt-6 border border-red-200">
         <h2 className="text-lg font-semibold text-red-700 mb-1">Farlig zon</h2>
         <p className="text-sm text-gray-500 mb-4">Dessa åtgärder är permanenta och kan inte ångras.</p>
 

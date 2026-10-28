@@ -140,7 +140,7 @@ export default function LonPage() {
     <div>
       <PageHeader title="Löneberäkning" />
 
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow mb-6">
+      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
         <div className="flex flex-wrap gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Utbetalningsmånad</label>
@@ -199,7 +199,7 @@ export default function LonPage() {
 
           {/* Daily breakdown */}
           {salary.days.length > 0 && (
-            <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold mb-4">Daglig uppdelning</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

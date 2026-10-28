@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
+import PageHeader from '@/components/ui/PageHeader';
 const contractOptions = [
   { value: '16ar', label: '16 år' },
   { value: '17ar', label: '17 år' },
@@ -144,18 +145,20 @@ export default function AdminPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Användarhantering</h1>
-        <button
-          onClick={() => { resetForm(); setShowForm(!showForm); }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-        >
-          {showForm ? 'Stäng' : 'Ny användare'}
-        </button>
-      </div>
+      <PageHeader
+        title="Användarhantering"
+        action={
+          <button
+            onClick={() => { resetForm(); setShowForm(!showForm); }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            {showForm ? 'Stäng' : 'Ny användare'}
+          </button>
+        }
+      />
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow mb-6">
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
           <h2 className="text-lg font-semibold mb-4">
             {editingUser ? 'Redigera användare' : 'Skapa ny användare'}
           </h2>
@@ -301,7 +304,7 @@ export default function AdminPage() {
         <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{deleteError}</div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50">

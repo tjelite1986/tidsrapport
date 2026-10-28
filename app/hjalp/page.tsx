@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import PageHeader from '@/components/ui/PageHeader';
 const sections = [
   { id: 'kom-igang',         label: 'Kom igång' },
   { id: 'tidsregistrering',  label: 'Tidsregistrering' },
@@ -19,7 +20,7 @@ const sections = [
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="bg-white rounded-lg shadow p-6 mb-6 scroll-mt-20">
+    <section id={id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6 scroll-mt-20">
       <h2 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b border-gray-100">{title}</h2>
       <div className="text-sm text-gray-700 space-y-3 leading-relaxed">{children}</div>
     </section>
@@ -66,11 +67,10 @@ function Dl({ items }: { items: { term: string; desc: string }[] }) {
 export default function HjalpPage() {
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-2">Hjälp & guide</h1>
-      <p className="text-gray-500 text-sm mb-6">En genomgång av alla funktioner i Tidsrapport.</p>
+      <PageHeader title="Hjälp & guide" subtitle="En genomgång av alla funktioner i Tidsrapport." />
 
       {/* Innehållsförteckning */}
-      <div className="bg-white rounded-lg shadow p-5 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Innehåll</h2>
         <ol className="grid grid-cols-1 sm:grid-cols-2 gap-1">
           {sections.map((s, i) => (

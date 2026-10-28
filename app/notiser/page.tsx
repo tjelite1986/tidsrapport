@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import PageHeader from '@/components/ui/PageHeader';
 interface Notification {
   id: number;
   kind: string;
@@ -62,14 +63,14 @@ export default function NotiserPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-2">Notiser</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        Ändringar i schemat som den automatiska synken har hittat — nya pass, flyttade tider och borttagna pass — och nyheter i appen.
-      </p>
+      <PageHeader
+        title="Notiser"
+        subtitle="Ändringar i schemat som den automatiska synken har hittat — nya pass, flyttade tider och borttagna pass — och nyheter i appen."
+      />
 
       {notifications === null && <p className="text-sm text-gray-400">Laddar...</p>}
       {notifications?.length === 0 && (
-        <div className="bg-white rounded-lg shadow p-6 text-sm text-gray-500">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-sm text-gray-500">
           Inga notiser ännu. När chefen ändrar i schemat eller appen får något nytt dyker det upp här.
         </div>
       )}
@@ -80,7 +81,7 @@ export default function NotiserPage() {
           return (
             <li
               key={n.id}
-              className={`bg-white rounded-lg shadow p-4 border-l-4 ${n.readAt ? 'border-transparent' : 'border-blue-500'}`}
+              className={`bg-white rounded-xl shadow-sm p-4 border-l-4 ${n.readAt ? 'border-transparent' : 'border-blue-500'}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">

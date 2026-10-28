@@ -1,5 +1,8 @@
 'use client';
 
+import { useId } from 'react';
+import SweepMask from './SweepMask';
+
 interface PieChartProps {
   data: { label: string; value: number; color?: string }[];
   title?: string;
@@ -12,6 +15,7 @@ const defaultColors = [
 ];
 
 export default function PieChart({ data, title, size = 180 }: PieChartProps) {
+  const maskId = useId().replace(/:/g, '');
   const filtered = data.filter((d) => d.value > 0);
   if (filtered.length === 0) return null;
 
@@ -22,7 +26,8 @@ export default function PieChart({ data, title, size = 180 }: PieChartProps) {
 
   let startAngle = -Math.PI / 2;
   const slices = filtered.map((d, i) => {
-    const angle = (d.value / total) * 2 * Math.PI;
+    // A lone slice is a full turn; an arc that ends where it starts draws nothing
+    const angle = Math.min((d.value / total) * 2 * Math.PI, 2 * Math.PI - 1e-4);
     const endAngle = startAngle + angle;
 
     const x1 = cx + r * Math.cos(startAngle);
@@ -48,10 +53,13 @@ export default function PieChart({ data, title, size = 180 }: PieChartProps) {
     <div>
       {title && <h3 className="text-sm font-semibold text-gray-700 mb-2">{title}</h3>}
       <div className="flex items-start gap-4">
-        <svg width={size} height={size}>
-          {slices.map((s, i) => (
-            <path key={i} d={s.path} fill={s.color} stroke="white" strokeWidth={1} />
-          ))}
+        <svg width={size} height={size} className="shrink-0">
+          <SweepMask id={maskId} cx={cx} cy={cy} r={r} />
+          <g mask={`url(#${maskId})`}>
+            {slices.map((s, i) => (
+              <path key={i} d={s.path} fill={s.color} stroke="white" strokeWidth={slices.length > 1 ? 1 : 0} />
+            ))}
+          </g>
         </svg>
         <div className="space-y-1 text-xs">
           {slices.map((s, i) => (

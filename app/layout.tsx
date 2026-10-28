@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-gray-50 min-h-screen">
         <SessionProvider>
           <Navigation />
-          <main className="max-w-7xl mx-auto px-4 pt-6 pb-28 2xl:pb-6">{children}</main>
+          <main className="max-w-7xl mx-auto px-4 pt-6 pb-28 2xl:pb-6 page-stagger">{children}</main>
         </SessionProvider>
         <PwaRegister />
         <PwaInstallBanner />

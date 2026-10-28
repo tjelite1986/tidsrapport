@@ -1,5 +1,8 @@
 'use client';
 
+import { useId } from 'react';
+import SweepMask from './SweepMask';
+
 interface DonutChartProps {
   data: { label: string; value: number; color?: string }[];
   title?: string;
@@ -18,6 +21,7 @@ export default function DonutChart({
   size = 180,
   formatValue = (v) => v.toFixed(1),
 }: DonutChartProps) {
+  const maskId = useId().replace(/:/g, '');
   const filtered = data.filter((d) => d.value > 0);
   if (filtered.length === 0) return null;
 
@@ -30,7 +34,8 @@ export default function DonutChart({
   let startAngle = -Math.PI / 2;
 
   const slices = filtered.map((d, i) => {
-    const angle = (d.value / total) * 2 * Math.PI;
+    // A lone slice is a full turn; an arc that ends where it starts draws nothing
+    const angle = Math.min((d.value / total) * 2 * Math.PI, 2 * Math.PI - 1e-4);
     const endAngle = startAngle + angle;
 
     const x1 = cx + outerR * Math.cos(startAngle);
@@ -68,9 +73,12 @@ export default function DonutChart({
       <div className="flex items-start gap-4">
         <div className="relative" style={{ width: size, height: size }}>
           <svg width={size} height={size}>
-            {slices.map((s, i) => (
-              <path key={i} d={s.path} fill={s.color} stroke="white" strokeWidth={2} />
-            ))}
+            <SweepMask id={maskId} cx={cx} cy={cy} r={outerR} />
+            <g mask={`url(#${maskId})`}>
+              {slices.map((s, i) => (
+                <path key={i} d={s.path} fill={s.color} stroke="white" strokeWidth={slices.length > 1 ? 2 : 0} />
+              ))}
+            </g>
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">

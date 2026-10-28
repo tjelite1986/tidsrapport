@@ -89,7 +89,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow p-8">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-sm border border-gray-100 p-8">
         <h1 className="text-2xl font-bold text-center mb-6">Tidsrapport</h1>
         <h2 className="text-lg text-gray-600 text-center mb-6">
           {mode === 'login' ? 'Logga in' : 'Skapa konto'}

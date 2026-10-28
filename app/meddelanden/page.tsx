@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 
+import PageHeader from '@/components/ui/PageHeader';
 interface Contact {
   id: number;
   name: string;
@@ -121,9 +122,9 @@ export default function MeddelandenPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Meddelanden</h1>
+      <PageHeader title="Meddelanden" />
 
-      <div className="bg-white rounded-lg shadow overflow-hidden md:grid md:grid-cols-[18rem_1fr] md:h-[70vh]">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden md:grid md:grid-cols-[18rem_1fr] md:h-[70vh]">
         {/* Contact list — the whole view on a phone until someone is picked */}
         <div
           className={`border-r border-gray-100 overflow-y-auto ${selected ? 'hidden md:block' : 'block'}`}
