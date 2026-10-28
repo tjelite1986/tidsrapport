@@ -8,6 +8,13 @@ export type AppUpdate = { id: string; date: string; title: string; body: string 
 
 export const APP_UPDATES: AppUpdate[] = [
   {
+    id: '2026-10-28-livelier-start-page',
+    date: '2026-10-28',
+    title: 'Ny startsida',
+    body:
+      'Startsidan visar nu överst vad du har tjänat ihop den här veckan och på hur många timmar, räknat brutto med OB. Nästa arbetspass har en egen ruta med nedräkning, och pågår ett pass ser du hur långt det har kommit. Ett nytt diagram visar timmarna för varje dag i månaden, med planerade pass i ljusare färg.',
+  },
+  {
     id: '2026-10-28-per-shift-rate',
     date: '2026-10-28',
     title: 'Egen timlön för ett pass',

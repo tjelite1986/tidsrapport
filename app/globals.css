@@ -10,3 +10,59 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* Dashboard motion: entrance, bar growth and the hero's drifting glow.
+   Everything here is switched off for users who ask for reduced motion. */
+@layer utilities {
+  .animate-rise {
+    animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .animate-grow-y {
+    transform-origin: bottom;
+    animation: grow-y 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .animate-grow-x {
+    transform-origin: left;
+    animation: grow-x 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .animate-drift {
+    animation: drift 16s ease-in-out infinite alternate;
+  }
+  .animate-shimmer {
+    background-image: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.45) 50%, transparent 70%);
+    background-size: 250% 100%;
+    animation: shimmer 2.8s ease-in-out infinite;
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes grow-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes grow-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-30px, 20px) scale(1.15); }
+  100% { transform: translate(20px, -10px) scale(0.95); }
+}
+@keyframes shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-grow-y,
+  .animate-grow-x,
+  .animate-drift,
+  .animate-shimmer {
+    animation: none;
+  }
+}
