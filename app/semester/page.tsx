@@ -162,90 +162,96 @@ export default function SemesterPage() {
   return (
     <div className="space-y-6">
       {/* Header med årsnavigering */}
-      <div className="bg-gradient-to-br from-emerald-700 to-teal-800 text-white rounded-2xl p-6">
-        {/* Årsväxlare */}
-        <div className="flex items-center justify-center gap-4 mb-5">
-          <button
-            onClick={() => changeYear(-1)}
-            className="w-8 h-8 rounded-full bg-emerald-600/50 hover:bg-emerald-500/60 flex items-center justify-center transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="text-center">
-            <div className="text-2xl font-bold">{year}</div>
-            <div className="text-emerald-200 text-xs">1 jan – 31 dec</div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white rounded-2xl p-5 sm:p-6 animate-rise">
+        <div aria-hidden className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-teal-500/25 blur-3xl animate-drift" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-24 left-1/4 w-72 h-72 rounded-full bg-indigo-500/20 blur-3xl animate-drift [animation-delay:-8s]" />
+        <div aria-hidden className="pointer-events-none absolute top-1/3 -left-16 w-48 h-48 rounded-full bg-emerald-400/10 blur-3xl animate-drift [animation-delay:-4s]" />
+        <div className="relative">
+          <h1 className="text-xl sm:text-2xl font-bold text-center mb-3">Semester</h1>
+          {/* Årsväxlare */}
+          <div className="flex items-center justify-center gap-4 mb-5">
+            <button
+              onClick={() => changeYear(-1)}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{year}</div>
+              <div className="text-slate-400 text-xs">1 jan – 31 dec</div>
+            </div>
+            <button
+              onClick={() => changeYear(1)}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={() => changeYear(1)}
-            className="w-8 h-8 rounded-full bg-emerald-600/50 hover:bg-emerald-500/60 flex items-center justify-center transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+
+          {/* Saldo-rader */}
+          <div className="flex justify-center gap-8">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-teal-300">{data.remaining}</div>
+              <div className="text-slate-400 text-xs mt-0.5">dagar kvar</div>
+            </div>
+            <div className="w-px bg-white/10" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-slate-200">{data.bookedThisYear}</div>
+              <div className="text-slate-400 text-xs mt-0.5">bokade</div>
+            </div>
+            <div className="w-px bg-white/10" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-slate-200">{data.daysPerYear}</div>
+              <div className="text-slate-400 text-xs mt-0.5">per år</div>
+            </div>
+          </div>
+
+          {weekendCount > 0 && (
+            <p className="text-center text-slate-400 text-xs mt-3">
+              + {weekendCount} helgdag{weekendCount !== 1 ? 'ar' : ''} registrerade — de drar ingen semesterdag
+            </p>
+          )}
+
+          {data.dailyRate > 0 && (
+            <p className="text-center text-slate-400 text-xs mt-1">
+              {formatCurrency(data.dailyRate)}/dag
+              {data.manualDailyRate != null ? ` (manuellt satt för ${year})` : ` (ur ${year - 1} års pott)`}
+            </p>
+          )}
+
+          {/* Förloppsindikator */}
+          <div className="mt-5">
+            <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+              <span>{data.bookedThisYear} bokade</span>
+              <span>{data.daysPerYear} totalt</span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-2.5">
+              <div
+                className={`h-2.5 rounded-full transition-all ${usedPct > 90 ? 'bg-red-400' : usedPct > 70 ? 'bg-yellow-300' : 'bg-teal-300'}`}
+                style={{ width: `${usedPct}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Andra år med bokningar */}
+          {otherYears.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2 justify-center">
+              {otherYears.map((oy) => (
+                <button
+                  key={oy.year}
+                  onClick={() => setYear(oy.year)}
+                  className="text-xs bg-white/10 hover:bg-white/20 border border-white/15 px-2.5 py-1 rounded-full transition-colors"
+                >
+                  {oy.year} · {oy.count} dag{oy.count !== 1 ? 'ar' : ''}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-
-        {/* Saldo-rader */}
-        <div className="flex justify-center gap-8">
-          <div className="text-center">
-            <div className="text-3xl font-bold">{data.remaining}</div>
-            <div className="text-emerald-200 text-xs mt-0.5">dagar kvar</div>
-          </div>
-          <div className="w-px bg-emerald-500/40" />
-          <div className="text-center">
-            <div className="text-3xl font-bold text-emerald-200">{data.bookedThisYear}</div>
-            <div className="text-emerald-200 text-xs mt-0.5">bokade</div>
-          </div>
-          <div className="w-px bg-emerald-500/40" />
-          <div className="text-center">
-            <div className="text-3xl font-bold text-emerald-200">{data.daysPerYear}</div>
-            <div className="text-emerald-200 text-xs mt-0.5">per år</div>
-          </div>
-        </div>
-
-        {weekendCount > 0 && (
-          <p className="text-center text-emerald-200/80 text-xs mt-3">
-            + {weekendCount} helgdag{weekendCount !== 1 ? 'ar' : ''} registrerade — de drar ingen semesterdag
-          </p>
-        )}
-
-        {data.dailyRate > 0 && (
-          <p className="text-center text-emerald-200/80 text-xs mt-1">
-            {formatCurrency(data.dailyRate)}/dag
-            {data.manualDailyRate != null ? ` (manuellt satt för ${year})` : ` (ur ${year - 1} års pott)`}
-          </p>
-        )}
-
-        {/* Förloppsindikator */}
-        <div className="mt-5">
-          <div className="flex justify-between text-xs text-emerald-200 mb-1.5">
-            <span>{data.bookedThisYear} bokade</span>
-            <span>{data.daysPerYear} totalt</span>
-          </div>
-          <div className="w-full bg-emerald-900/50 rounded-full h-2.5">
-            <div
-              className={`h-2.5 rounded-full transition-all ${usedPct > 90 ? 'bg-red-400' : usedPct > 70 ? 'bg-yellow-300' : 'bg-emerald-300'}`}
-              style={{ width: `${usedPct}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Andra år med bokningar */}
-        {otherYears.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2 justify-center">
-            {otherYears.map((oy) => (
-              <button
-                key={oy.year}
-                onClick={() => setYear(oy.year)}
-                className="text-xs bg-emerald-600/40 hover:bg-emerald-500/50 border border-emerald-400/30 px-2.5 py-1 rounded-full transition-colors"
-              >
-                {oy.year} · {oy.count} dag{oy.count !== 1 ? 'ar' : ''}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
