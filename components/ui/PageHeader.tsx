@@ -1,5 +1,5 @@
-// One header style for every page: title, optional subtitle, optional action on the right.
-// Light on purpose (the home greeting card is the only hero); a gradient accent grows in beside the title.
+// One header style for every page: a compact version of the start page's dark hero,
+// with the same drifting glow. Title, optional subtitle, optional action on the right.
 export default function PageHeader({
   title,
   subtitle,
@@ -10,15 +10,16 @@ export default function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 mb-6">
-      <div className="min-w-0 flex gap-3">
-        <span aria-hidden className="mt-1 w-1.5 self-stretch rounded-full bg-gradient-to-b from-blue-500 via-indigo-500 to-emerald-400 animate-grow-y [transform-origin:top]" />
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 text-white px-5 py-4 sm:px-6 sm:py-5 mb-6">
+      <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 w-48 h-48 rounded-full bg-blue-500/30 blur-3xl animate-drift" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-20 left-1/3 w-56 h-56 rounded-full bg-indigo-500/20 blur-3xl animate-drift [animation-delay:-8s]" />
+      <div className="relative flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+          <h1 className="text-xl sm:text-2xl font-bold">{title}</h1>
+          {subtitle && <p className="text-sm text-slate-300 mt-1">{subtitle}</p>}
         </div>
+        {action && <div className="shrink-0">{action}</div>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
