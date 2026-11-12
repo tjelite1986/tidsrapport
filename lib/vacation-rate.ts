@@ -47,6 +47,11 @@ const upsertManualRate = sqlite.prepare(
 const deleteManualRate = sqlite.prepare('DELETE FROM vacation_daily_rates WHERE user_id = ? AND year = ?');
 
 /** The manual per-day rate for vacation days taken in `year`, or null when none is set. */
+/** Part of the user-deletion cascade in /api/users; the table has no FK, so rows would otherwise be orphaned. */
+export function deleteVacationDailyRatesForUser(userId: number): void {
+  sqlite.prepare('DELETE FROM vacation_daily_rates WHERE user_id = ?').run(userId);
+}
+
 export function getManualVacationDailyRate(userId: number, year: number): number | null {
   const row = selectManualRate.get(userId, year) as { rate: number } | undefined;
   return row && row.rate > 0 ? row.rate : null;

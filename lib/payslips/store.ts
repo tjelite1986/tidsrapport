@@ -123,6 +123,21 @@ export function updatePayslipFields(
     .get();
 }
 
+/**
+ * Delete every payslip row of a user. Part of the user-deletion cascade in
+ * /api/users, so it only touches the table and is safe inside a transaction;
+ * call removePayslipFilesForUser() once that transaction has committed.
+ */
+export function deletePayslipRowsForUser(userId: number): void {
+  db.delete(payslips).where(eq(payslips.userId, userId)).run();
+}
+
+/** Remove a deleted user's payslip folder. Run after the rows are gone, never before. */
+export function removePayslipFilesForUser(userId: number): void {
+  if (!Number.isInteger(userId) || userId <= 0) return;
+  fs.rmSync(payslipDir(DATA_DIR, userId), { recursive: true, force: true });
+}
+
 export function deletePayslip(id: number, userId: number): boolean {
   const existing = getPayslip(id, userId);
   if (!existing) return false;

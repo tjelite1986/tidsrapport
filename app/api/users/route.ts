@@ -5,6 +5,8 @@ import { deleteMessagesForUser } from '@/lib/messages/store';
 import { deleteEventsForUser } from '@/lib/calendar-events/store';
 import { deleteSyncItemsForUser } from '@/lib/schedule-sync/store';
 import { deleteNotificationsForUser } from '@/lib/notifications/store';
+import { deletePayslipRowsForUser, removePayslipFilesForUser } from '@/lib/payslips/store';
+import { deleteVacationDailyRatesForUser } from '@/lib/vacation-rate';
 import { db, sqlite } from '@/lib/db';
 import { users, salarySettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -159,9 +161,13 @@ export async function DELETE(req: NextRequest) {
     deleteEventsForUser(userId);
     deleteSyncItemsForUser(userId);
     deleteNotificationsForUser(userId);
+    deletePayslipRowsForUser(userId);
+    deleteVacationDailyRatesForUser(userId);
     sqlite.prepare('DELETE FROM users WHERE id = ?').run(userId);
   });
   cascadeDelete(id);
+  // Files only after the commit: a rolled-back delete must not lose the user's payslips.
+  removePayslipFilesForUser(id);
 
   return NextResponse.json({ ok: true });
 }
