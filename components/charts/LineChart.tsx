@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import EmptyChart from './EmptyChart';
 import { estimateLabelWidth, labelledIndices } from '@/lib/charts/label-step';
 
@@ -21,17 +21,19 @@ export default function LineChart({
 }: LineChartProps) {
   // Draw in real CSS pixels: a fixed viewBox scaled down to a phone shrank the
   // 10px labels to 3-5px. The width is measured; labels are thinned instead.
-  const boxRef = useRef<HTMLDivElement>(null);
+  // A callback ref, not an effect: the box is absent while data is empty, so a mount-time effect
+  // would never see it when data arrives later and the chart would stay at the 400 px fallback.
   const [measured, setMeasured] = useState(0);
-  useEffect(() => {
-    const el = boxRef.current;
+  const roRef = useRef<ResizeObserver | null>(null);
+  const boxRef = useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    roRef.current = null;
     if (!el) return;
     const update = () => setMeasured(Math.round(el.clientWidth));
     update();
     if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
+    roRef.current = new ResizeObserver(update);
+    roRef.current.observe(el);
   }, []);
 
   if (data.length === 0) return null;

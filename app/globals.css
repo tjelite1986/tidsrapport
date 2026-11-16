@@ -303,7 +303,7 @@
       focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500;
   }
   .btn-primary {
-    @apply bg-blue-600 text-white hover:bg-blue-700 dark:bg-sky-600 dark:hover:bg-sky-500;
+    @apply bg-blue-600 text-white hover:bg-blue-700 dark:bg-sky-700 dark:hover:bg-sky-800; /* white on sky-600 is ~4.1:1, below AA */
   }
   .btn-secondary {
     @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;

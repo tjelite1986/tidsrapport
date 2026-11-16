@@ -197,7 +197,8 @@ export default function InstallningarPage() {
   });
   const [municipalities, setMunicipalities] = useState<{ name: string; taxRate: number; tableNumber: number }[]>([]);
   const [municipalitySearch, setMunicipalitySearch] = useState('');
-  const [saved, setSaved] = useState(false);
+  // The confirmation names what was saved: settings and the weekly schedule save separately.
+  const [saved, setSaved] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [newTemplate, setNewTemplate] = useState({ name: '', startTime: '08:00', endTime: '17:00', breakMinutes: 60 });
@@ -287,8 +288,8 @@ export default function InstallningarPage() {
       setSaveError(err.error || 'Kunde inte spara inställningarna');
       return;
     }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaved('Inställningarna sparades.');
+    setTimeout(() => setSaved(null), 2000);
   }
 
   function addDepartment() {
@@ -352,8 +353,8 @@ export default function InstallningarPage() {
       setSaveError(err.error || 'Kunde inte spara schemat');
       return;
     }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaved('Veckoschemat sparades.');
+    setTimeout(() => setSaved(null), 2000);
   }
 
   function updateScheduleDay(weekType: 'A' | 'B' | 'C' | 'D', index: number, field: string, value: string | number) {
@@ -372,7 +373,7 @@ export default function InstallningarPage() {
         <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{saveError}</div>
       )}
       {saved && (
-        <div className="bg-green-50 text-green-700 p-3 rounded mb-4 text-sm">Inställningarna sparades!</div>
+        <div className="bg-green-50 text-green-700 p-3 rounded mb-4 text-sm">{saved}</div>
       )}
 
       {/* Personal info */}
@@ -953,17 +954,18 @@ export default function InstallningarPage() {
 
       {/* Save all settings: sticky above the mobile tab bar while the sections it saves are on screen */}
       <div className="sticky z-30 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] 2xl:bottom-4 mb-6 mt-2">
-        <div className="surface !rounded-xl px-3 py-3 sm:px-4 flex flex-wrap items-center gap-x-4 gap-y-2 bg-white/95 backdrop-blur">
-          <button onClick={saveSettings} className="btn btn-primary btn-3d w-full sm:w-auto px-6">
+        {/* One compact row on phones: the long help text only shows from sm up, status messages always. */}
+        <div className="surface !rounded-xl px-3 py-2 sm:py-3 sm:px-4 flex items-center gap-x-3 sm:gap-x-4 bg-white/95 backdrop-blur">
+          <button onClick={saveSettings} className="btn btn-primary btn-3d shrink-0 px-4 sm:px-6">
             Spara alla inställningar
           </button>
-          <p className="text-xs text-slate-500 flex-1 min-w-[12rem]" role="status" aria-live="polite">
+          <p className="text-xs text-slate-500 flex-1 min-w-0 line-clamp-2" role="status" aria-live="polite">
             {saveError ? (
               <span className="text-red-600">{saveError}</span>
             ) : saved ? (
-              <span className="text-green-700 font-medium">Inställningarna sparades.</span>
+              <span className="text-green-700 font-medium">{saved}</span>
             ) : (
-              'Sparar personuppgifter, lönebesked, lön, kalender och avdelningar. Mallar och veckoschema sparas var för sig.'
+              <span className="hidden sm:inline">Sparar personuppgifter, lönebesked, lön, kalender och avdelningar. Mallar och veckoschema sparas var för sig.</span>
             )}
           </p>
         </div>

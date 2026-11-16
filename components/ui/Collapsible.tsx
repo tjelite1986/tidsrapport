@@ -26,7 +26,7 @@ export default function Collapsible({
   const bodyId = useId();
 
   return (
-    <section className={`surface overflow-hidden ${tone === 'danger' ? '!border-red-200' : ''} ${className}`}>
+    <section className={`surface overflow-hidden ${tone === 'danger' ? '!border-red-200 dark:!border-red-400/35' : ''} ${className}`}>
       <h2>
         <button
           type="button"

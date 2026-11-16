@@ -329,7 +329,7 @@ export default function LonespecarPage() {
                   setFile(e.target.files?.[0] ?? null);
                   setAiInfo(null);
                 }}
-                className="w-full text-sm text-slate-700 file:mr-3 file:min-h-[44px] file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100"
+                className="w-full text-sm text-slate-700 file:mr-3 file:min-h-[44px] file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100 dark:text-slate-300 dark:file:bg-sky-400/15 dark:file:text-sky-300 dark:hover:file:bg-sky-400/25"
               />
               <p className="mt-1 text-xs text-slate-500">
                 Max 10 MB.{aiEnabled ? ' Beloppen kan läsas av med AI.' : ''}
@@ -473,6 +473,7 @@ export default function LonespecarPage() {
                   <button
                     onClick={() => (editId === row.id ? setEditId(null) : startEdit(row))}
                     aria-expanded={editId === row.id}
+                    aria-controls={`payslip-edit-${row.id}`}
                     className="btn btn-secondary"
                   >
                     {editId === row.id ? 'Avbryt' : 'Redigera'}
@@ -484,7 +485,7 @@ export default function LonespecarPage() {
               </div>
 
               {editId === row.id ? (
-                <div className="mt-4 space-y-4">
+                <div id={`payslip-edit-${row.id}`} className="mt-4 space-y-4">
                   <PayslipFieldsEditor
                     compact
                     values={editFields}

@@ -99,7 +99,7 @@ export default function DatePicker({ value, onChange, required, className, place
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl p-3 w-72">
+        <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl p-2 w-max">
           {/* Månadsnavigering */}
           <div className="flex items-center justify-between mb-2">
             <button
@@ -122,7 +122,7 @@ export default function DatePicker({ value, onChange, required, className, place
           </div>
 
           {/* Veckodagsrubriker */}
-          <div className="grid grid-cols-7 mb-1">
+          <div className="grid grid-cols-[repeat(7,44px)] mb-1">
             {DAY_NAMES.map((d) => (
               <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">
                 {d}
@@ -131,7 +131,8 @@ export default function DatePicker({ value, onChange, required, className, place
           </div>
 
           {/* Dagar */}
-          <div className="grid grid-cols-7 gap-0.5">
+          {/* 7 x 44 px with no gap: full 44 px targets that still fit a 360 px phone with its gutters. */}
+          <div className="grid grid-cols-[repeat(7,44px)]">
             {days.map((d, i) => {
               if (!d) return <div key={`e-${i}`} />;
               const isSelected = d === value;
@@ -142,7 +143,7 @@ export default function DatePicker({ value, onChange, required, className, place
                   key={d}
                   type="button"
                   onClick={() => selectDate(d)}
-                  className={`text-sm min-h-[44px] rounded text-center transition-colors ${
+                  className={`text-sm min-h-[44px] min-w-[44px] rounded text-center transition-colors ${
                     isSelected
                       ? 'bg-blue-600 text-white font-semibold'
                       : isToday

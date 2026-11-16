@@ -141,14 +141,15 @@ export default function ProjektPage() {
                   {project.active ? 'Aktiv' : 'Inaktiv'}
                 </span>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <button onClick={() => startEdit(project)} className="btn btn-accent">
+              {/* One column on the narrowest phones: "Inaktivera" does not fit a third of 360 px with btn padding. */}
+              <div className="mt-3 grid grid-cols-1 min-[400px]:grid-cols-3 gap-2">
+                <button onClick={() => startEdit(project)} aria-label={`Redigera ${project.name}`} className="btn btn-accent px-2">
                   Redigera
                 </button>
-                <button onClick={() => toggleActive(project)} className="btn btn-secondary">
+                <button onClick={() => toggleActive(project)} aria-label={`${project.active ? 'Inaktivera' : 'Aktivera'} ${project.name}`} className="btn btn-secondary px-2">
                   {project.active ? 'Inaktivera' : 'Aktivera'}
                 </button>
-                <button onClick={() => handleDelete(project)} className="btn btn-danger">
+                <button onClick={() => handleDelete(project)} aria-label={`Ta bort ${project.name}`} className="btn btn-danger px-2">
                   Ta bort
                 </button>
               </div>
