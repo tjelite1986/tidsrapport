@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 // Mobile: the daily pages sit in a bottom tab bar within thumb reach; settings
 // and help keep an icon in the header next to the bell and messages, and
@@ -252,6 +253,7 @@ export default function Navigation() {
               </div>
               {session.user.name}
             </div>
+            <ThemeToggle />
             <button
               onClick={hardReload}
               title="Rensa cache och ladda om"
@@ -352,6 +354,10 @@ export default function Navigation() {
                 {badge(item.href)}
               </Link>
             ))}
+            <div className="border-t border-slate-800 pt-3 mt-3 flex items-center justify-between">
+              <span className="text-sm text-slate-300">Tema</span>
+              <ThemeToggle />
+            </div>
             <div className="border-t border-slate-800 pt-3 mt-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-slate-300">
                 <div className="w-7 h-7 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold">

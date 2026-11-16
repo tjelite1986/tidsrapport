@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { THEME_COLORS } from '@/lib/theme/theme';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -7,8 +8,11 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Tidrapportering och lönehantering',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f9fafb',
-    theme_color: '#0f172a',
+    // A static manifest cannot follow the user's chosen theme; it carries the
+    // light palette, the same colour as the layout's default theme-color. The
+    // meta tag (ThemeSync) overrides it at runtime once a page is open.
+    background_color: THEME_COLORS.light,
+    theme_color: THEME_COLORS.light,
     orientation: 'any',
     categories: ['productivity'],
     // The ?v= is what makes a new icon reach an already-installed home screen

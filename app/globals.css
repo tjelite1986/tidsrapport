@@ -158,3 +158,135 @@
     animation: none;
   }
 }
+
+/* ---- Tidsrapport 2.0 design tokens -------------------------------------
+   Dark #0B1220 / panel #142139, light #F4F7FB; accents cyan #38BDF8,
+   indigo #6366F1, success #10B981, warning #F59E0B. New components should use
+   these variables; the overrides below carry existing pages (written with
+   fixed light Tailwind classes) into dark mode until they are migrated.     */
+:root {
+  --bg: #F4F7FB;
+  --panel: #ffffff;
+  --text: #0f172a;
+  --muted: #475569;
+  --border: #e2e8f0;
+  --accent: #0284c7;
+  --accent-2: #6366F1;
+  --success: #059669;
+  --warning: #D97706;
+}
+.dark {
+  --bg: #0B1220;
+  --panel: #142139;
+  --text: #e5edf8;
+  --muted: #94a3b8;
+  --border: #243452;
+  --accent: #38BDF8;
+  --accent-2: #818cf8;
+  --success: #10B981;
+  --warning: #F59E0B;
+}
+:focus-visible { outline-offset: 2px; }
+
+/* Dark-mode mapping for the fixed light Tailwind classes the existing pages use.
+   Deliberately NOT scoped to `main`, so dialogs and banners rendered outside it
+   get the same treatment. Surfaces and the text on them are remapped in pairs:
+   a tinted status box (bg-X-50/100) becomes a translucent tint of X over the
+   panel and its X-500..900 text becomes X-300/400, so foreground and
+   background never end up pale-on-pale or dark-on-dark. The navigation bar
+   uses slate-300/400 text on slate-800/900 and is not touched by any rule. */
+.dark .bg-white,
+.dark .card-3d { background-color: var(--panel); background-image: none; }
+.dark .bg-gray-50,
+.dark .bg-slate-50 { background-color: rgb(255 255 255 / 0.04); }
+.dark .bg-gray-100,
+.dark .bg-slate-100 { background-color: rgb(255 255 255 / 0.08); }
+.dark .bg-gray-200,
+.dark .bg-slate-200 { background-color: rgb(255 255 255 / 0.14); }
+.dark .text-gray-900, .dark .text-slate-900, .dark .text-gray-800, .dark .text-slate-800 { color: var(--text); }
+.dark .text-gray-700, .dark .text-slate-700, .dark .text-gray-600, .dark .text-slate-600 { color: #cbd5e1; }
+.dark .text-gray-500, .dark .text-slate-500, .dark .text-gray-400 { color: var(--muted); }
+.dark .border-gray-100, .dark .border-gray-200, .dark .border-gray-300,
+.dark .border-slate-100, .dark .border-slate-200, .dark .border-slate-300,
+.dark .divide-gray-100 > * + *, .dark .divide-gray-200 > * + * { border-color: var(--border); }
+.dark input, .dark select, .dark textarea {
+  background-color: #0f1a2e; color: var(--text); border-color: var(--border);
+}
+.dark .hover\:bg-gray-50:hover, .dark .hover\:bg-gray-100:hover { background-color: rgb(255 255 255 / 0.08); }
+
+/* Opacity variants of white (bg-white/95 sticky save bar, bg-white/60 and /50
+   calendar chips) are separate classes that .bg-white does not match, so they
+   stay light in dark mode unless remapped. Sticky bar: the panel at 95%.
+   Chips sit on tinted day cells: a faint white veil, not a white block. */
+.dark .bg-white\/95 { background-color: color-mix(in srgb, var(--panel) 95%, transparent); }
+.dark .bg-white\/60, .dark .bg-white\/50 { background-color: rgb(255 255 255 / 0.07); }
+.dark .bg-pink-50\/50 { background-color: color-mix(in srgb, theme('colors.pink.500') 8%, transparent); }
+.dark .bg-purple-50\/50 { background-color: color-mix(in srgb, theme('colors.purple.500') 8%, transparent); }
+.dark .bg-gray-50\/70 { background-color: rgb(255 255 255 / 0.04); }
+.dark .hover\:bg-white:hover, .dark .hover\:bg-white\/60:hover { background-color: rgb(255 255 255 / 0.14); }
+
+/* Tinted status families (generated: one block per colour) */
+.dark .bg-red-50, .dark .hover\:bg-red-50:hover { background-color: color-mix(in srgb, theme('colors.red.500') 14%, transparent); }
+.dark .bg-red-100, .dark .hover\:bg-red-100:hover { background-color: color-mix(in srgb, theme('colors.red.500') 22%, transparent); }
+.dark .text-red-500, .dark .text-red-600 { color: theme('colors.red.400'); }
+.dark .text-red-700, .dark .text-red-800, .dark .text-red-900 { color: theme('colors.red.300'); }
+.dark .border-red-100, .dark .border-red-200, .dark .border-red-300 { border-color: color-mix(in srgb, theme('colors.red.400') 35%, transparent); }
+.dark .bg-amber-50, .dark .hover\:bg-amber-50:hover { background-color: color-mix(in srgb, theme('colors.amber.500') 14%, transparent); }
+.dark .bg-amber-100, .dark .hover\:bg-amber-100:hover { background-color: color-mix(in srgb, theme('colors.amber.500') 22%, transparent); }
+.dark .text-amber-500, .dark .text-amber-600 { color: theme('colors.amber.400'); }
+.dark .text-amber-700, .dark .text-amber-800, .dark .text-amber-900 { color: theme('colors.amber.300'); }
+.dark .border-amber-100, .dark .border-amber-200, .dark .border-amber-300 { border-color: color-mix(in srgb, theme('colors.amber.400') 35%, transparent); }
+.dark .bg-yellow-50, .dark .hover\:bg-yellow-50:hover { background-color: color-mix(in srgb, theme('colors.yellow.500') 14%, transparent); }
+.dark .bg-yellow-100, .dark .hover\:bg-yellow-100:hover { background-color: color-mix(in srgb, theme('colors.yellow.500') 22%, transparent); }
+.dark .text-yellow-500, .dark .text-yellow-600 { color: theme('colors.yellow.400'); }
+.dark .text-yellow-700, .dark .text-yellow-800, .dark .text-yellow-900 { color: theme('colors.yellow.300'); }
+.dark .border-yellow-100, .dark .border-yellow-200, .dark .border-yellow-300 { border-color: color-mix(in srgb, theme('colors.yellow.400') 35%, transparent); }
+.dark .bg-green-50, .dark .hover\:bg-green-50:hover { background-color: color-mix(in srgb, theme('colors.green.500') 14%, transparent); }
+.dark .bg-green-100, .dark .hover\:bg-green-100:hover { background-color: color-mix(in srgb, theme('colors.green.500') 22%, transparent); }
+.dark .text-green-500, .dark .text-green-600 { color: theme('colors.green.400'); }
+.dark .text-green-700, .dark .text-green-800, .dark .text-green-900 { color: theme('colors.green.300'); }
+.dark .border-green-100, .dark .border-green-200, .dark .border-green-300 { border-color: color-mix(in srgb, theme('colors.green.400') 35%, transparent); }
+.dark .bg-emerald-50, .dark .hover\:bg-emerald-50:hover { background-color: color-mix(in srgb, theme('colors.emerald.500') 14%, transparent); }
+.dark .bg-emerald-100, .dark .hover\:bg-emerald-100:hover { background-color: color-mix(in srgb, theme('colors.emerald.500') 22%, transparent); }
+.dark .text-emerald-500, .dark .text-emerald-600 { color: theme('colors.emerald.400'); }
+.dark .text-emerald-700, .dark .text-emerald-800, .dark .text-emerald-900 { color: theme('colors.emerald.300'); }
+.dark .border-emerald-100, .dark .border-emerald-200, .dark .border-emerald-300 { border-color: color-mix(in srgb, theme('colors.emerald.400') 35%, transparent); }
+.dark .bg-blue-50, .dark .hover\:bg-blue-50:hover { background-color: color-mix(in srgb, theme('colors.blue.500') 14%, transparent); }
+.dark .bg-blue-100, .dark .hover\:bg-blue-100:hover { background-color: color-mix(in srgb, theme('colors.blue.500') 22%, transparent); }
+.dark .text-blue-500, .dark .text-blue-600 { color: theme('colors.blue.400'); }
+.dark .text-blue-700, .dark .text-blue-800, .dark .text-blue-900 { color: theme('colors.blue.300'); }
+.dark .border-blue-100, .dark .border-blue-200, .dark .border-blue-300 { border-color: color-mix(in srgb, theme('colors.blue.400') 35%, transparent); }
+.dark .bg-sky-50, .dark .hover\:bg-sky-50:hover { background-color: color-mix(in srgb, theme('colors.sky.500') 14%, transparent); }
+.dark .bg-sky-100, .dark .hover\:bg-sky-100:hover { background-color: color-mix(in srgb, theme('colors.sky.500') 22%, transparent); }
+.dark .text-sky-500, .dark .text-sky-600 { color: theme('colors.sky.400'); }
+.dark .text-sky-700, .dark .text-sky-800, .dark .text-sky-900 { color: theme('colors.sky.300'); }
+.dark .border-sky-100, .dark .border-sky-200, .dark .border-sky-300 { border-color: color-mix(in srgb, theme('colors.sky.400') 35%, transparent); }
+.dark .bg-indigo-50, .dark .hover\:bg-indigo-50:hover { background-color: color-mix(in srgb, theme('colors.indigo.500') 14%, transparent); }
+.dark .bg-indigo-100, .dark .hover\:bg-indigo-100:hover { background-color: color-mix(in srgb, theme('colors.indigo.500') 22%, transparent); }
+.dark .text-indigo-500, .dark .text-indigo-600 { color: theme('colors.indigo.400'); }
+.dark .text-indigo-700, .dark .text-indigo-800, .dark .text-indigo-900 { color: theme('colors.indigo.300'); }
+.dark .border-indigo-100, .dark .border-indigo-200, .dark .border-indigo-300 { border-color: color-mix(in srgb, theme('colors.indigo.400') 35%, transparent); }
+.dark .bg-purple-50, .dark .hover\:bg-purple-50:hover { background-color: color-mix(in srgb, theme('colors.purple.500') 14%, transparent); }
+.dark .bg-purple-100, .dark .hover\:bg-purple-100:hover { background-color: color-mix(in srgb, theme('colors.purple.500') 22%, transparent); }
+.dark .text-purple-500, .dark .text-purple-600 { color: theme('colors.purple.400'); }
+.dark .text-purple-700, .dark .text-purple-800, .dark .text-purple-900 { color: theme('colors.purple.300'); }
+.dark .border-purple-100, .dark .border-purple-200, .dark .border-purple-300 { border-color: color-mix(in srgb, theme('colors.purple.400') 35%, transparent); }
+.dark .bg-pink-50, .dark .hover\:bg-pink-50:hover { background-color: color-mix(in srgb, theme('colors.pink.500') 14%, transparent); }
+.dark .bg-pink-100, .dark .hover\:bg-pink-100:hover { background-color: color-mix(in srgb, theme('colors.pink.500') 22%, transparent); }
+.dark .text-pink-500, .dark .text-pink-600 { color: theme('colors.pink.400'); }
+.dark .text-pink-700, .dark .text-pink-800, .dark .text-pink-900 { color: theme('colors.pink.300'); }
+.dark .border-pink-100, .dark .border-pink-200, .dark .border-pink-300 { border-color: color-mix(in srgb, theme('colors.pink.400') 35%, transparent); }
+.dark .bg-orange-50, .dark .hover\:bg-orange-50:hover { background-color: color-mix(in srgb, theme('colors.orange.500') 14%, transparent); }
+.dark .bg-orange-100, .dark .hover\:bg-orange-100:hover { background-color: color-mix(in srgb, theme('colors.orange.500') 22%, transparent); }
+.dark .text-orange-500, .dark .text-orange-600 { color: theme('colors.orange.400'); }
+.dark .text-orange-700, .dark .text-orange-800, .dark .text-orange-900 { color: theme('colors.orange.300'); }
+.dark .border-orange-100, .dark .border-orange-200, .dark .border-orange-300 { border-color: color-mix(in srgb, theme('colors.orange.400') 35%, transparent); }
+.dark .bg-teal-50, .dark .hover\:bg-teal-50:hover { background-color: color-mix(in srgb, theme('colors.teal.500') 14%, transparent); }
+.dark .bg-teal-100, .dark .hover\:bg-teal-100:hover { background-color: color-mix(in srgb, theme('colors.teal.500') 22%, transparent); }
+.dark .text-teal-500, .dark .text-teal-600 { color: theme('colors.teal.400'); }
+.dark .text-teal-700, .dark .text-teal-800, .dark .text-teal-900 { color: theme('colors.teal.300'); }
+.dark .border-teal-100, .dark .border-teal-200, .dark .border-teal-300 { border-color: color-mix(in srgb, theme('colors.teal.400') 35%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+}

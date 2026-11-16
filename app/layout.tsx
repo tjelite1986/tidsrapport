@@ -2,11 +2,15 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import SessionProvider from '@/components/SessionProvider';
 import Navigation from '@/components/Navigation';
+import ThemeSync from '@/components/ThemeSync';
 import PwaRegister from '@/components/PwaRegister';
 import PwaInstallBanner from '@/components/PwaInstallBanner';
+import { THEME_INIT_SCRIPT } from '@/lib/theme/theme';
 
 export const viewport: Viewport = {
-  themeColor: '#0f172a',
+  // One tag: ThemeSync (and the init script, when the tag already exists)
+  // rewrites its content to match the resolved theme.
+  themeColor: '#F4F7FB',
 };
 
 export const metadata: Metadata = {
@@ -28,8 +32,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="sv">
-      <body className="bg-gray-50 min-h-screen">
+    <html lang="sv" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      <body className="bg-gray-50 dark:bg-[#0B1220] min-h-screen">
+        <ThemeSync />
         <SessionProvider>
           <Navigation />
           <main className="max-w-7xl mx-auto px-4 pt-6 pb-28 2xl:pb-6 page-stagger">{children}</main>
