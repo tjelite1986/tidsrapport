@@ -42,6 +42,7 @@ export default function DatePicker({ value, onChange, required, className, place
       const below = window.innerHeight - t.bottom - MARGIN;
       const above = t.top - MARGIN;
       // Below if it fits, else above; if neither fits, pin it to the bottom edge (it may cover the trigger).
+      // max-h keeps it no taller than the viewport, so on a landscape phone it scrolls inside instead of running off-screen.
       const top = below >= h
         ? t.bottom + 4
         : above >= h
@@ -139,7 +140,7 @@ export default function DatePicker({ value, onChange, required, className, place
         <div
           ref={popupRef}
           style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
-          className="fixed z-[60] bg-white border border-gray-200 rounded-lg shadow-xl p-2 w-max max-w-[calc(100vw-16px)]"
+          className="fixed z-[60] bg-white border border-gray-200 rounded-lg shadow-xl p-2 w-max max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain"
         >
           {/* Månadsnavigering */}
           <div className="flex items-center justify-between mb-2">
