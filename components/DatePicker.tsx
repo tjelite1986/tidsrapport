@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const DAY_NAMES = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
 const MONTH_NAMES = [
@@ -21,13 +22,48 @@ export default function DatePicker({ value, onChange, required, className, place
   const [navYear, setNavYear] = useState(() => value ? parseInt(value.slice(0, 4)) : new Date().getFullYear());
   const [navMonth, setNavMonth] = useState(() => value ? parseInt(value.slice(5, 7)) - 1 : new Date().getMonth());
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  // The popup is portaled to <body> with fixed positioning: inside a Collapsible (overflow-hidden)
+  // it was clipped, and opened from a right-hand grid column it ran off a 360 px screen.
+  // Clamp it into the viewport, below the trigger, or above it when there is no room below.
+  useLayoutEffect(() => {
+    if (!open) { setPos(null); return; }
+    const MARGIN = 8;
+    function place() {
+      const t = triggerRef.current?.getBoundingClientRect();
+      const p = popupRef.current;
+      if (!t || !p) return;
+      const w = p.offsetWidth;
+      const h = p.offsetHeight;
+      const left = Math.max(MARGIN, Math.min(t.left, window.innerWidth - w - MARGIN));
+      const below = window.innerHeight - t.bottom - MARGIN;
+      const above = t.top - MARGIN;
+      // Below if it fits, else above; if neither fits, pin it to the bottom edge (it may cover the trigger).
+      const top = below >= h
+        ? t.bottom + 4
+        : above >= h
+        ? t.top - 4 - h
+        : Math.max(MARGIN, window.innerHeight - h - MARGIN);
+      setPos({ top, left });
+    }
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open, navYear, navMonth]);
 
   // Stäng vid klick utanför
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || popupRef.current?.contains(target)) return;
+      setOpen(false);
     }
     if (open) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -91,6 +127,7 @@ export default function DatePicker({ value, onChange, required, className, place
       <input type="hidden" value={value} required={required} />
 
       <button
+        ref={triggerRef}
         type="button"
         onClick={handleOpen}
         className={`text-left min-h-[44px] ${className || ''}`}
@@ -98,8 +135,12 @@ export default function DatePicker({ value, onChange, required, className, place
         {value || <span className="text-gray-400">{placeholder || 'ÅÅÅÅ-MM-DD'}</span>}
       </button>
 
-      {open && (
-        <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl p-2 w-max">
+      {open && createPortal(
+        <div
+          ref={popupRef}
+          style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
+          className="fixed z-[60] bg-white border border-gray-200 rounded-lg shadow-xl p-2 w-max max-w-[calc(100vw-16px)]"
+        >
           {/* Månadsnavigering */}
           <div className="flex items-center justify-between mb-2">
             <button
@@ -167,7 +208,8 @@ export default function DatePicker({ value, onChange, required, className, place
               Idag ({today})
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
