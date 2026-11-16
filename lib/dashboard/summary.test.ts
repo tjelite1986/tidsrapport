@@ -141,8 +141,15 @@ describe('earnedLabels / weekEarned for fixed_plus and vacation', () => {
     }
   });
 
-  it('a vacation day (no pay day, no work entry) adds nothing', () => {
-    const vac = [...week, e(3, '2026-11-18', null, null, { entryType: 'vab', hours: 0 })];
-    expect(weekEarned(fixedDays, vac, now)).toEqual({ gross: 450, hours: 16 });
+  it('a real vacation day (month-level vacationDaysPay, no per-day pay, no time entry) adds nothing', () => {
+    // Shape of the /api/salary contract: vacation is paid per month in vacationDaysPay/vacationDaysCount,
+    // while `days` only holds worked days. Wed 2026-11-18 is a vacation day.
+    const salary = { vacationDaysPay: 1200, vacationDaysCount: 1, days: fixedDays };
+    const entries = [...week]; // vacation days have no time_entries row
+    expect(weekEarned(salary.days, entries, now)).toEqual({ gross: 450, hours: 16 });
+    // the 1200 kr is never in the figure, and the hero says so
+    expect(weekEarned(salary.days, entries, now).gross).not.toBe(450 + salary.vacationDaysPay);
+    expect(earnedLabels('fixed_plus').note).toMatch(/Exkl\..*semesterlön/);
+    expect(earnedLabels('hourly').note).toMatch(/Exkl\..*semesterlön/);
   });
 });
