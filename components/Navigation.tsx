@@ -398,13 +398,14 @@ export default function Navigation() {
                 key={href}
                 href={href}
                 onClick={() => setMenuOpen(false)}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
-                  active ? 'text-white' : 'text-slate-400 hover:text-white'
+                aria-current={active ? 'page' : undefined}
+                className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-400 ${
+                  active ? 'text-sky-300' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <span
                   className={`px-4 py-0.5 rounded-full transition-colors [&>svg]:w-6 [&>svg]:h-6 ${
-                    active ? 'bg-white/15' : ''
+                    active ? 'bg-sky-400/15' : ''
                   }`}
                 >
                   {item.icon}
@@ -416,11 +417,11 @@ export default function Navigation() {
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             aria-expanded={menuOpen}
-            className={`relative flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
-              menuOpen || moreActive ? 'text-white' : 'text-slate-400 hover:text-white'
+            className={`relative flex-1 min-w-0 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-400 ${
+              menuOpen || moreActive ? 'text-sky-300' : 'text-slate-400 hover:text-white'
             }`}
           >
-            <span className={`px-4 py-0.5 rounded-full transition-colors ${menuOpen || moreActive ? 'bg-white/15' : ''}`}>
+            <span className={`px-4 py-0.5 rounded-full transition-colors ${menuOpen || moreActive ? 'bg-sky-400/15' : ''}`}>
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>

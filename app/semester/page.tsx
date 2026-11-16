@@ -172,7 +172,8 @@ export default function SemesterPage() {
           <div className="flex items-center justify-center gap-4 mb-5">
             <button
               onClick={() => changeYear(-1)}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+              aria-label="Föregående år"
+              className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -184,7 +185,8 @@ export default function SemesterPage() {
             </div>
             <button
               onClick={() => changeYear(1)}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+              aria-label="Nästa år"
+              className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -244,7 +246,7 @@ export default function SemesterPage() {
                 <button
                   key={oy.year}
                   onClick={() => setYear(oy.year)}
-                  className="text-xs bg-white/10 hover:bg-white/20 border border-white/15 px-2.5 py-1 rounded-full transition-colors"
+                  className="text-xs min-h-[44px] inline-flex items-center bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 rounded-full transition-colors"
                 >
                   {oy.year} · {oy.count} dag{oy.count !== 1 ? 'ar' : ''}
                 </button>
@@ -291,7 +293,7 @@ export default function SemesterPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                className="w-full min-h-[44px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
               >
                 {saving ? 'Sparar...' : 'Lägg till semesterdag'}
               </button>
@@ -333,7 +335,7 @@ export default function SemesterPage() {
               <button
                 type="submit"
                 disabled={savingSettings}
-                className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                className="w-full min-h-[44px] bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
               >
                 {savingSettings ? 'Sparar...' : 'Spara'}
               </button>
@@ -441,7 +443,7 @@ function VacationDayRow({
       <button
         onClick={() => onDelete(day.id)}
         disabled={deletingId === day.id}
-        className="text-gray-300 hover:text-red-500 disabled:opacity-30 transition-colors p-1.5 rounded"
+        className="-my-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-gray-300 hover:text-red-500 disabled:opacity-30 transition-colors rounded-lg"
         title="Ta bort"
       >
         {deletingId === day.id ? (

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 
 import PageHeader from '@/components/ui/PageHeader';
+import { buildReportCsv, entryTypeLabel, OVERTIME_LABELS } from '@/lib/reports/csv';
+
 interface ReportEntry {
   id: number;
   userName: string;
@@ -20,19 +22,6 @@ interface ReportEntry {
 interface Project {
   id: number;
   name: string;
-}
-
-const overtimeLabels: Record<string, string> = {
-  none: '-',
-  mertid: 'Mertid',
-  enkel: 'Enkel ÖT',
-  kvalificerad: 'Kval ÖT',
-};
-
-function csvField(value: string | number | null | undefined): string {
-  const s = String(value ?? '');
-  // Quote + escape embedded quotes/commas/newlines per RFC 4180
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export default function RapporterPage() {
@@ -69,23 +58,9 @@ export default function RapporterPage() {
   const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
 
   function exportCSV() {
-    const header = 'Datum,Användare,Projekt,Start,Slut,Rast(min),Timmar,Typ,Övertid,Beskrivning\n';
-    const rows = entries.map((e) =>
-      [
-        e.date,
-        csvField(e.userName),
-        csvField(e.projectName),
-        e.startTime || '',
-        e.endTime || '',
-        e.breakMinutes || 0,
-        e.hours,
-        e.entryType,
-        overtimeLabels[e.overtimeType] || '-',
-        csvField(e.description),
-      ].join(',')
-    ).join('\n');
+    const csv = buildReportCsv(entries);
 
-    const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -128,7 +103,7 @@ export default function RapporterPage() {
         doc.text(e.startTime || '-', 100, y);
         doc.text(e.endTime || '-', 115, y);
         doc.text(e.hours.toFixed(1), 130, y);
-        doc.text(e.entryType === 'sick' ? 'Sjuk' : e.entryType === 'vab' ? 'VAB' : 'Arb', 148, y);
+        doc.text(entryTypeLabel(e.entryType), 148, y);
         doc.text((e.description || '').substring(0, 25), 165, y);
       });
 
@@ -136,79 +111,99 @@ export default function RapporterPage() {
     });
   }
 
+  const typeBadge = (entryType: string) =>
+    entryType === 'sick' ? 'bg-red-100 text-red-700' : entryType === 'vab' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700';
+
   return (
     <div>
       <PageHeader title="Rapporter" />
 
-      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Från</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+      <section aria-label="Filter och export" className="surface p-4 sm:p-6 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-[auto_auto_minmax(10rem,1fr)_auto] gap-3 md:gap-4 md:items-end">
+          <div className="min-w-0">
+            <label htmlFor="report-from" className="field-label">Från</label>
+            <input id="report-from" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="field" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Till</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="min-w-0">
+            <label htmlFor="report-to" className="field-label">Till</label>
+            <input id="report-to" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="field" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Projekt</label>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
+          <div className="col-span-2 md:col-span-1 min-w-0">
+            <label htmlFor="report-project" className="field-label">Projekt</label>
+            <select id="report-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} className="field">
               <option value="">Alla</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </div>
-          <div className="flex gap-2">
-            <button onClick={exportCSV} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+          <div className="col-span-2 md:col-span-1 grid grid-cols-2 gap-2">
+            <button onClick={exportCSV} className="btn bg-green-600 text-white hover:bg-green-700">
               Exportera CSV
             </button>
-            <button onClick={exportPDF} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">
+            <button onClick={exportPDF} className="btn bg-red-600 text-white hover:bg-red-700">
               Exportera PDF
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="bg-white rounded-xl card-3d border border-gray-100 overflow-hidden">
-        <div className="px-6 py-3 bg-gray-50 flex justify-between items-center">
+      <section aria-label="Poster" className="surface overflow-hidden">
+        <div className="px-4 sm:px-6 py-3 bg-gray-50 flex flex-wrap justify-between items-center gap-2">
           <span className="text-sm text-gray-600">{entries.length} poster</span>
-          <span className="font-semibold">Totalt: {totalHours.toFixed(1)} timmar</span>
+          <span className="font-semibold tabular-nums">Totalt: {totalHours.toFixed(1)} timmar</span>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Phones: one card per entry */}
+        <ul className="md:hidden divide-y divide-gray-200">
+          {entries.map((entry) => (
+            <li key={entry.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium tabular-nums">{entry.date}</p>
+                  <p className="text-sm text-gray-600 break-words">{entry.projectName}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-semibold tabular-nums">{entry.hours.toFixed(1)} h</p>
+                  <span className={`inline-block mt-0.5 text-xs px-1.5 py-0.5 rounded ${typeBadge(entry.entryType)}`}>
+                    {entryTypeLabel(entry.entryType)}
+                  </span>
+                </div>
+              </div>
+              <dl className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                <div className="flex gap-1"><dt>Tid</dt><dd className="text-gray-700 tabular-nums">{entry.startTime || '-'}–{entry.endTime || '-'}</dd></div>
+                <div className="flex gap-1"><dt>Rast</dt><dd className="text-gray-700">{entry.breakMinutes ? `${entry.breakMinutes}m` : '-'}</dd></div>
+                {entry.overtimeType !== 'none' && (
+                  <div className="flex gap-1"><dt>ÖT</dt><dd className="text-gray-700">{OVERTIME_LABELS[entry.overtimeType] || '-'}</dd></div>
+                )}
+                <div className="flex gap-1"><dt>Användare</dt><dd className="text-gray-700">{entry.userName}</dd></div>
+              </dl>
+              {entry.description && <p className="mt-1 text-sm text-gray-600 break-words">{entry.description}</p>}
+            </li>
+          ))}
+        </ul>
+
+        {/* Tablet and up: the full table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Användare</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Projekt</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slut</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rast</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timmar</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ÖT</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beskrivning</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Användare</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Projekt</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slut</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rast</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timmar</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ÖT</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beskrivning</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {entries.map((entry) => (
                 <tr key={entry.id}>
-                  <td className="px-4 py-3">{entry.date}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{entry.date}</td>
                   <td className="px-4 py-3">{entry.userName}</td>
                   <td className="px-4 py-3">{entry.projectName}</td>
                   <td className="px-4 py-3 text-sm">{entry.startTime || '-'}</td>
@@ -216,15 +211,11 @@ export default function RapporterPage() {
                   <td className="px-4 py-3 text-sm">{entry.breakMinutes ? `${entry.breakMinutes}m` : '-'}</td>
                   <td className="px-4 py-3">{entry.hours.toFixed(1)}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      entry.entryType === 'sick' ? 'bg-red-100 text-red-700'
-                      : entry.entryType === 'vab' ? 'bg-amber-100 text-amber-700'
-                      : 'bg-green-100 text-green-700'
-                    }`}>
-                      {entry.entryType === 'sick' ? 'Sjuk' : entry.entryType === 'vab' ? 'VAB' : 'Arb'}
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${typeBadge(entry.entryType)}`}>
+                      {entryTypeLabel(entry.entryType)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs">{overtimeLabels[entry.overtimeType] || '-'}</td>
+                  <td className="px-4 py-3 text-xs">{OVERTIME_LABELS[entry.overtimeType] || '-'}</td>
                   <td className="px-4 py-3 text-gray-600">{entry.description || '-'}</td>
                 </tr>
               ))}
@@ -234,7 +225,7 @@ export default function RapporterPage() {
         {entries.length === 0 && (
           <p className="text-center text-gray-500 py-8">Inga poster hittades.</p>
         )}
-      </div>
+      </section>
     </div>
   );
 }

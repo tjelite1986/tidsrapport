@@ -290,3 +290,59 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; }
 }
+
+/* ---- Tidsrapport 2.1 mobile controls --------------------------------------
+   Shared button and field classes so every page gets the same 44px touch
+   target, radius and focus ring. Dark mode is spelled out here because the
+   `.dark .bg-white`-style remaps above match class names, not @apply output.
+   Fields use 16px text on phones so iOS does not zoom in on focus.          */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg text-sm font-medium transition-colors
+      disabled:opacity-50 disabled:cursor-not-allowed
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500;
+  }
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 dark:bg-sky-600 dark:hover:bg-sky-500;
+  }
+  .btn-secondary {
+    @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  }
+  .btn-accent {
+    @apply border border-blue-600 text-blue-700 hover:bg-blue-50;
+  }
+  .btn-danger {
+    @apply border border-red-200 text-red-600 hover:bg-red-50;
+  }
+  .field {
+    @apply w-full min-h-[44px] px-3 py-2 rounded-lg border border-slate-300 bg-white text-base sm:text-sm
+      focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500;
+  }
+  .field-label {
+    @apply block text-sm font-medium text-slate-700 mb-1;
+  }
+  .surface {
+    @apply bg-white rounded-2xl card-3d border border-slate-200/70;
+  }
+}
+.dark .btn-secondary { background-color: rgb(255 255 255 / 0.04); color: #dbe5f3; border-color: var(--border); }
+.dark .btn-secondary:hover { background-color: rgb(255 255 255 / 0.09); }
+.dark .btn-accent { color: theme('colors.sky.300'); border-color: color-mix(in srgb, theme('colors.sky.400') 55%, transparent); }
+.dark .btn-accent:hover { background-color: color-mix(in srgb, theme('colors.sky.500') 14%, transparent); }
+.dark .btn-danger { color: theme('colors.red.300'); border-color: color-mix(in srgb, theme('colors.red.400') 40%, transparent); }
+.dark .btn-danger:hover { background-color: color-mix(in srgb, theme('colors.red.500') 14%, transparent); }
+.dark .field { background-color: #0f1a2e; color: var(--text); border-color: var(--border); }
+.dark .field-label { color: #cbd5e1; }
+.dark .surface { background-color: var(--panel); background-image: none; border-color: var(--border); }
+
+/* Phones: every text field and select in a page is at least a 44px touch
+   target with 16px text (iOS zooms the page on focus below 16px). Checkboxes,
+   radios, range and file inputs keep their own size. */
+@media (max-width: 767px) {
+  main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  main select,
+  main textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}

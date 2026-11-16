@@ -78,7 +78,7 @@ export default function PayslipFieldsEditor({
                 <button
                   type="button"
                   onClick={() => onObAdd()}
-                  className="text-xs px-2 py-1 rounded-md border border-orange-300 text-orange-700 hover:bg-orange-100"
+                  className="text-xs min-h-[44px] px-3 rounded-md border border-orange-300 text-orange-700 hover:bg-orange-100"
                 >
                   Lägg till OB-rad
                 </button>
@@ -130,7 +130,7 @@ export default function PayslipFieldsEditor({
                       type="button"
                       onClick={() => onObRemove(index)}
                       aria-label="Ta bort OB-raden"
-                      className="px-2 py-1.5 rounded-md border border-orange-200 text-orange-700 hover:bg-orange-100 text-sm"
+                      className="min-h-[44px] px-3 rounded-md border border-orange-200 text-orange-700 hover:bg-orange-100 text-sm"
                     >
                       ✕
                     </button>
@@ -146,7 +146,7 @@ export default function PayslipFieldsEditor({
                       key={percent}
                       type="button"
                       onClick={() => onObAdd(percent)}
-                      className="px-2 py-0.5 rounded-full border border-orange-300 text-orange-700 hover:bg-orange-100"
+                      className="min-h-[44px] px-3 rounded-full border border-orange-300 text-orange-700 hover:bg-orange-100"
                     >
                       + {percent}%
                     </button>

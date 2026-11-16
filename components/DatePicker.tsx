@@ -93,7 +93,7 @@ export default function DatePicker({ value, onChange, required, className, place
       <button
         type="button"
         onClick={handleOpen}
-        className={`text-left ${className || ''}`}
+        className={`text-left min-h-[44px] ${className || ''}`}
       >
         {value || <span className="text-gray-400">{placeholder || 'ÅÅÅÅ-MM-DD'}</span>}
       </button>
@@ -105,7 +105,7 @@ export default function DatePicker({ value, onChange, required, className, place
             <button
               type="button"
               onClick={prevMonth}
-              className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-lg font-bold"
+              className="w-11 h-11 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-lg font-bold"
             >
               ‹
             </button>
@@ -115,7 +115,7 @@ export default function DatePicker({ value, onChange, required, className, place
             <button
               type="button"
               onClick={nextMonth}
-              className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-lg font-bold"
+              className="w-11 h-11 flex items-center justify-center rounded hover:bg-gray-100 text-gray-600 text-lg font-bold"
             >
               ›
             </button>
@@ -142,7 +142,7 @@ export default function DatePicker({ value, onChange, required, className, place
                   key={d}
                   type="button"
                   onClick={() => selectDate(d)}
-                  className={`text-sm py-1.5 rounded text-center transition-colors ${
+                  className={`text-sm min-h-[44px] rounded text-center transition-colors ${
                     isSelected
                       ? 'bg-blue-600 text-white font-semibold'
                       : isToday
@@ -161,7 +161,7 @@ export default function DatePicker({ value, onChange, required, className, place
             <button
               type="button"
               onClick={() => selectDate(today)}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-blue-600 hover:underline min-h-[44px] px-3 inline-flex items-center"
             >
               Idag ({today})
             </button>

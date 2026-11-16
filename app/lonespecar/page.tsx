@@ -2,6 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
+import Collapsible from '@/components/ui/Collapsible';
+import {
+  detailGroups,
+  diffStatus,
+  formatDiff,
+  headlineRows,
+  monthBadge,
+  type DiffStatus,
+} from '@/lib/payslips/compare-view';
 import PayslipFieldsEditor, {
   EMPTY_FIELDS,
   type FieldValues,
@@ -63,22 +72,6 @@ function formatValue(value: number, unit: ComparisonRow['unit']) {
   return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2 }).format(value);
 }
 
-function formatDiff(amount: number, unit: ComparisonRow['unit']) {
-  const money = unit === 'currency' || unit === 'rate';
-  const formatted = new Intl.NumberFormat('sv-SE', {
-    minimumFractionDigits: money ? 2 : 0,
-    maximumFractionDigits: 2,
-  }).format(Math.abs(amount) < 0.005 ? 0 : Math.abs(amount));
-  const suffix = unit === 'currency' ? ' kr' : unit === 'hours' ? ' h' : '';
-  if (Math.abs(amount) < 0.005) return `${formatted}${suffix}`;
-  return `${amount > 0 ? '+' : '−'}${formatted}${suffix}`;
-}
-
-/** How large a diff may be before it is flagged: up to 0.60 kr on amounts, otherwise any difference counts. */
-function isMatch(diff: number, unit: ComparisonRow['unit']) {
-  return Math.abs(diff) < (unit === 'currency' ? 0.605 : 0.005);
-}
-
 function formatMonth(month: string) {
   const [year, m] = month.split('-');
   return `${MONTH_SV[Number(m)]} ${year}`;
@@ -134,6 +127,7 @@ export default function LonespecarPage() {
   const [aiEnabled, setAiEnabled] = useState(false);
   const [reading, setReading] = useState(false);
   const [aiInfo, setAiInfo] = useState<string | null>(null);
+  const [showAmounts, setShowAmounts] = useState(false);
 
   // Inline edit
   const [editId, setEditId] = useState<number | null>(null);
@@ -238,6 +232,7 @@ export default function LonespecarPage() {
       else if (CORE_FIELDS.includes(field.key)) missing.push(field.label.toLowerCase());
     }
     setFields(next);
+    setShowAmounts(true);
     const lines = Array.isArray(data.obLines) ? obRowsFromLines(data.obLines) : [];
     setObRows(lines);
     filled += lines.length;
@@ -285,6 +280,8 @@ export default function LonespecarPage() {
     load();
   }
 
+  const filledCount = Object.values(fields).filter((v) => v.trim() !== '').length + obRowsToPayload(obRows).length;
+
   const yearOptions = years.includes(new Date().getFullYear()) ? years : [new Date().getFullYear(), ...years];
 
   return (
@@ -298,158 +295,189 @@ export default function LonespecarPage() {
       )}
 
       {/* Upload */}
-      <form onSubmit={handleUpload} className="bg-white p-4 sm:p-6 rounded-xl card-3d border border-gray-100 mb-6 space-y-4">
-        <h2 className="text-lg font-semibold">Ladda upp lönespec</h2>
+      <Collapsible
+        title="Ladda upp lönespec"
+        description="PDF eller bild. Beloppen är valfria och kan fyllas i senare."
+        defaultOpen={false}
+        className="mb-6"
+      >
+        <form onSubmit={handleUpload} className="space-y-5">
+          <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <legend className="sr-only">Fil och månad</legend>
+            <div>
+              <label htmlFor="payslip-month" className="field-label">Utbetalningsmånad</label>
+              <input
+                id="payslip-month"
+                type="month"
+                value={payMonth}
+                onChange={(e) => setPayMonth(e.target.value)}
+                required
+                className="field"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Avser arbetsperiod <strong>{payMonth ? formatMonth(monthBefore(payMonth)) : '–'}</strong>
+              </p>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Utbetalningsmånad</label>
-            <input
-              type="month"
-              value={payMonth}
-              onChange={(e) => setPayMonth(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Avser arbetsperiod <strong>{payMonth ? formatMonth(monthBefore(payMonth)) : '–'}</strong>
-            </p>
-          </div>
+            <div>
+              <label htmlFor="payslip-file" className="field-label">Fil (PDF, PNG, JPG, WEBP)</label>
+              <input
+                id="payslip-file"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] ?? null);
+                  setAiInfo(null);
+                }}
+                className="w-full text-sm text-slate-700 file:mr-3 file:min-h-[44px] file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Max 10 MB.{aiEnabled ? ' Beloppen kan läsas av med AI.' : ''}
+              </p>
+            </div>
+          </fieldset>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fil (PDF, PNG, JPG, WEBP)</label>
-            <input
-              id="payslip-file"
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
-              onChange={(e) => {
-                setFile(e.target.files?.[0] ?? null);
-                setAiInfo(null);
-              }}
-              className="w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-          </div>
-        </div>
-
-        <div className="border-t border-gray-100 pt-4">
-          <p className="text-sm text-gray-500 mb-3">
-            Beloppen är valfria — fyll i de rader du vill jämföra mot appens beräkning.
-          </p>
-          <PayslipFieldsEditor
-            values={fields}
-            obRows={obRows}
-            suggestedPercents={knownPercents}
-            onChange={(key, value) => setFields((prev) => ({ ...prev, [key]: value }))}
-            onObChange={(index, key, value) =>
-              setObRows((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)))
-            }
-            onObAdd={(percent) =>
-              setObRows((prev) => [...prev, { percent: percent ? String(percent) : '', hours: '', amount: '' }])
-            }
-            onObRemove={(index) => setObRows((prev) => prev.filter((_, i) => i !== index))}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Anteckning (valfritt)</label>
-          <input
-            type="text"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="T.ex. retroaktiv justering, bonus"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        {aiInfo && (
-          <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-800">
-            {aiInfo}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            disabled={uploading || reading || !file}
-            className="btn-3d bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-          >
-            {uploading ? 'Laddar upp…' : 'Ladda upp'}
-          </button>
           {aiEnabled && (
             <button
               type="button"
               onClick={readWithAi}
               disabled={reading || uploading || !file}
-              className="border border-blue-600 text-blue-700 px-4 py-2 rounded-md hover:bg-blue-50 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+              className="btn btn-accent w-full sm:w-auto"
             >
               {reading ? 'Läser av…' : 'Läs av med AI'}
             </button>
           )}
-          <p className="text-xs text-gray-500">
-            Max 10 MB. Beloppen kan fyllas i senare{aiEnabled ? ' eller läsas av från specen' : ''}.
-          </p>
-        </div>
-      </form>
+
+          {aiInfo && (
+            <div role="status" className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-800">
+              {aiInfo}
+            </div>
+          )}
+
+          <fieldset className="rounded-xl border border-slate-200 overflow-hidden">
+            <legend className="sr-only">Belopp att jämföra</legend>
+            <button
+              type="button"
+              aria-expanded={showAmounts}
+              aria-controls="payslip-amounts"
+              onClick={() => setShowAmounts((v) => !v)}
+              className="w-full min-h-[48px] flex items-center justify-between gap-3 px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <span>
+                Belopp från specen <span className="font-normal text-slate-500">(valfritt{filledCount > 0 ? `, ${filledCount} ifyllda` : ''})</span>
+              </span>
+              <span aria-hidden className={`text-slate-400 transition-transform motion-reduce:transition-none ${showAmounts ? 'rotate-180' : ''}`}>▾</span>
+            </button>
+            <div id="payslip-amounts" hidden={!showAmounts} className="border-t border-slate-200 p-4">
+              <p className="text-sm text-slate-500 mb-3">
+                Fyll i de rader du vill jämföra mot appens beräkning.
+              </p>
+              <PayslipFieldsEditor
+                values={fields}
+                obRows={obRows}
+                suggestedPercents={knownPercents}
+                onChange={(key, value) => setFields((prev) => ({ ...prev, [key]: value }))}
+                onObChange={(index, key, value) =>
+                  setObRows((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)))
+                }
+                onObAdd={(percent) =>
+                  setObRows((prev) => [...prev, { percent: percent ? String(percent) : '', hours: '', amount: '' }])
+                }
+                onObRemove={(index) => setObRows((prev) => prev.filter((_, i) => i !== index))}
+              />
+            </div>
+          </fieldset>
+
+          <div>
+            <label htmlFor="payslip-note" className="field-label">Anteckning (valfritt)</label>
+            <input
+              id="payslip-note"
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="T.ex. retroaktiv justering, bonus"
+              className="field"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={uploading || reading || !file}
+            className="btn btn-primary btn-3d w-full sm:w-auto px-6"
+          >
+            {uploading ? 'Laddar upp…' : 'Ladda upp'}
+          </button>
+        </form>
+      </Collapsible>
 
       {/* Year filter */}
-      <div className="flex items-center gap-2 mb-4">
-        <label className="text-sm font-medium text-gray-700">År</label>
+      <div className="flex items-center gap-3 mb-4">
+        <label htmlFor="payslip-year" className="text-sm font-medium text-slate-700">År</label>
         <select
+          id="payslip-year"
           value={year === 'all' ? 'all' : String(year)}
           onChange={(e) => setYear(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="field !w-auto"
         >
           {yearOptions.map((y) => (
             <option key={y} value={y}>{y}</option>
           ))}
           <option value="all">Alla år</option>
         </select>
+        {!loading && payslips.length > 0 && (
+          <span className="text-sm text-slate-500">{payslips.length} {payslips.length === 1 ? 'lönespec' : 'lönespecar'}</span>
+        )}
       </div>
 
       {/* List */}
       {loading ? (
-        <p className="text-gray-500">Laddar…</p>
+        <p role="status" className="text-slate-500">Laddar…</p>
       ) : payslips.length === 0 ? (
-        <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 text-gray-500 text-sm">
+        <div className="surface p-6 text-slate-500 text-sm">
           Inga lönespecar sparade{year === 'all' ? '' : ` för ${year}`} ännu.
         </div>
       ) : (
         <div className="space-y-4">
-          {payslips.map((row) => (
-            <div key={row.id} className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-6">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold">{formatMonth(row.payMonth)}</h3>
-                  <p className="text-sm text-gray-500">
+          {payslips.map((row) => {
+            const badge = monthBadge(row.comparison);
+            const headline = headlineRows(row.comparison);
+            const groups = detailGroups(row.comparison);
+            return (
+            <article key={row.id} aria-labelledby={`payslip-${row.id}`} className="surface p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 id={`payslip-${row.id}`} className="text-lg font-semibold capitalize">{formatMonth(row.payMonth)}</h3>
+                    {badge.kind === 'off' ? (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                        {badge.count} {badge.count === 1 ? 'avvikelse' : 'avvikelser'}
+                      </span>
+                    ) : badge.kind === 'match' ? (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">Stämmer</span>
+                    ) : badge.kind === 'partial' ? (
+                      <span title="Bara en del av raderna kunde jämföras" className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">Delvis</span>
+                    ) : null}
+                  </div>
+                  <p className="text-sm text-slate-500 break-words">
                     Arbetsperiod {formatMonth(row.workMonth)} · {row.originalName} · {formatSize(row.sizeBytes)}
                   </p>
-                  {row.note && <p className="text-sm text-gray-600 mt-1">{row.note}</p>}
+                  {row.note && <p className="text-sm text-slate-600 mt-1 break-words">{row.note}</p>}
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <a
-                    href={`/api/payslips/${row.id}/file`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-50"
-                  >
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end sm:shrink-0">
+                  <a href={`/api/payslips/${row.id}/file`} target="_blank" rel="noreferrer" className="btn btn-secondary">
                     Öppna
                   </a>
-                  <a
-                    href={`/api/payslips/${row.id}/file?download=1`}
-                    className="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-50"
-                  >
+                  <a href={`/api/payslips/${row.id}/file?download=1`} className="btn btn-secondary">
                     Ladda ner
                   </a>
                   <button
                     onClick={() => (editId === row.id ? setEditId(null) : startEdit(row))}
-                    className="px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-50"
+                    aria-expanded={editId === row.id}
+                    className="btn btn-secondary"
                   >
                     {editId === row.id ? 'Avbryt' : 'Redigera'}
                   </button>
-                  <button
-                    onClick={() => remove(row)}
-                    className="px-3 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
-                  >
+                  <button onClick={() => remove(row)} className="btn btn-danger">
                     Radera
                   </button>
                 </div>
@@ -472,83 +500,142 @@ export default function LonespecarPage() {
                     onObRemove={(index) => setEditObRows((prev) => prev.filter((_, i) => i !== index))}
                   />
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Anteckning</label>
+                    <label htmlFor={`payslip-note-${row.id}`} className="field-label">Anteckning</label>
                     <input
+                      id={`payslip-note-${row.id}`}
                       type="text"
                       value={editNote}
                       onChange={(e) => setEditNote(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      className="field"
                     />
                   </div>
-                  <button
-                    onClick={() => saveEdit(row.id)}
-                    className="btn-3d bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
-                  >
+                  <button onClick={() => saveEdit(row.id)} className="btn btn-primary btn-3d w-full sm:w-auto px-6">
                     Spara
                   </button>
                 </div>
               ) : (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Post</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Enligt spec</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Beräknat</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Diff</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {(['time', 'earnings', 'summary'] as const).flatMap((group) => {
-                        const groupRows = row.comparison.filter((item) => item.group === group);
-                        if (groupRows.length === 0) return [];
-                        return [
-                          <tr key={`${group}-header`} className="bg-gray-50/70">
-                            <td colSpan={4} className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                              {GROUP_TITLES[group]}
-                            </td>
-                          </tr>,
-                          ...groupRows.map((item) => (
-                            <tr key={item.key}>
-                              <td className="px-3 py-2">{item.label}</td>
-                              <td className="px-3 py-2 text-right">
-                                {item.actual === null
-                                  ? <span className="text-gray-400">–</span>
-                                  : formatValue(item.actual, item.unit)}
-                              </td>
-                              <td className="px-3 py-2 text-right text-gray-600">
-                                {item.calculated === null
-                                  ? <span className="text-gray-400">–</span>
-                                  : formatValue(item.calculated, item.unit)}
-                              </td>
-                              <td
-                                className={`px-3 py-2 text-right font-medium ${
-                                  item.diff === null
-                                    ? 'text-gray-400'
-                                    : isMatch(item.diff, item.unit)
-                                      ? 'text-green-600'
-                                      : 'text-amber-600'
-                                }`}
-                              >
-                                {item.diff === null ? '–' : formatDiff(item.diff, item.unit)}
-                              </td>
+                <div className="mt-4 space-y-4">
+                  {/* Headline: gross, tax, net as comparison cards */}
+                  {headline.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {headline.map((item) => (
+                        <CompareCard key={item.key} item={item} />
+                      ))}
+                    </div>
+                  )}
+
+                  {groups.length > 0 && (
+                    <>
+                      {/* Phones: one block per row, values stacked under the label */}
+                      <div className="md:hidden space-y-4">
+                        {groups.map(({ group, rows }) => (
+                          <section key={group} aria-label={GROUP_TITLES[group]}>
+                            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{GROUP_TITLES[group]}</h4>
+                            <ul className="divide-y divide-gray-200 border-y border-gray-200">
+                              {rows.map((item) => (
+                                <li key={item.key} className="py-2.5">
+                                  <div className="flex items-baseline justify-between gap-3">
+                                    <span className="text-sm font-medium text-slate-800">{item.label}</span>
+                                    <DiffText item={item} className="text-sm" />
+                                  </div>
+                                  <dl className="mt-0.5 flex flex-wrap gap-x-4 text-xs text-slate-500">
+                                    <div className="flex gap-1"><dt>Spec</dt><dd className="text-slate-700">{valueOrDash(item.actual, item.unit)}</dd></div>
+                                    <div className="flex gap-1"><dt>Beräknat</dt><dd className="text-slate-700">{valueOrDash(item.calculated, item.unit)}</dd></div>
+                                  </dl>
+                                </li>
+                              ))}
+                            </ul>
+                          </section>
+                        ))}
+                      </div>
+
+                      {/* Tablet and up: the full table */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Post</th>
+                              <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Enligt spec</th>
+                              <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Beräknat</th>
+                              <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Diff</th>
                             </tr>
-                          )),
-                        ];
-                      })}
-                    </tbody>
-                  </table>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {groups.flatMap(({ group, rows }) => [
+                              <tr key={`${group}-header`} className="bg-gray-50/70">
+                                <th scope="colgroup" colSpan={4} className="px-3 py-1.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                  {GROUP_TITLES[group]}
+                                </th>
+                              </tr>,
+                              ...rows.map((item) => (
+                                <tr key={item.key}>
+                                  <td className="px-3 py-2">{item.label}</td>
+                                  <td className="px-3 py-2 text-right">{valueOrDash(item.actual, item.unit)}</td>
+                                  <td className="px-3 py-2 text-right text-gray-600">{valueOrDash(item.calculated, item.unit)}</td>
+                                  <td className="px-3 py-2 text-right"><DiffText item={item} /></td>
+                                </tr>
+                              )),
+                            ])}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+
                   {row.grossPay === null && row.tax === null && row.netPay === null && (
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="text-xs text-slate-500">
                       Fyll i beloppen från specen med <strong>Redigera</strong> för att jämföra mot appens beräkning.
                     </p>
                   )}
                 </div>
               )}
-            </div>
-          ))}
+            </article>
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+const STATUS_TEXT: Record<DiffStatus, string> = {
+  match: 'text-green-600',
+  off: 'text-amber-600',
+  none: 'text-gray-400',
+};
+
+function valueOrDash(value: number | null, unit: ComparisonRow['unit']) {
+  return value === null ? <span className="text-gray-400">–</span> : formatValue(value, unit);
+}
+
+function DiffText({ item, className = '' }: { item: ComparisonRow; className?: string }) {
+  const status = diffStatus(item);
+  return (
+    <span className={`font-medium tabular-nums ${STATUS_TEXT[status]} ${className}`}>
+      {item.diff === null ? '–' : formatDiff(item.diff, item.unit)}
+      {status !== 'none' && <span className="sr-only">{status === 'match' ? ' (stämmer)' : ' (avviker)'}</span>}
+    </span>
+  );
+}
+
+/** Calculated vs actual vs delta for one headline amount (gross, tax, net). */
+function CompareCard({ item }: { item: ComparisonRow }) {
+  const status = diffStatus(item);
+  const edge = status === 'off' ? 'border-l-amber-500' : status === 'match' ? 'border-l-green-500' : 'border-l-slate-300';
+  return (
+    <div className={`rounded-xl border border-gray-200 border-l-4 ${edge} bg-gray-50 p-3`}>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{item.label}</p>
+      <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{valueOrDash(item.actual, item.unit)}</p>
+      <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <dt className="text-slate-500">Beräknat</dt>
+          <dd className="font-medium tabular-nums text-slate-700">{valueOrDash(item.calculated, item.unit)}</dd>
+        </div>
+        <div className="text-right">
+          <dt className="text-slate-500">Diff</dt>
+          <dd><DiffText item={item} /></dd>
+        </div>
+      </dl>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import DatePicker from '@/components/DatePicker';
 import TimePicker from '@/components/TimePicker';
 
 import PageHeader from '@/components/ui/PageHeader';
+import Collapsible from '@/components/ui/Collapsible';
 const contractOptions = [
   { value: '16ar', label: '16 år (101,48 kr/h)' },
   { value: '17ar', label: '17 år (103,95 kr/h)' },
@@ -375,8 +376,7 @@ export default function InstallningarPage() {
       )}
 
       {/* Personal info */}
-      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Personuppgifter</h2>
+      <Collapsible title="Personuppgifter" description="Namn och arbetsgivare" defaultOpen className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Anställd (namn)</label>
@@ -399,11 +399,10 @@ export default function InstallningarPage() {
             />
           </div>
         </div>
-      </div>
+      </Collapsible>
 
       {/* Payslip header/footer data */}
-      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
-        <h2 className="text-lg font-semibold mb-1">Uppgifter på lönebeskedet</h2>
+      <Collapsible title="Uppgifter på lönebeskedet" className="mb-4">
         <p className="text-sm text-gray-500 mb-4">
           Fylls i på det lönebesked som exporteras från Lön-sidan. Påverkar inte löneberäkningen.
         </p>
@@ -514,11 +513,10 @@ export default function InstallningarPage() {
             />
           </div>
         </div>
-      </div>
+      </Collapsible>
 
       {/* Salary settings */}
-      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Löne- och OB-inställningar</h2>
+      <Collapsible title="Löne- och OB-inställningar" description="Lönetyp, timlön, OB, skatt och raster" className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* Lönetyp-väljare */}
@@ -603,7 +601,7 @@ export default function InstallningarPage() {
                   <button
                     type="button"
                     onClick={addRatePeriod}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    className="min-h-[44px] px-2 -mx-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
                     + Lägg till period
                   </button>
@@ -653,7 +651,7 @@ export default function InstallningarPage() {
                       <button
                         type="button"
                         onClick={() => removeRatePeriod(i)}
-                        className="px-2 py-1.5 text-sm text-red-600 hover:text-red-700"
+                        className="min-h-[44px] px-3 text-sm text-red-600 hover:text-red-700"
                         aria-label="Ta bort period"
                       >
                         Ta bort
@@ -878,11 +876,10 @@ export default function InstallningarPage() {
             </div>
           )}
         </div>
-      </div>
+      </Collapsible>
 
       {/* Calendar & Default times */}
-      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Kalender- och tidspreferenser</h2>
+      <Collapsible title="Kalender- och tidspreferenser" description="Standardvy och arbetstider" className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Standardvy (kalender)</label>
@@ -900,7 +897,7 @@ export default function InstallningarPage() {
             <TimePicker
               value={settings.defaultStartTime}
               onChange={(v) => setSettings({ ...settings, defaultStartTime: v })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -908,15 +905,14 @@ export default function InstallningarPage() {
             <TimePicker
               value={settings.defaultEndTime}
               onChange={(v) => setSettings({ ...settings, defaultEndTime: v })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
-      </div>
+      </Collapsible>
 
       {/* Departments */}
-      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
-        <h2 className="text-lg font-semibold mb-1">Avdelningar</h2>
+      <Collapsible title="Avdelningar" className="mb-4">
         <p className="text-sm text-gray-500 mb-4">Avdelningar du kan logga per arbetspass (t.ex. Kassa, Varuplock).</p>
         {departments.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
@@ -926,8 +922,9 @@ export default function InstallningarPage() {
                 <button
                   type="button"
                   onClick={() => removeDepartment(d)}
-                  className="text-blue-400 hover:text-red-500 ml-1 leading-none"
+                  className="-my-2 -mr-2 ml-0.5 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-full text-blue-400 hover:text-red-500 leading-none"
                   title="Ta bort"
+                  aria-label={`Ta bort avdelningen ${d}`}
                 >
                   &times;
                 </button>
@@ -947,23 +944,33 @@ export default function InstallningarPage() {
           <button
             type="button"
             onClick={addDepartment}
-            className="bg-green-600 text-white px-3 py-2 rounded-md text-sm hover:bg-green-700"
+            className="bg-green-600 text-white px-3 py-2 min-h-[44px] rounded-md text-sm hover:bg-green-700"
           >
             Lägg till
           </button>
         </div>
-      </div>
+      </Collapsible>
 
-      {/* Save all settings */}
-      <div className="mb-6">
-        <button onClick={saveSettings} className="btn-3d bg-blue-600 text-white px-6 py-2.5 rounded-md hover:bg-blue-700 font-medium">
-          Spara alla inställningar
-        </button>
+      {/* Save all settings: sticky above the mobile tab bar while the sections it saves are on screen */}
+      <div className="sticky z-30 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] 2xl:bottom-4 mb-6 mt-2">
+        <div className="surface !rounded-xl px-3 py-3 sm:px-4 flex flex-wrap items-center gap-x-4 gap-y-2 bg-white/95 backdrop-blur">
+          <button onClick={saveSettings} className="btn btn-primary btn-3d w-full sm:w-auto px-6">
+            Spara alla inställningar
+          </button>
+          <p className="text-xs text-slate-500 flex-1 min-w-[12rem]" role="status" aria-live="polite">
+            {saveError ? (
+              <span className="text-red-600">{saveError}</span>
+            ) : saved ? (
+              <span className="text-green-700 font-medium">Inställningarna sparades.</span>
+            ) : (
+              'Sparar personuppgifter, lönebesked, lön, kalender och avdelningar. Mallar och veckoschema sparas var för sig.'
+            )}
+          </p>
+        </div>
       </div>
 
       {/* Templates */}
-      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Arbetsmallar</h2>
+      <Collapsible title="Arbetsmallar" description="Snabbval för vanliga pass" className="mb-4">
         {templates.length > 0 && (
           <div className="mb-4 space-y-2">
             {templates.map((t) => (
@@ -986,7 +993,7 @@ export default function InstallningarPage() {
               value={newTemplate.name}
               onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
               placeholder="T.ex. Morgonpass"
-              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+              className="w-full px-2 py-1.5 min-h-[44px] border border-gray-300 rounded text-sm"
             />
           </div>
           <div>
@@ -994,7 +1001,7 @@ export default function InstallningarPage() {
             <TimePicker
               value={newTemplate.startTime}
               onChange={(v) => setNewTemplate({ ...newTemplate, startTime: v })}
-              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+              className="w-full px-2 py-1.5 min-h-[44px] border border-gray-300 rounded text-sm"
             />
           </div>
           <div>
@@ -1002,7 +1009,7 @@ export default function InstallningarPage() {
             <TimePicker
               value={newTemplate.endTime}
               onChange={(v) => setNewTemplate({ ...newTemplate, endTime: v })}
-              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+              className="w-full px-2 py-1.5 min-h-[44px] border border-gray-300 rounded text-sm"
             />
           </div>
           <div>
@@ -1011,18 +1018,17 @@ export default function InstallningarPage() {
               type="number"
               value={newTemplate.breakMinutes}
               onChange={(e) => setNewTemplate({ ...newTemplate, breakMinutes: parseInt(e.target.value) || 0 })}
-              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+              className="w-full px-2 py-1.5 min-h-[44px] border border-gray-300 rounded text-sm"
             />
           </div>
-          <button onClick={addTemplate} className="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700">
+          <button onClick={addTemplate} className="bg-green-600 text-white px-3 py-1.5 min-h-[44px] rounded text-sm hover:bg-green-700">
             Lägg till
           </button>
         </div>
-      </div>
+      </Collapsible>
 
       {/* Weekly schedule */}
-      <div className="bg-white p-6 rounded-xl card-3d border border-gray-100">
-        <h2 className="text-lg font-semibold mb-2">Veckoschema</h2>
+      <Collapsible title="Veckoschema" className="mb-4">
         <p className="text-sm text-gray-500 mb-4">Ställ in standardtider per veckodag. Stöd för roterande A/B-schema.</p>
 
         {/* Referensvecka + rotationslängd */}
@@ -1042,14 +1048,14 @@ export default function InstallningarPage() {
                 <button
                   type="button"
                   onClick={() => { setWeekCount(2); if (['C','D'].includes(activeScheduleTab)) setActiveScheduleTab('A'); }}
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${weekCount === 2 ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-100'}`}
+                  className={`px-3 py-1.5 min-h-[44px] text-sm font-medium transition-colors ${weekCount === 2 ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-100'}`}
                 >
                   2 veckor (A/B)
                 </button>
                 <button
                   type="button"
                   onClick={() => setWeekCount(4)}
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${weekCount === 4 ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-100'}`}
+                  className={`px-3 py-1.5 min-h-[44px] text-sm font-medium transition-colors ${weekCount === 4 ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-100'}`}
                 >
                   4 veckor (A/B/C/D)
                 </button>
@@ -1123,20 +1129,20 @@ export default function InstallningarPage() {
                     value={day.startTime}
                     onChange={(v) => updateScheduleDay(activeScheduleTab, i, 'startTime', v)}
                     placeholder="Start"
-                    className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    className="px-2 py-1.5 min-h-[44px] border border-gray-300 rounded text-sm"
                   />
                   <TimePicker
                     value={day.endTime}
                     onChange={(v) => updateScheduleDay(activeScheduleTab, i, 'endTime', v)}
                     placeholder="Slut"
-                    className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    className="px-2 py-1.5 min-h-[44px] border border-gray-300 rounded text-sm"
                   />
                   <input
                     type="number"
                     value={day.breakMinutes || ''}
                     onChange={(e) => updateScheduleDay(activeScheduleTab, i, 'breakMinutes', parseInt(e.target.value) || 0)}
                     placeholder="Rast (min)"
-                    className="px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    className="px-2 py-1.5 min-h-[44px] border border-gray-300 rounded text-sm"
                   />
                 </div>
               ))}
@@ -1144,7 +1150,7 @@ export default function InstallningarPage() {
           );
         })()}
 
-        <button onClick={saveSchedule} className="mt-4 btn-3d bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+        <button onClick={saveSchedule} className="mt-4 btn-3d bg-blue-600 text-white px-4 py-2 min-h-[44px] rounded-md hover:bg-blue-700">
           Spara veckoschema
         </button>
 
@@ -1158,12 +1164,10 @@ export default function InstallningarPage() {
             weekCount={weekCount}
           />
         )}
-      </div>
+      </Collapsible>
 
       {/* Danger zone */}
-      <div className="bg-white p-6 rounded-xl card-3d mt-6 border border-red-200">
-        <h2 className="text-lg font-semibold text-red-700 mb-1">Farlig zon</h2>
-        <p className="text-sm text-gray-500 mb-4">Dessa åtgärder är permanenta och kan inte ångras.</p>
+      <Collapsible title="Farlig zon" description="Permanenta åtgärder som inte kan ångras" tone="danger" className="mt-6">
 
         {deleteAllDone && (
           <div className="bg-green-50 text-green-700 p-3 rounded mb-4 text-sm">Alla tidsregistreringar raderades.</div>
@@ -1191,12 +1195,12 @@ export default function InstallningarPage() {
         ) : (
           <button
             onClick={() => setDeleteAllConfirm(true)}
-            className="border border-red-300 text-red-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-red-50 transition"
+            className="border border-red-300 text-red-600 px-4 py-2 min-h-[44px] rounded-md text-sm font-medium hover:bg-red-50 transition"
           >
             Radera alla mina tidsregistreringar
           </button>
         )}
-      </div>
+      </Collapsible>
     </div>
   );
 }

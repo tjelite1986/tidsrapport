@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import EmptyChart from './EmptyChart';
+import { estimateLabelWidth, labelledIndices } from '@/lib/charts/label-step';
 
 interface LineChartProps {
   data: { label: string; value: number }[];
@@ -17,6 +19,21 @@ export default function LineChart({
   height = 200,
   formatValue = (v) => v.toFixed(0),
 }: LineChartProps) {
+  // Draw in real CSS pixels: a fixed viewBox scaled down to a phone shrank the
+  // 10px labels to 3-5px. The width is measured; labels are thinned instead.
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [measured, setMeasured] = useState(0);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const update = () => setMeasured(Math.round(el.clientWidth));
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   if (data.length === 0) return null;
   if (data.every((d) => d.value <= 0)) return <EmptyChart title={title} height={height - 50} />;
 
@@ -24,10 +41,15 @@ export default function LineChart({
   const minValue = Math.min(...data.map((d) => d.value), 0);
   const range = maxValue - minValue || 1;
 
-  const padding = { top: 20, right: 20, bottom: 30, left: 10 };
-  const svgWidth = Math.max(400, data.length * 50 + padding.left + padding.right);
+  const padding = { top: 24, right: 18, bottom: 28, left: 18 };
+  const svgWidth = measured || 400;
   const chartHeight = height - padding.top - padding.bottom;
   const chartWidth = svgWidth - padding.left - padding.right;
+  // Thin labels by their real width: month-year labels ("Okt 2026") are much wider than "Jan".
+  const axisWidth = Math.max(...data.map((d) => estimateLabelWidth(d.label)));
+  const valueWidth = Math.max(...data.map((d) => estimateLabelWidth(formatValue(d.value))));
+  const axisShown = new Set(labelledIndices(data.length, chartWidth, axisWidth));
+  const valueShown = new Set(labelledIndices(data.length, chartWidth, valueWidth));
 
   const points = data.map((d, i) => {
     const x = padding.left + (i / Math.max(data.length - 1, 1)) * chartWidth;
@@ -41,13 +63,13 @@ export default function LineChart({
   return (
     <div>
       {title && <h3 className="text-sm font-semibold text-gray-700 mb-2">{title}</h3>}
-      <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${svgWidth} ${height}`} className="block w-full h-auto">
+      <div ref={boxRef} className="w-full">
+        <svg width={svgWidth} height={height} viewBox={`0 0 ${svgWidth} ${height}`} className="block w-full" role="img" aria-label={title ?? 'Linjediagram'}>
           {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
             const y = padding.top + chartHeight * (1 - frac);
             return (
-              <line key={frac} x1={padding.left} y1={y} x2={svgWidth - padding.right} y2={y} stroke="#e5e7eb" strokeWidth={1} />
+              <line key={frac} x1={padding.left} y1={y} x2={svgWidth - padding.right} y2={y} stroke="currentColor" strokeWidth={1} className="text-gray-200 dark:text-slate-700" />
             );
           })}
 
@@ -60,15 +82,17 @@ export default function LineChart({
           {/* Points and labels */}
           {points.map((p, i) => (
             <g key={i} className="animate-fade" style={{ animationDelay: `${(i / Math.max(points.length - 1, 1)) * 1000}ms` }}>
-              <circle cx={p.x} cy={p.y} r={3.5} fill={color} stroke="white" strokeWidth={2} />
-              {p.value > 0 && (
-                <text x={p.x} y={p.y - 10} textAnchor="middle" className="text-[10px] fill-gray-600">
+              <circle cx={p.x} cy={p.y} r={3.5} fill={color} stroke="var(--panel)" strokeWidth={2} />
+              {p.value > 0 && valueShown.has(i) && (
+                <text x={p.x} y={p.y - 10} textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'} className="text-[11px] font-medium fill-gray-700 dark:fill-slate-200">
                   {formatValue(p.value)}
                 </text>
               )}
-              <text x={p.x} y={height - 4} textAnchor="middle" className="text-[9px] fill-gray-500">
-                {p.label}
-              </text>
+              {axisShown.has(i) && (
+                <text x={p.x} y={height - 6} textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'} className="text-[11px] fill-gray-500 dark:fill-slate-400">
+                  {p.label}
+                </text>
+              )}
             </g>
           ))}
         </svg>

@@ -209,7 +209,7 @@ export default function StatistikPage() {
           </div>
 
           {/* Nettolöne-linjechart */}
-          <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
+          <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">Nettolön per månad</h3>
             </div>
@@ -223,7 +223,7 @@ export default function StatistikPage() {
 
           {/* Brutto vs netto stackad */}
           {allTimeIncome.length >= 2 && (
-            <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
+            <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Brutto vs Netto (skatteavdrag synligt)</h3>
               <StackedBarChart
                 data={allTimeIncome.map((m) => {
@@ -247,14 +247,15 @@ export default function StatistikPage() {
       {/* ===== PER-ÅR STATISTIK ===== */}
       <div className="border-t border-gray-100 pt-6 space-y-4">
         {/* Årsväljare */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 className="text-base font-semibold text-gray-800">Detaljerad statistik</h2>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Välj år">
             {availableYears.map((y) => (
               <button
                 key={y}
                 onClick={() => setYear(y)}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                aria-pressed={year === y}
+                className={`min-h-[44px] min-w-[4rem] px-4 rounded-full text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${
                   year === y
                     ? 'bg-slate-800 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -301,104 +302,110 @@ export default function StatistikPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Inkomst per månad (staplad) */}
-              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
-                <StackedBarChart
-                  data={monthlyIncomeData}
-                  title="Inkomst per månad (Grundlön · OB · Övertid)"
-                  height={240}
-                  formatValue={(v) => `${(v / 1000).toFixed(0)}k`}
-                />
-              </div>
-
-              {/* Nettolön per månad (linje) */}
-              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
-                <LineChart
-                  data={netPayTrend}
-                  title={`Nettolön per månad ${year}`}
-                  color="#10b981"
-                  height={240}
-                  formatValue={(v) => v > 0 ? `${(v / 1000).toFixed(0)}k` : ''}
-                />
-              </div>
-
-              {/* Timmar per månad */}
-              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
-                <BarChart
-                  data={monthlyData}
-                  title={`Timmar per månad ${year}`}
-                  color="#3b82f6"
-                  height={220}
-                  formatValue={(v) => v.toFixed(0)}
-                />
-              </div>
-
-              {/* OB-fördelning */}
-              {obDonutData.length > 0 && (
-                <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
-                  <DonutChart
-                    data={obDonutData}
-                    title="OB-fördelning"
-                    size={180}
-                    formatValue={(v) => `${formatCurrency(v)} kr`}
+            <section aria-label={`Lön ${year}`} className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-1">{`Lön ${year}`}</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Inkomst per månad (staplad) */}
+                <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
+                  <StackedBarChart
+                    data={monthlyIncomeData}
+                    title="Inkomst per månad (Grundlön · OB · Övertid)"
+                    height={240}
+                    formatValue={(v) => `${(v / 1000).toFixed(0)}k`}
                   />
                 </div>
-              )}
-
-              {/* Timmar per veckodag */}
-              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
-                <BarChart
-                  data={weekdayData}
-                  title="Totalt timmar per veckodag"
-                  color="#10b981"
-                  height={200}
-                  formatValue={(v) => v.toFixed(0)}
-                />
-                <p className="text-xs text-gray-400 mt-2">Summan av alla timmar per veckodag under {year}.</p>
-              </div>
-
-              {/* Snitt per veckodag */}
-              <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
-                <BarChart
-                  data={weekdayAvgData}
-                  title="Snittimmar per veckodag"
-                  color="#8b5cf6"
-                  height={200}
-                  formatValue={(v) => v.toFixed(1)}
-                />
-                <p className="text-xs text-gray-400 mt-2">Genomsnittligt antal timmar per pass, per veckodag.</p>
-              </div>
-
-              {/* Timmar per projekt */}
-              {projectData.length > 0 && (
-                <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
-                  <PieChart data={projectData} title="Timmar per projekt" size={180} />
-                </div>
-              )}
-
-              {/* Arbete vs Sjukdagar */}
-              {(stats.entryTypes ?? []).length > 1 && (
-                <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
-                  <PieChart
-                    data={(stats.entryTypes ?? []).map((e) => ({
-                      label: e.entryType === 'sick' ? 'Sjukdagar' : e.entryType === 'vab' ? 'VAB' : 'Arbete',
-                      value: e.totalHours,
-                      color: e.entryType === 'sick' ? '#ef4444' : e.entryType === 'vab' ? '#f59e0b' : '#3b82f6',
-                    }))}
-                    title="Arbete vs Sjukdagar"
-                    size={180}
+                {/* Nettolön per månad (linje) */}
+                <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
+                  <LineChart
+                    data={netPayTrend}
+                    title={`Nettolön per månad ${year}`}
+                    color="#10b981"
+                    height={240}
+                    formatValue={(v) => v > 0 ? `${(v / 1000).toFixed(0)}k` : ''}
                   />
                 </div>
-              )}
-            </div>
+              </div>
+            </section>
+            <section aria-label="Arbetstid" className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-1">Arbetstid</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Timmar per månad */}
+                <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
+                  <BarChart
+                    data={monthlyData}
+                    title={`Timmar per månad ${year}`}
+                    color="#3b82f6"
+                    height={220}
+                    formatValue={(v) => v.toFixed(0)}
+                  />
+                </div>
+                {/* Timmar per veckodag */}
+                <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
+                  <BarChart
+                    data={weekdayData}
+                    title="Totalt timmar per veckodag"
+                    color="#10b981"
+                    height={200}
+                    formatValue={(v) => v.toFixed(0)}
+                  />
+                  <p className="text-xs text-gray-400 mt-2">Summan av alla timmar per veckodag under {year}.</p>
+                </div>
+                {/* Snitt per veckodag */}
+                <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
+                  <BarChart
+                    data={weekdayAvgData}
+                    title="Snittimmar per veckodag"
+                    color="#8b5cf6"
+                    height={200}
+                    formatValue={(v) => v.toFixed(1)}
+                  />
+                  <p className="text-xs text-gray-400 mt-2">Genomsnittligt antal timmar per pass, per veckodag.</p>
+                </div>
+              </div>
+            </section>
+            <section aria-label="Fördelning" className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-1">Fördelning</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* OB-fördelning */}
+                {obDonutData.length > 0 && (
+                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
+                    <DonutChart
+                      data={obDonutData}
+                      title="OB-fördelning"
+                      size={180}
+                      formatValue={(v) => `${formatCurrency(v)} kr`}
+                    />
+                  </div>
+                )}
+                {/* Timmar per projekt */}
+                {projectData.length > 0 && (
+                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
+                    <PieChart data={projectData} title="Timmar per projekt" size={180} />
+                  </div>
+                )}
+                {/* Arbete vs Sjukdagar */}
+                {(stats.entryTypes ?? []).length > 1 && (
+                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
+                    <PieChart
+                      data={(stats.entryTypes ?? []).map((e) => ({
+                        label: e.entryType === 'sick' ? 'Sjukdagar' : e.entryType === 'vab' ? 'VAB' : 'Arbete',
+                        value: e.totalHours,
+                        color: e.entryType === 'sick' ? '#ef4444' : e.entryType === 'vab' ? '#f59e0b' : '#3b82f6',
+                      }))}
+                      title="Arbete vs Sjukdagar"
+                      size={180}
+                    />
+                  </div>
+                )}
+              </div>
+            </section>
 
             {/* Avdelningsstatistik */}
             {deptBarData.length > 0 && (
               <div className="space-y-4">
                 <h2 className="text-base font-semibold text-gray-800">Avdelningsstatistik {year}</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
                     <BarChart
                       data={deptBarData}
                       title="Timmar per avdelning"
@@ -406,7 +413,7 @@ export default function StatistikPage() {
                       formatValue={(v) => v.toFixed(1)}
                     />
                   </div>
-                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5">
                     <DonutChart
                       data={deptDonutData}
                       title="Fördelning per avdelning"
@@ -415,7 +422,7 @@ export default function StatistikPage() {
                     />
                   </div>
                   {allDepts.length > 0 && (
-                    <div className="bg-white rounded-xl card-3d border border-gray-100 p-5 lg:col-span-2">
+                    <div className="bg-white rounded-xl card-3d border border-gray-100 p-4 sm:p-5 lg:col-span-2">
                       <StackedBarChart
                         data={deptMonthlyStackData}
                         title="Timmar per avdelning och månad"
@@ -454,7 +461,7 @@ function KpiCard({
   return (
     <div className="bg-white border border-gray-100 card-3d rounded-xl p-4">
       <p className="text-xs text-gray-500 mb-1 leading-tight">{label}</p>
-      <p className={`text-lg font-bold ${toneText[tone[color] ?? 'neutral']} leading-tight`}>{value}</p>
+      <p className={`text-base sm:text-lg font-bold tabular-nums break-words ${toneText[tone[color] ?? 'neutral']} leading-tight`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   );
